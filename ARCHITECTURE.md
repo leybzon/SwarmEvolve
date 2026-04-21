@@ -31,14 +31,37 @@ This document describes the system architecture, component interactions, and tec
 - **Trace-based debugging**: All state changes recorded to `.jsonl` for post-mortem analysis
 
 **GPU Acceleration**:
+All four tick phases are parallelized where it makes sense — per-drone loops in Query,
+Movement, Combat (target resolution), and Cleanup all carry `#pragma acc parallel loop`.
+The engine aims for maximum useful acceleration, not just the Query phase.
+
 ```cpp
+// Query
 #pragma acc parallel loop present(drones, actions)
 for (int i = 0; i < num_drones; i++) {
     if (drones[i].alive) {
         TeamA::drone_ai(i, &params, allies, enemies, messages, memory[i], &actions[i]);
     }
 }
+
+// Movement
+#pragma acc parallel loop present(drones, actions)
+for (int i = 0; i < num_drones; i++) { /* clamp & integrate */ }
+
+// Combat (per-attacker; writes to pending_deaths are independent per target, but
+//         care is needed — use atomic OR or tolerate idempotent writes)
+#pragma acc parallel loop present(drones_a, drones_b, actions_a, pending_deaths_b)
+for (int i = 0; i < num_drones; i++) { /* range + target check */ }
+
+// Cleanup (apply deaths, decrement cooldowns, route messages)
+#pragma acc parallel loop present(drones, pending_deaths, messages, actions)
+for (int i = 0; i < num_drones; i++) { /* ... */ }
 ```
+
+**Combat parallelism note**: Multiple attackers targeting the same drone only ever
+write `true` to the same `pending_deaths[target]` slot. This write is idempotent, so
+a plain parallel loop is safe even without atomics. Cooldown writes target `drones[i].cooldown`
+and are per-attacker (no aliasing).
 
 ### 2. AI Modules (`src/a/`, `src/b/`)
 
@@ -163,7 +186,8 @@ struct GameParams {
     float max_velocity;
     float disable_range;
     int max_cooldown;
-    int num_drones;
+    int num_drones_a;   // Team A size
+    int num_drones_b;   // Team B size (equal to num_drones_a by default)
     int max_ticks;
     int current_tick;
 };
@@ -232,7 +256,7 @@ for (int i = 0; i < num_drones; i++) {
 - No state mutations allowed
 - GPU threads run in parallel
 
-#### Movement Phase (Sequential Logic, Parallel Execution)
+#### Movement Phase (Parallel)
 ```cpp
 for (int i = 0; i < num_drones; i++) {
     if (drones[i].alive) {
@@ -256,26 +280,32 @@ for (int i = 0; i < num_drones; i++) {
 
 #### Combat Phase (Synchronous, Order-Independent)
 ```cpp
-// Use temporary death buffer to ensure synchronous resolution
-bool pending_deaths[MAX_DRONES] = {false};
+// Use temporary death buffers (one per team) to ensure synchronous resolution.
+// SPECIFICATION.md §3.4 uses a single pending_deaths[MAX_DRONES * 2] buffer;
+// splitting per team is equivalent and easier to read.
+bool pending_deaths_a[MAX_DRONES] = {false};
+bool pending_deaths_b[MAX_DRONES] = {false};
 
+// Example: resolve Team A -> Team B attacks
 for (int i = 0; i < num_drones; i++) {
-    if (!drones[i].alive) continue;
-    if (actions[i].target_id == -1) continue;
-    if (drones[i].cooldown > 0) continue;
+    if (!team_a_drones[i].alive) continue;
+    if (team_a_actions[i].target_id == -1) continue;
+    if (team_a_drones[i].cooldown > 0) continue;
 
-    int target = actions[i].target_id;
-    if (!drones[target].alive) continue;
+    int target = team_a_actions[i].target_id;
+    if (target < 0 || target >= num_drones) continue;
+    if (!team_b_drones[target].alive) continue;
 
-    float dx = drones[i].pos.x - drones[target].pos.x;
-    float dy = drones[i].pos.y - drones[target].pos.y;
+    float dx = team_a_drones[i].pos.x - team_b_drones[target].pos.x;
+    float dy = team_a_drones[i].pos.y - team_b_drones[target].pos.y;
     float dist = sqrt(dx*dx + dy*dy);
 
     if (dist <= disable_range) {
-        pending_deaths[target] = true;
-        drones[i].cooldown = max_cooldown;  // Attacker pays cooldown regardless
+        pending_deaths_b[target] = true;
+        team_a_drones[i].cooldown = max_cooldown;  // Only successful attacks cost cooldown
     }
 }
+// Mirror for Team B -> Team A
 ```
 
 **Critical Rule**: Mutual destruction is valid. If A attacks B and B attacks A, both die if in range.
@@ -298,12 +328,11 @@ for (int i = 0; i < num_drones; i++) {
     }
 }
 
-// Route messages for next tick
+// Route messages for next tick.
+// Dead drones do not broadcast — their slots are zeroed.
 for (int i = 0; i < num_drones; i++) {
-    if (drones[i].alive) {
-        for (int j = 0; j < MSG_SIZE; j++) {
-            incoming_messages[i][j] = actions[i].message_out[j];
-        }
+    for (int j = 0; j < MSG_SIZE; j++) {
+        incoming_messages[i][j] = drones[i].alive ? actions[i].message_out[j] : 0.0f;
     }
 }
 ```
@@ -351,15 +380,37 @@ for (int i = 0; i < N; i++) {
 - All pointers are `const` (except `out_action` and `my_memory`)
 - Fixed-size arrays prevent buffer overruns
 
-#### Layer 3: Runtime Monitoring (Engine)
-- Timeout detection: If simulation exceeds 10s, kill process
-- Watchdog thread monitors GPU activity
-- Sanitizer builds for development testing
+#### Layer 3: Runtime Monitoring (Engine / Orchestrator)
+- Timeout detection: if the simulation process exceeds 10 s, the Python orchestrator SIGKILLs it
+- Watchdog (Python-side thread in the orchestrator, **not** inside the GPU/AI code) monitors GPU activity via `nvidia-smi` polling
+- Sanitizer builds (ASan/UBSan) for development testing
+- NOTE: The "no threading" rule in SPECIFICATION §2.2 applies strictly to the AI modules (`src/a/*`, `src/b/*`); the engine and Python orchestrator may use threads.
 
 #### Layer 4: Isolation (Deployment)
-- Run in containerized environments
-- GPU device reset after crashes
-- Separate compilation and execution VMs
+
+LLM-generated code is always compiled and executed inside a sandbox. The recommended
+configuration (the "Claude-suggested" baseline) is:
+
+- **Container**: rootless Podman/Docker image built from a minimal base (e.g.,
+  `nvidia/cuda:*-runtime` on Linux, `alpine` + `clang` on macOS CI). The container is
+  single-purpose: compile + run + emit trace.
+- **Filesystem**: read-only rootfs with two bind-mounts — `/work/src` (read-only, the
+  post-guard-injected sources) and `/work/out` (read-write, for `trace.jsonl` only).
+- **Network**: `--network=none`. LLM code must have no outbound network access.
+- **Resource limits**:
+  - CPU: 1–2 cores (`--cpus=2`)
+  - RAM: 512 MiB (`--memory=512m`)
+  - PIDs: 64 (`--pids-limit=64`)
+  - Wall-clock: orchestrator-side `timeout 10s`
+- **Syscall filter**: default `seccomp` profile; drop all Linux capabilities
+  (`--cap-drop=ALL`), `--security-opt no-new-privileges`.
+- **GPU**: expose a single GPU via `--gpus device=N`; GPU device reset after TDR.
+- **Separation**: compilation and execution use the **same** container image but
+  different invocations; the compiled binary never touches the host filesystem.
+
+For local fast-iteration on a developer workstation, the same container is used with a
+looser timeout; the docs no longer suggest running untrusted compiled binaries directly
+on the host.
 
 ## Data Flow Diagram
 

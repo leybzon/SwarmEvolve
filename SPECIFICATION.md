@@ -29,7 +29,9 @@ struct Vector2D {
 **Coordinate System**:
 - Origin (0, 0) is top-left corner
 - X-axis increases rightward
-- Y-axis increases downward
+- Y-axis increases **downward** (screen-space convention)
+- **Visualizer note**: `matplotlib` defaults to Y-up math coordinates. The visualizer must call
+  `ax.invert_yaxis()` (or equivalent) so rendered frames match the engine's Y-down convention.
 
 ### 1.3 GameParams
 
@@ -40,11 +42,17 @@ struct GameParams {
     float max_velocity;     // Maximum movement speed per tick (e.g., 5.0)
     float disable_range;    // Attack range in units (e.g., 50.0)
     int max_cooldown;       // Ticks to wait after attacking (e.g., 10)
-    int num_drones;         // Actual number of drones per team
+    int num_drones_a;       // Number of drones on Team A (1..MAX_DRONES)
+    int num_drones_b;       // Number of drones on Team B (1..MAX_DRONES)
     int max_ticks;          // Maximum simulation duration (e.g., 1000)
     int current_tick;       // Current tick number (0-indexed)
 };
 ```
+
+**Team size symmetry**: By default `num_drones_a == num_drones_b` (symmetric matches).
+Asymmetric matches (handicap mode) are supported as a CLI option
+(`--drones-a N --drones-b M`). When reading code examples that use the singular
+`num_drones`, assume symmetric mode where `num_drones == num_drones_a == num_drones_b`.
 
 **Immutability**: All fields are constant during a match except `current_tick`.
 
@@ -56,7 +64,8 @@ GameParams default_params = {
     .max_velocity = 5.0f,
     .disable_range = 50.0f,
     .max_cooldown = 10,
-    .num_drones = 10,
+    .num_drones_a = 10,
+    .num_drones_b = 10,
     .max_ticks = 1000,
     .current_tick = 0
 };
@@ -143,7 +152,7 @@ namespace TeamA {
 
 1. `int my_id`
    - This drone's ID within the team
-   - Range: `[0, params->num_drones-1]`
+   - Range: `[0, num_allies-1]` where `num_allies = num_drones_a` for Team A or `num_drones_b` for Team B
    - Use to index `allies[my_id]` for own state
 
 2. `const GameParams* params`
@@ -152,20 +161,22 @@ namespace TeamA {
    - Valid for entire match duration
 
 3. `const AllyState* allies`
-   - Array of size `params->num_drones`
+   - Array of size `MAX_DRONES` (fixed); only the first `num_allies` entries are valid.
    - Contains full state of all teammates (including self)
    - Read-only access
 
 4. `const EnemyState* enemies`
-   - Array of size `params->num_drones`
+   - Array of size `MAX_DRONES` (fixed); only the first `num_enemies` entries are valid.
    - Contains partial state of all enemies (no cooldowns)
    - Read-only access
 
 5. `const float incoming_messages[][MSG_SIZE]`
-   - 2D array: `[num_drones][MSG_SIZE]`
+   - 2D array sized `[MAX_DRONES][MSG_SIZE]` (compile-time fixed, for GPU indexing safety).
+     Only indices `[0, num_allies)` are meaningful.
    - `incoming_messages[ally_id]` contains message from `ally_id` on previous tick
    - First tick: all zeros
-   - Dead drones: messages frozen at last sent value
+   - **Dead drones do not broadcast.** When an ally dies, its slot in `incoming_messages` is
+     zeroed on the tick after death and remains zero for the rest of the match.
 
 6. `float* my_memory`
    - Array of `MEM_SIZE` floats
@@ -394,13 +405,19 @@ for (int i = 0; i < num_drones; i++) {
 2. **Range Requirement**: `dist <= disable_range`
 3. **Cooldown Requirement**: Attacker must have `cooldown == 0`
 4. **Synchronous Death**: Deaths recorded in buffer, applied in Cleanup phase
-5. **Mutual Destruction**: If A attacks B and B attacks A, both can die if in range
-6. **Cooldown Penalty**: Attacker pays `max_cooldown` regardless of success
-   - Even if target is already dead or out of range, cooldown is consumed (if valid target_id)
+5. **Mutual Destruction**: If A attacks B and B attacks A, both can die if in range.
+   - Both attackers still pay `max_cooldown` on their (now-dead) state — cooldown is assigned
+     at resolution time, before deaths are applied in Cleanup.
+6. **Cooldown Penalty**: Attacker pays `max_cooldown` **only on a successful attack**
+   - A "successful attack" means: valid `target_id`, target alive **at the start of combat resolution**, and distance ≤ `disable_range`
+   - Out-of-range, invalid, or already-dead-before-this-tick target attempts are silently ignored and consume no cooldown
+   - This rule is authoritative; README and CLAUDE.md defer to it
 7. **Focus-Fire**: Multiple attackers on same target:
    - Target dies once
-   - All attackers pay full cooldown
-   - No bonus/penalty for coordination
+   - **All** attackers whose range/validity checks pass at resolution time pay full cooldown,
+     even if a previously-iterated attacker in the same tick already marked the target for death
+     (deaths are not applied until Cleanup, so "alive at resolution" remains true for all of them)
+   - No bonus/penalty for coordination; this keeps the rule order-independent and GPU-friendly
 
 **Anti-Patterns**:
 - Targeting self: Ignored (cannot attack own team)
@@ -428,14 +445,18 @@ for (int i = 0; i < num_drones; i++) {
     }
 }
 
-// Route messages for next tick
+// Route messages for next tick.
+// Dead drones do NOT broadcast: their message slots are zeroed.
 for (int i = 0; i < num_drones; i++) {
     if (team_a_drones[i].alive) {
         for (int j = 0; j < MSG_SIZE; j++) {
             team_a_messages[i][j] = team_a_actions[i].message_out[j];
         }
+    } else {
+        for (int j = 0; j < MSG_SIZE; j++) {
+            team_a_messages[i][j] = 0.0f;
+        }
     }
-    // Dead drones: messages remain unchanged (frozen)
 }
 
 // Increment tick counter
@@ -507,6 +528,23 @@ void write_trace_line(FILE* f, int tick, const AllyState* a, const AllyState* b,
     fprintf(f, "]}\n");
 }
 ```
+
+## 4.3 Engine CLI
+
+```
+swarmevolve [OPTIONS]
+
+Options:
+  --record <path>     Write JSON-Lines trace to <path>. Off by default.
+  --seed <int>        Seed the initial-position PRNG. Default: 0.
+  --drones-a <int>    Team A size (1..MAX_DRONES). Default: 10.
+  --drones-b <int>    Team B size (1..MAX_DRONES). Default: 10.
+  --max-ticks <int>   Tick cap. Default: 1000.
+  --help              Print this message.
+```
+
+Exit code: `0` on `TEAM_A_WIN`, `1` on `TEAM_B_WIN`, `2` on `DRAW`, nonzero-other on error.
+Final line of stdout: `outcome=<TEAM_A_WIN|TEAM_B_WIN|DRAW> a_alive=<n> b_alive=<n> ticks=<n>`.
 
 ## 5. Compilation Specification
 
@@ -646,7 +684,7 @@ def evaluate_fitness(team_a_code: str, num_matches: int = 100) -> dict:
 ### 7.4 Dead Drone State
 - Position frozen at death location
 - Cooldown frozen at current value
-- Messages frozen at last broadcast
+- **Messages zeroed** — dead drones do not broadcast; teammates receive zeros in that slot
 - `alive == false` visible to all
 
 ### 7.5 Boundary Behavior
@@ -656,6 +694,8 @@ def evaluate_fitness(team_a_code: str, num_matches: int = 100) -> dict:
 
 ### 7.6 Floating-Point Determinism
 - All operations use IEEE 754 single precision
-- No random number generation
 - No time-based behavior
-- GPU and CPU produce identical results (within floating-point epsilon)
+- No non-seeded randomness inside the simulation loop
+- Initial drone positions are produced from a **seeded** PRNG (see `--seed` CLI flag); given the same seed and the same binary, runs are byte-identical
+- AI code is forbidden from calling `rand()`, clock functions, or any non-deterministic source
+- **Determinism is per-platform only.** We do **not** require bit-exact equality between macOS/clang++ CPU builds and Linux/nvc++ GPU builds (FMA fusion, reduction ordering, and `sin/cos` library differences make this impractical). Consumers requiring reproducible traces must compile and run on the same target platform.

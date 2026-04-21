@@ -35,7 +35,7 @@ python3 scripts/visualizer.py trace.jsonl output.mp4
 ### GPU Memory Safety
 - **No dynamic allocation** in AI code: No `new`, `malloc`, `std::vector`, `std::string`
 - **POD structures only**: All data passed to AI must be Plain Old Data (see `src/types.h`)
-- **Fixed-size arrays**: `MSG_SIZE=4`, `MEM_SIZE=16`, `max_drones` defined at compile time
+- **Fixed-size arrays**: `MSG_SIZE=4`, `MEM_SIZE=16`, `MAX_DRONES=50` defined at compile time (runtime team size given by `GameParams::num_drones`, must satisfy `num_drones <= MAX_DRONES`)
 
 ### Namespace Isolation
 - Team A AI must be in `namespace TeamA { ... }`
@@ -68,8 +68,10 @@ Defined in `src/types.h`:
 1. Write AI logic in `src/a/team_a_ai.cpp` or `src/b/team_b_ai.cpp`
 2. Ensure proper namespace wrapping and OpenACC pragmas
 3. Test compilation on macOS first (catches syntax errors quickly)
-4. Run Python orchestrator for loop injection before GPU deployment
-5. Generate trace files for match visualization
+4. Run Python orchestrator for loop injection before compilation
+5. Compile and execute inside the sandbox container (see ARCHITECTURE.md §Layer 4).
+   Untrusted LLM binaries must not run on the host.
+6. Generate trace files for match visualization (opt-in via `--record <path>`)
 
 ## Testing
 

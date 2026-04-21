@@ -267,8 +267,11 @@ Main simulation engine. Contains:
 Example structure:
 ```cpp
 #include "types.h"
-#include "a/team_a_ai.h"
-#include "b/team_b_ai.h"
+// Forward-declare AI entry points (no separate headers; namespaces live in the .cpp files)
+namespace TeamA { void drone_ai(int, const GameParams*, const AllyState*, const EnemyState*,
+                                const float (*)[MSG_SIZE], float*, Action*); }
+namespace TeamB { void drone_ai(int, const GameParams*, const AllyState*, const EnemyState*,
+                                const float (*)[MSG_SIZE], float*, Action*); }
 #include <cstdio>
 #include <cmath>
 #include <cstring>
@@ -372,7 +375,7 @@ def test_determinism():
 Baseline performance tests:
 ```python
 def test_baseline_performance():
-    fitness = evaluate_fitness("src/a/baseline_ai.cpp", num_matches=100)
+    fitness = evaluate_fitness("src/a/team_a_ai.cpp", num_matches=100)
     assert fitness["mean"] > -0.5  # Should not lose badly
     assert fitness["wins"] > 20    # Should win at least 20%
 ```

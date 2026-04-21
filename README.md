@@ -23,12 +23,17 @@ SwarmEvolve is a research platform that tests evolutionary software development 
 
 ## Project Status
 
-**Phase 1: Local MVP** (Current)
-- [ ] Repository structure initialization
+**Phase 0: Specification** (Complete)
+- [x] README, ARCHITECTURE, SPECIFICATION, DEVELOPMENT, CLAUDE guides
+
+**Phase 1: Local MVP** (Current — no source code checked in yet)
+- [ ] Repository structure initialization (`src/`, `scripts/`, `tests/`, `data/`)
+- [ ] `src/types.h` POD definitions
 - [ ] Core engine with bounded physics and deterministic combat
 - [ ] Baseline dummy AI implementations
 - [ ] Python compiler/visualizer pipeline
 - [ ] JSON trace → MP4 video rendering
+- [ ] Makefile
 
 **Phase 2: Evolutionary Orchestration** (Upcoming)
 - [ ] Multi-round fitness evaluation
@@ -60,8 +65,13 @@ clang++ -std=c++17 -O3 -o swarmevolve src/engine.cpp src/a/*.cpp src/b/*.cpp
 # Linux build (GPU)
 nvc++ -std=c++17 -O3 -acc=gpu -gpu=managed -o swarmevolve src/engine.cpp src/a/*.cpp src/b/*.cpp
 
-# Run simulation with trace recording
-./swarmevolve --record trace.jsonl
+# Run a match. Both flags are optional:
+#   --record <path>  Write a JSON-Lines trace to <path>. Omit to skip recording.
+#   --seed <int>     Seed the initial-position PRNG (default 0).
+./swarmevolve                             # run, no trace file
+./swarmevolve --seed 42                   # reproducible run, no trace
+./swarmevolve --record trace.jsonl        # record to trace.jsonl
+./swarmevolve --record trace.jsonl --seed 42
 
 # Generate visualization
 python3 scripts/visualizer.py trace.jsonl output.mp4
@@ -115,15 +125,17 @@ python3 scripts/visualizer.py trace.jsonl output.mp4
   - Attack succeeds if target is within `disable_range` (e.g., 50 units)
   - Attacker must have `cooldown == 0`
   - Successful attack kills the target instantly
-- **Cooldown Penalty**: After attacking, drone enters cooldown
+- **Cooldown Penalty**: After a *successful* attack, drone enters cooldown
   - Cooldown duration: `max_cooldown` ticks (e.g., 10 ticks)
-  - Cooldown applies regardless of attack success
+  - Cooldown is only consumed when the target is a **valid, alive enemy within range**
+  - Attacks on out-of-range or already-dead targets are silently ignored and cost no cooldown
   - Cannot attack again until cooldown reaches 0
+  - See [SPECIFICATION.md §3.4](SPECIFICATION.md) for the authoritative resolution rules
 - **Mutual Destruction**: If two drones attack each other while in range, both die
 - **Focus-Fire**: Multiple drones can attack the same target
   - Target dies once
-  - All attackers pay full cooldown penalty
-  - No coordination bonus or penalty
+  - Every attacker whose range check succeeds at the moment of resolution pays cooldown
+  - No coordination bonus or penalty (attackers do not "waste" shots on a confirmed kill within the same tick — they share the hit synchronously)
 
 ### Information & Communication
 - **Team Visibility**: Full visibility of all teammates
