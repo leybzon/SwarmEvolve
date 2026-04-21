@@ -101,12 +101,63 @@ python3 scripts/visualizer.py trace.jsonl output.mp4
 
 ## Game Rules
 
-- **Arena**: Fixed rectangular boundary, positions clamped to edges
-- **Movement**: Velocity vectors limited by `max_velocity`, updated synchronously
-- **Combat**: Distance-based disable attacks with cooldown periods
-- **Information Asymmetry**: Drones see enemy positions but not enemy cooldowns
-- **Communication**: 4-float message protocol between team members per tick
-- **Memory**: 16-float persistent memory per drone across ticks
+### Arena & Movement
+- **Arena**: Fixed rectangular boundary (e.g., 1000×1000 units)
+  - Drones cannot leave the arena
+  - Positions are clamped to boundaries (no wrapping or bouncing)
+- **Movement**: Each tick, drones output a velocity vector
+  - Velocity is clamped to `max_velocity` (e.g., 5.0 units/tick)
+  - Positions update instantaneously (no inertia or acceleration)
+  - Movement happens synchronously for all drones
+
+### Combat System
+- **Attack Mechanism**: Distance-based disable attacks
+  - Attack succeeds if target is within `disable_range` (e.g., 50 units)
+  - Attacker must have `cooldown == 0`
+  - Successful attack kills the target instantly
+- **Cooldown Penalty**: After attacking, drone enters cooldown
+  - Cooldown duration: `max_cooldown` ticks (e.g., 10 ticks)
+  - Cooldown applies regardless of attack success
+  - Cannot attack again until cooldown reaches 0
+- **Mutual Destruction**: If two drones attack each other while in range, both die
+- **Focus-Fire**: Multiple drones can attack the same target
+  - Target dies once
+  - All attackers pay full cooldown penalty
+  - No coordination bonus or penalty
+
+### Information & Communication
+- **Team Visibility**: Full visibility of all teammates
+  - Position, cooldown status, alive/dead state
+- **Enemy Visibility**: Limited visibility of enemies
+  - Can see: position, alive/dead state
+  - **Cannot see: enemy cooldowns** (must be inferred)
+- **Communication**: 4-float message protocol per tick
+  - Each drone broadcasts a message to all teammates
+  - Messages delivered on the next tick
+  - Can encode strategy, target priorities, positions, etc.
+- **Persistent Memory**: 16 floats per drone
+  - Persists across all ticks
+  - Can store enemy tracking, cooldown estimates, internal state
+
+### Execution Phases (Each Tick)
+The game loop executes in strict order to ensure determinism:
+1. **Query Phase**: All drones read game state and output actions (parallel)
+2. **Movement Phase**: Update all drone positions based on velocity (sequential)
+3. **Combat Phase**: Resolve all attacks simultaneously (synchronous)
+4. **Cleanup Phase**: Apply deaths, decrement cooldowns, route messages
+
+### Win Conditions
+- **Elimination**: All enemy drones destroyed (your team wins)
+- **Mutual Elimination**: Both teams eliminated simultaneously (draw)
+- **Timeout**: Maximum ticks reached (e.g., 1000)
+  - Team with more survivors wins
+  - Equal survivors = draw
+
+### Strategic Considerations
+- **Information Asymmetry**: Cannot see enemy cooldowns, creating uncertainty
+- **Cooldown Management**: Wasting attacks on dead targets still costs cooldown
+- **Coordination**: Communication protocol enables swarm tactics
+- **Risk/Reward**: Aggressive play risks mutual destruction
 
 ## Documentation
 
