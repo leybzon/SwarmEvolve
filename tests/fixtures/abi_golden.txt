@@ -1,0 +1,28 @@
+# ABI golden for src/types.h
+# Format: NAME SIZE [OFFSET]
+Vector2D 8
+Vector2D.x 4 0
+Vector2D.y 4 4
+GameParams 36
+GameParams.arena_width 4 0
+GameParams.arena_height 4 4
+GameParams.max_velocity 4 8
+GameParams.disable_range 4 12
+GameParams.max_cooldown 4 16
+GameParams.num_drones_a 4 20
+GameParams.num_drones_b 4 24
+GameParams.max_ticks 4 28
+GameParams.current_tick 4 32
+AllyState 20
+AllyState.id 4 0
+AllyState.pos 8 4
+AllyState.cooldown 4 12
+AllyState.alive 1 16
+EnemyState 16
+EnemyState.id 4 0
+EnemyState.pos 8 4
+EnemyState.alive 1 12
+Action 28
+Action.velocity 8 0
+Action.target_id 4 8
+Action.message_out 16 12

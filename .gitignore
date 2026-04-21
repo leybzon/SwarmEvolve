@@ -1,0 +1,54 @@
+# Build artifacts
+build/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+swarmevolve
+test_types
+test_engine
+test_engine_phases
+test_baselines
+
+# Runtime output (keep directories via .gitkeep)
+data/traces/*.jsonl
+data/videos/*.mp4
+data/experiments/*/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# CMake / misc build trees
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# NVIDIA / profiling output
+*.qdrep
+*.nsys-rep
+*.ncu-rep

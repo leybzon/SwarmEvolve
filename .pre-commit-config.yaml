@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.8
+    hooks:
+      - id: clang-format
+        types_or: [c++, c]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - numpy>=1.26
+          - jsonschema>=4.21
+
+  - repo: local
+    hooks:
+      - id: no-banned-tokens-ai
+        name: Reject banned tokens in AI source
+        description: |
+          AI modules (src/a/, src/b/) must not use heap allocation, STL
+          containers, threading, I/O, or unsafe calls. Enforced by
+          scripts/lint_ai_tokens.py.
+        entry: python scripts/lint_ai_tokens.py
+        language: system
+        files: ^src/(a|b)/.*\.(cpp|h|hpp)$
+        pass_filenames: true

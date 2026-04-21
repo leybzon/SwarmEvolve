@@ -1,0 +1,10 @@
+# Default owner for everything.
+* @leybzon
+
+# Safety-critical paths: require CODEOWNER review per CONTRIBUTING.md.
+/src/                        @leybzon
+/scripts/inject_guards.py    @leybzon
+/scripts/sandbox.py          @leybzon
+/docker/                     @leybzon
+/.github/workflows/          @leybzon
+/SECURITY.md                 @leybzon
