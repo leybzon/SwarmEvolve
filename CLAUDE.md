@@ -65,6 +65,10 @@ Defined in `src/types.h`:
 
 ## Development Workflow
 
+See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the authoritative
+milestone ordering, test requirements, and CI gates. The abbreviated
+day-to-day loop is:
+
 1. Write AI logic in `src/a/team_a_ai.cpp` or `src/b/team_b_ai.cpp`
 2. Ensure proper namespace wrapping and OpenACC pragmas
 3. Test compilation on macOS first (catches syntax errors quickly)

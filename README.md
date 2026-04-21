@@ -176,6 +176,7 @@ The game loop executes in strict order to ensure determinism:
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: Detailed system design and component interactions
 - **[SPECIFICATION.md](SPECIFICATION.md)**: Complete technical specification and data models
 - **[DEVELOPMENT.md](DEVELOPMENT.md)**: Development phases, directory structure, and workflow
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)**: Ordered milestones, tests, CI, and engineering practices
 - **[CLAUDE.md](CLAUDE.md)**: Guidance for Claude Code AI assistant
 
 ## Contributing

@@ -620,7 +620,13 @@ test: Add determinism verification tests
 ### Internal Documentation
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design
 - [SPECIFICATION.md](SPECIFICATION.md) - Technical specification
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Ordered milestones, testing, CI, security
 - [CLAUDE.md](CLAUDE.md) - Claude Code AI guidance
+
+**Note**: The high-level phase breakdown in this document (Phase 1/2/3) is
+complementary to the milestone-level plan in `IMPLEMENTATION_PLAN.md`. When
+they disagree, `IMPLEMENTATION_PLAN.md` is authoritative for sequencing and
+acceptance gates.
 
 ### Community
 - GitHub Discussions: Design proposals, feature requests
