@@ -63,12 +63,15 @@ jobs:
           if [ -f src/engine.cpp ]; then make build-linux-cpu; else echo "engine.cpp not yet present; skipping"; fi
 
   test-cpp:
-    name: Test C++
+    name: Test C++ (with ASan/UBSan)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run C++ tests
-        run: make test-cpp
+      - name: Run C++ tests with sanitizers
+        # Linux runs the sanitized build; macOS Homebrew-clang ASan runtime
+        # is unreliable under SIP so `make test-cpp` (no SANITIZE) is the
+        # default for local development.
+        run: make test-cpp SANITIZE=1
 
   test-python:
     name: Test Python

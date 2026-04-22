@@ -13,8 +13,13 @@ PYTHON     ?= python3
 
 # -------- flags --------
 CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
-CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc \
-                  -fsanitize=address,undefined -fno-omit-frame-pointer
+# Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
+# the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
+# Linux CI sets SANITIZE=1 to exercise the sanitized build.
+CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
+ifeq ($(SANITIZE),1)
+  CXXFLAGS_DEBUG += -fsanitize=address,undefined -fno-omit-frame-pointer
+endif
 ACCFLAGS        = -acc=gpu -gpu=managed -Minfo=accel
 
 # -------- sources --------
