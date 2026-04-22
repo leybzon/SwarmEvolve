@@ -12,11 +12,14 @@ CXX_GPU    ?= nvc++
 PYTHON     ?= python3
 
 # -------- flags --------
-CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
+# -Wno-unknown-pragmas: `#pragma acc routine seq` is legal under OpenACC
+# (nvc++) and mandated by spec to be silently ignored by other compilers.
+# Apple clang already does; g++ warns, and -Werror would promote to failure.
+CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
 # Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
 # the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
 # Linux CI sets SANITIZE=1 to exercise the sanitized build.
-CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
+CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
 ifeq ($(SANITIZE),1)
   CXXFLAGS_DEBUG += -fsanitize=address,undefined -fno-omit-frame-pointer
 endif

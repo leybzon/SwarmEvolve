@@ -93,6 +93,9 @@ def build_matchup(tmp_path: Path, team_a_baseline: str, team_b_baseline: str) ->
         "-Wshadow",
         "-Wpedantic",
         "-Werror",
+        # OpenACC pragmas must be silently ignored by non-nvc++ compilers
+        # (Apple clang already does; g++ warns, and -Werror would fail).
+        "-Wno-unknown-pragmas",
         f"-I{REPO_ROOT / 'src'}",
         str(ENGINE_SRC),
         str(a_dir / "ai.cpp"),

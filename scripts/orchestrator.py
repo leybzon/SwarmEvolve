@@ -211,6 +211,11 @@ def compile_matchup(
         "-Wshadow",
         "-Wpedantic",
         "-Werror",
+        # `#pragma acc routine seq` is legal under OpenACC (nvc++) and
+        # the spec mandates non-OpenACC compilers silently ignore it.
+        # Apple clang does; g++ raises an "unknown pragma" warning which
+        # -Werror promotes to a failure. Mirrors M8/M9 compile paths.
+        "-Wno-unknown-pragmas",
         f"-I{REPO_ROOT / 'src'}",
     ]
     if extra_flags:
@@ -744,6 +749,25 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
                      }})
         return EXIT_INVALID_INPUT
 
+    # Compiler choice on replay: the recorded compiler pins what the
+    # *original* run used, but on a different host that binary may be
+    # absent (Linux g++ on macOS laptop) or broken (macOS's /usr/bin/g++
+    # is a clang-C wrapper that can't find libc++). We prefer the
+    # locally-auto-detected compiler and record any substitution in the
+    # log. The determinism contract is over *inputs* (sources, seeds,
+    # configs); cross-compiler divergence in engine floats would surface
+    # as a score mismatch in the field-by-field comparison below — which
+    # is exactly what we want this check to catch.
+    recorded_compiler = cfg.get("compiler")
+    local_compiler = detect_compiler()
+    resolved_compiler = local_compiler or recorded_compiler
+    if recorded_compiler and resolved_compiler != recorded_compiler:
+        logger.info("replay-compiler-substitution",
+                    extra={"extra_fields": {
+                        "recorded": recorded_compiler,
+                        "resolved": resolved_compiler,
+                    }})
+
     logger.info("replay-start",
                 extra={"extra_fields": {"run_dir": str(run_dir),
                                          "n_matches": cfg.get("n_matches")}})
@@ -754,7 +778,7 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
         workers=cfg.get("workers"),
         max_ticks=cfg.get("max_ticks", 1000),
         timeout=cfg.get("timeout", 10.0),
-        compiler=cfg.get("compiler"),
+        compiler=resolved_compiler,
         scratch_root=run_dir / "replay_build",
     )
 

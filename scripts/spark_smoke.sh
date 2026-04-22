@@ -127,7 +127,8 @@ pytest -q --ignore=tests/test_sandbox_ok.py --ignore=tests/test_sandbox_escape.p
 # --- 100-match timing ---
 echo "[spark] === 100-match fitness timing ==="
 /usr/bin/time -v python scripts/fitness.py \
-    --team-a pursuit_v1 --team-b cluster_v1 \
+    --team-a src/baselines/pursuit_v1.cpp \
+    --team-b src/baselines/cluster_v1.cpp \
     --n-matches "${N_MATCHES}" --workers "${WORKERS}" \
     2>&1 | tail -40
 

@@ -339,6 +339,9 @@ def test_injected_baselines_still_compile_in_engine(tmp_path: Path) -> None:
             "-Wshadow",
             "-Wpedantic",
             "-Werror",
+            # Baselines carry `#pragma acc routine seq` — silently
+            # ignored by non-nvc++ compilers per the OpenACC spec.
+            "-Wno-unknown-pragmas",
             f"-I{REPO_ROOT / 'src'}",
             str(REPO_ROOT / "src" / "engine.cpp"),
             str(a_path),
