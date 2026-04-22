@@ -41,3 +41,19 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   stationary ≥ 95/100, pursuit vs cluster no side > 80%, determinism
   (same seed → byte-identical trace; different seed → different trace),
   banned-token lint applied to all frozen baselines.
+- Trace schema & determinism (M4):
+  - `docs/trace_schema.json` (JSON Schema draft-07) formally describing
+    one JSONL trace line.
+  - `tests/fixtures/golden/seed42_pursuit_vs_cluster.jsonl` — frozen
+    reference trace for `pursuit_v1 vs cluster_v1` at seed=42 (117 lines,
+    DRAW @ tick 116), pinned SHA-256 enforced by
+    `test_golden_trace_matches_pinned_sha`.
+  - `tests/_build_helper.py` — shared render+compile pipeline extracted
+    from `test_baselines.py` so the determinism suite reuses it.
+  - `tests/test_trace_schema.py` — schema is well-formed (meta-validated);
+    every golden line validates; malformed fixtures are rejected.
+  - `tests/test_determinism.py` — 10 same-seed runs hash identically,
+    different seeds produce different traces, fresh engine reproduces
+    the golden trace byte-for-byte.
+  - Added `jsonschema>=4.21,<5` to project dependencies (already pinned
+    in `pyproject.toml`).

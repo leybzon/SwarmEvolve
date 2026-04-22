@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/leybzon/SwarmEvolve/docs/trace_schema.json",
+  "title": "SwarmEvolve Trace Line",
+  "description": "One JSON Lines record produced by the SwarmEvolve engine (see SPECIFICATION.md §4.1). Each tick the engine emits exactly one such object on its own line; the final line additionally carries the `outcome` field.",
+  "type": "object",
+  "required": ["tick", "team_a", "team_b"],
+  "additionalProperties": false,
+  "properties": {
+    "tick": {
+      "description": "Zero-indexed tick number. Tick 0 is the pre-movement spawn snapshot.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "team_a": {
+      "description": "Snapshot of Team A drones at the end of this tick.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/DroneState" }
+    },
+    "team_b": {
+      "description": "Snapshot of Team B drones at the end of this tick.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/DroneState" }
+    },
+    "outcome": {
+      "description": "Terminal outcome tag. Only present on the final trace line.",
+      "type": "string",
+      "enum": ["TEAM_A_WIN", "TEAM_B_WIN", "DRAW"]
+    }
+  },
+  "definitions": {
+    "DroneState": {
+      "type": "object",
+      "required": ["id", "x", "y", "cooldown", "alive"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Per-team drone id, 0..num_drones-1.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 49
+        },
+        "x": {
+          "description": "Drone X position (arena units). The engine emits with %.2f precision.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Drone Y position (arena units, Y-down per SPECIFICATION §1.2).",
+          "type": "number"
+        },
+        "cooldown": {
+          "description": "Remaining attack-cooldown ticks. 0 means ready to fire.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "alive": {
+          "description": "True iff this drone is still alive at the end of the tick.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
