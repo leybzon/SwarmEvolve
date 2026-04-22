@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://swarmevolve.io/schemas/checkpoint.m10.v1.json",
+  "title": "EvolveCheckpoint",
+  "description": "Snapshot of an in-progress or completed evolutionary run, written every --checkpoint-every generations by scripts/evolve.py into <run_dir>/checkpoints/NNNN.json (and a mirror at checkpoints/latest.json). See IMPLEMENTATION_PLAN §M10.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "wall_start_iso",
+    "wall_checkpoint_iso",
+    "generations_completed",
+    "champion",
+    "opponent",
+    "config",
+    "history",
+    "tokens_total",
+    "environment",
+    "compile_failures"
+  ],
+  "properties": {
+    "schema_version": {"const": "m10.v1"},
+    "run_id": {"type": "string"},
+    "wall_start_iso": {"type": "string", "format": "date-time"},
+    "wall_checkpoint_iso": {"type": "string", "format": "date-time"},
+    "generations_completed": {"type": "integer", "minimum": 0},
+    "compile_failures": {"type": "integer", "minimum": 0},
+    "champion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "generation_accepted", "fitness"],
+      "properties": {
+        "path": {"type": "string"},
+        "generation_accepted": {"type": "integer", "minimum": -1},
+        "fitness": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "fitness_schema.json"}
+          ]
+        }
+      }
+    },
+    "opponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "team_letter",
+        "opponent_path",
+        "model",
+        "client_kind",
+        "generations",
+        "n_matches",
+        "workers",
+        "accept_margin",
+        "max_compile_failures",
+        "checkpoint_every",
+        "seed_base_root",
+        "seed_ai_path",
+        "prompt_template_path",
+        "mock_response_paths",
+        "recent_fitness_window"
+      ],
+      "properties": {
+        "team_letter": {"enum": ["A", "B"]},
+        "opponent_path": {"type": "string"},
+        "model": {"type": "string"},
+        "client_kind": {"enum": ["anthropic", "mock"]},
+        "generations": {"type": "integer", "minimum": 1},
+        "n_matches": {"type": "integer", "minimum": 1},
+        "workers": {"type": "integer", "minimum": 1},
+        "accept_margin": {"type": "number"},
+        "max_compile_failures": {"type": "integer", "minimum": 1},
+        "checkpoint_every": {"type": "integer", "minimum": 1},
+        "seed_base_root": {"type": "integer"},
+        "seed_ai_path": {"type": "string"},
+        "prompt_template_path": {"type": "string"},
+        "mock_response_paths": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recent_fitness_window": {"type": "integer", "minimum": 0}
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation",
+          "status",
+          "reject_reason",
+          "mean",
+          "stdev",
+          "ci_low",
+          "ci_high",
+          "wins_a",
+          "wins_b",
+          "draws",
+          "invalid",
+          "wall_seconds",
+          "llm_input_tokens",
+          "llm_output_tokens",
+          "model",
+          "candidate_sha256",
+          "accepted",
+          "champion_source_path"
+        ],
+        "properties": {
+          "generation": {"type": "integer", "minimum": 0},
+          "status": {
+            "enum": [
+              "accepted", "rejected",
+              "llm_failed", "parse_failed", "lint_failed",
+              "inject_failed", "compile_failed", "eval_failed"
+            ]
+          },
+          "reject_reason": {"type": ["string", "null"]},
+          "mean": {"type": ["number", "null"]},
+          "stdev": {"type": ["number", "null"], "minimum": 0},
+          "ci_low": {"type": ["number", "null"]},
+          "ci_high": {"type": ["number", "null"]},
+          "wins_a": {"type": ["integer", "null"], "minimum": 0},
+          "wins_b": {"type": ["integer", "null"], "minimum": 0},
+          "draws": {"type": ["integer", "null"], "minimum": 0},
+          "invalid": {"type": ["integer", "null"], "minimum": 0},
+          "wall_seconds": {"type": "number", "minimum": 0},
+          "llm_input_tokens": {"type": "integer", "minimum": 0},
+          "llm_output_tokens": {"type": "integer", "minimum": 0},
+          "model": {"type": "string"},
+          "candidate_sha256": {
+            "oneOf": [
+              {"type": "null"},
+              {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            ]
+          },
+          "accepted": {"type": "boolean"},
+          "champion_source_path": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "tokens_total": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "output"],
+      "properties": {
+        "input": {"type": "integer", "minimum": 0},
+        "output": {"type": "integer", "minimum": 0}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Reproducibility snapshot from experiment_log.build_environment_snapshot; extra fields permitted.",
+      "additionalProperties": true
+    }
+  }
+}

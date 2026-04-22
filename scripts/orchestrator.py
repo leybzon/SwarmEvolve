@@ -802,9 +802,48 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
 
 
 def cmd_evolve(args: argparse.Namespace, logger: logging.Logger) -> int:
-    logger.error("not-implemented",
-                 extra={"extra_fields": {"command": "evolve", "milestone": "M10"}})
-    return EXIT_INVALID_INPUT
+    """Thin wrapper over ``scripts/evolve.main()``.
+
+    We re-export the CLI flags verbatim so the orchestrator is an
+    alternative spelling, not a parallel interface. ``evolve.py``
+    owns the argparse surface area; we just forward ``argv``.
+    """
+    # Import here so `orchestrator evaluate` / `run` / `replay` don't
+    # pay the matplotlib / anthropic import cost on every invocation.
+    import evolve as _evolve  # type: ignore[import-not-found]
+
+    # Reconstruct the list of argv tokens from the namespace produced
+    # by our sub-parser so evolve.main parses them under its own
+    # argparse. Only non-None values are forwarded so defaults stay
+    # consistent between the two entry points.
+    forwarded: list[str] = []
+    if args.verbose:
+        forwarded += ["-" + ("v" * args.verbose)]
+    pairs = (
+        ("--opponent", args.opponent),
+        ("--as-team", args.as_team),
+        ("--generations", args.generations),
+        ("--n-matches", args.n_matches),
+        ("--workers", args.workers),
+        ("--client", args.client),
+        ("--mock-response-dir", args.mock_response_dir),
+        ("--model", args.model),
+        ("--seed", args.seed),
+        ("--accept-margin", args.accept_margin),
+        ("--max-compile-failures", args.max_compile_failures),
+        ("--checkpoint-every", args.checkpoint_every),
+        ("--out-dir", args.out_dir),
+        ("--resume", args.resume),
+        ("--seed-ai", args.seed_ai),
+        ("--prompt", args.prompt),
+    )
+    for flag, value in pairs:
+        if value is None:
+            continue
+        forwarded += [flag, str(value)]
+    logger.info("evolve-start",
+                extra={"extra_fields": {"argv": forwarded}})
+    return int(_evolve.main(forwarded))
 
 
 def cmd_tournament(args: argparse.Namespace, logger: logging.Logger) -> int:
@@ -893,7 +932,35 @@ def build_parser() -> argparse.ArgumentParser:
                         help="path to a previous experiment directory (contains events.jsonl)")
     replay.set_defaults(func=cmd_replay)
 
-    evolve = sub.add_parser("evolve", help="(M10) closed-loop LLM evolution")
+    evolve = sub.add_parser(
+        "evolve",
+        help="run closed-loop LLM evolution against a frozen opponent",
+    )
+    evolve.add_argument("--opponent", default=None,
+                        help="path to frozen opponent AI source (required for fresh run)")
+    evolve.add_argument("--as-team", choices=("A", "B"), default="A")
+    evolve.add_argument("--generations", type=_positive_int, default=50)
+    evolve.add_argument("--n-matches", type=_positive_int, default=20)
+    evolve.add_argument("--workers", type=_positive_int, default=None)
+    evolve.add_argument("--client", choices=("anthropic", "mock"), default="anthropic")
+    evolve.add_argument("--mock-response-dir", default=None,
+                        help="directory of *.md responses when --client=mock")
+    evolve.add_argument("--model", default=None,
+                        help="override LLM model id (default: $ANTHROPIC_MODEL)")
+    evolve.add_argument("--seed", type=int, default=None,
+                        help="root seed for per-generation seed derivation")
+    evolve.add_argument("--accept-margin", type=float, default=0.0,
+                        help="challenger must beat champion mean by > margin")
+    evolve.add_argument("--max-compile-failures", type=_positive_int, default=5)
+    evolve.add_argument("--checkpoint-every", type=_positive_int, default=10)
+    evolve.add_argument("--out-dir", default=None,
+                        help="run directory (default: data/experiments/<ts>)")
+    evolve.add_argument("--resume", default=None,
+                        help="resume an existing run directory")
+    evolve.add_argument("--seed-ai", default=None,
+                        help="initial champion (default: --opponent)")
+    evolve.add_argument("--prompt", default=None,
+                        help="prompt template path (default: prompts/evolve_ai.md)")
     evolve.set_defaults(func=cmd_evolve)
 
     tournament = sub.add_parser("tournament", help="(M12) round-robin tournament")

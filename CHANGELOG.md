@@ -246,3 +246,54 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     matches `fitness.json`, missing `--team-a/-b` exits 2, compile
     failure exits 3 with `compile_failed` event, replay parity exits
     0, missing/empty run dir exit 2.
+- Closed-loop evolutionary driver (M10):
+  - `scripts/evolve.py` — multi-generation evolutionary loop that iterates
+    prompt → LLM → parse → lint → inject → compile → `evaluate_fitness` →
+    accept-if-better, keeping the whole pipeline in-process (≈10× faster
+    than a subprocess-per-gen variant). `LoopConfig` and `LoopState`
+    dataclasses capture the full run; `GenSummary` records every
+    attempted generation with status ∈ `{accepted, rejected, llm_failed,
+    parse_failed, lint_failed, inject_failed, compile_failed, eval_failed}`.
+    Team-letter sign flip on `mean`/`ci_low`/`ci_high` so "higher is
+    better for the evolving team" holds uniformly for Team A and Team B.
+    Deterministic seeds via `seed_base_root + gen * n_matches`.
+    `--max-compile-failures` caps consecutive pipeline failures (exit 30);
+    `--accept-margin` makes the accept rule strict-`>`.
+  - Atomic JSON checkpointing (`os.replace(tmp, path)`) into
+    `<run_dir>/checkpoints/NNNN.json` with a mirror at
+    `checkpoints/latest.json` written every `--checkpoint-every` gens.
+    Resume via `--resume <run_dir>` reconstructs `LoopState` from the
+    latest checkpoint (falling back to `state.json`) and replays the
+    MockClient queue to the correct cursor.
+  - Optional matplotlib fitness-plot PNG (`plots/fitness.png`) per
+    checkpoint: errorbars for CI, scatter for accept/reject, step-plot
+    for the champion trace. Headless `Agg` backend; silently skipped
+    when matplotlib is missing so mandatory-dep surface stays small.
+  - `docs/checkpoint_schema.json` — JSON Schema draft-07 (`$id`
+    `https://swarmevolve.io/schemas/checkpoint.m10.v1.json`,
+    `schema_version` const `"m10.v1"`) pinning the checkpoint layout;
+    references `docs/fitness_schema.json` via `$ref` for the embedded
+    champion fitness record.
+  - `scripts/orchestrator.py evolve` — promoted from stub to a thin
+    wrapper that forwards all 15 flags (`--opponent`, `--as-team`,
+    `--generations`, `--n-matches`, `--workers`, `--client`,
+    `--mock-response-dir`, `--model`, `--seed`, `--accept-margin`,
+    `--max-compile-failures`, `--checkpoint-every`, `--out-dir`,
+    `--resume`, `--seed-ai`, `--prompt`) into `evolve.main()` and emits
+    an `evolve-start` JSON log record.
+  - Exit codes: `0` success, `2` invalid input, `30` compile-failure cap
+    exceeded, `31` unrecoverable LLM error, `32` schema/checkpoint write
+    failure, `33` corrupt resume state.
+  - `tests/test_evolve.py` — 7 tests: secret-redaction preserves
+    non-secret text, `STATUS_PARSE_FAILED` when no ``` ```cpp ``` ```
+    block, `--max-compile-failures` cap hits exit 30, API-key never
+    leaks into run artefacts (synthetic `LeakyClient`), three-generation
+    mock loop produces monotone champion + fitness plot, checkpoint
+    validates against `docs/checkpoint_schema.json` via pre-seeded
+    `RefResolver` store, and resume-after-crash reproduces the
+    uninterrupted run bit-identically (same champion mean, wins_a,
+    per-gen aggregates).
+  - `tests/test_orchestrator_cli.py` — updated
+    `test_evolve_requires_opponent` asserting the evolve sub-command is
+    now real (exits `EXIT_INVALID_INPUT` with `--opponent` in stderr
+    rather than the pre-M10 `not-implemented` stub message).

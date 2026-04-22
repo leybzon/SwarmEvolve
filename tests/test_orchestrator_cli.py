@@ -88,10 +88,13 @@ def test_evaluate_requires_team_paths():
     assert "--team-a" in result.stderr
 
 
-def test_evolve_stub_returns_invalid_input():
+def test_evolve_requires_opponent():
+    # M10: `evolve` is real; running it without --opponent should exit
+    # with the invalid-input code and surface a descriptive error
+    # rather than the pre-M10 "not-implemented" string.
     result = _run(["evolve"])
     assert result.returncode == orchestrator.EXIT_INVALID_INPUT
-    assert "not-implemented" in result.stderr
+    assert "--opponent" in result.stderr
 
 
 def test_tournament_stub_returns_invalid_input():
