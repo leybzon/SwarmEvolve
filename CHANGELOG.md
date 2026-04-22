@@ -7,6 +7,28 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+- M13 GPU scaling study scaffolding: `--benchmark` mode in the engine
+  (one JSON line per match, no file output), compile-time
+  `MAX_DRONES_OVERRIDE` switch, heap-allocated `World` for large N,
+  `--arena-scale` CLI flag for constant-density scaling, and
+  `_OPENMP`-guarded query-phase pragma for honest CPU-OMP baseline.
+- `scripts/bench_gpu.py` — driver that sweeps (backend, N, repeats),
+  emits byte-stable `bench_results.json` + human-readable
+  `bench_results.csv`, and regenerates the Markdown report between
+  `<!-- BENCH_DATA_START -->` / `<!-- BENCH_DATA_END -->` markers.
+- `scripts/bench_plot.py` — matplotlib plotter for wall-time,
+  per-tick, and speedup charts; gracefully skips when matplotlib is
+  absent (JSON remains the source of truth).
+- Makefile: `build-linux-cpu-omp`, `bench-build-{cpu1,cpu-omp,gpu}`,
+  `bench-{cpu1,cpu-omp,gpu}`, and `bench-all` targets.
+- `tests/test_bench.py` — smoke test for bench mode, no-side-effects
+  guard, CPU1/OMP trace-byte-equality guard, plotter regression tests,
+  and perf-report marker test.
+- `docs/perf_report.md` — methodology + hardware-placeholder skeleton
+  with `<!-- CONCLUSION_PENDING -->` exit marker.
+- `docs/m13_handoff.md` — full Spark-Claude runbook: prerequisites,
+  build commands, expected wall-clock times, TDR escalation, and the
+  honest-conclusion template.
 - Repository scaffolding (M0): `Makefile`, `pyproject.toml`, `.clang-format`,
   `.editorconfig`, `.gitignore`, `.pre-commit-config.yaml`, `.env.example`.
 - GitHub Actions CI workflow: lint, macOS/Linux builds, C++ and Python test

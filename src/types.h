@@ -30,7 +30,17 @@ inline constexpr int MEM_SIZE = 16;
 
 /// Maximum drones per team. Runtime team size (GameParams::num_drones_{a,b})
 /// must satisfy `num_drones <= MAX_DRONES`.
+///
+/// Build-time override: pass ``-DMAX_DRONES_OVERRIDE=<N>`` to the compiler
+/// to raise the cap (e.g. for the M13 GPU scaling study at N in
+/// {1'000, 10'000, 100'000}). The World struct in src/engine.cpp sizes
+/// its static scratch buffers from this constant, so large overrides are
+/// best paired with a heap-allocated World (see main()).
+#ifdef MAX_DRONES_OVERRIDE
+inline constexpr int MAX_DRONES = MAX_DRONES_OVERRIDE;
+#else
 inline constexpr int MAX_DRONES = 50;
+#endif
 
 // ---------------------------------------------------------------------------
 // Vector2D  (SPECIFICATION.md §1.2)
