@@ -75,3 +75,27 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     JSON raises `ValueError`.
   - `make visualize-demo` target renders `data/traces/demo.jsonl` →
     `data/videos/demo.mp4`.
+- Loop-guard injector (M6):
+  - `scripts/inject_guards.py` — regex-based C++ loop-guard injector with
+    comment/string scrubbing, idempotence marker
+    (`/* @swarmevolve:guards-injected */`), do-while tail detection, and
+    `#line` preservation. Transforms every `while` / `for` / `do` loop to
+    bail out after 1000 iterations, preventing GPU TDR crashes from
+    LLM-authored infinite loops.
+  - Exit codes: `0` success, `1` CLI/IO error, `2` `goto`-based loop
+    rejected, `3` idempotence failure, `4` regex backend refused
+    (single-statement body, macro-hidden loop with
+    `--fail-on-macro-loops`). libclang backend reserved as a stub.
+  - CLI flags: `--check`, `--stdout`, `--backend {regex,libclang}`,
+    `--allow-regex`, `--fail-on-macro-loops`, `-v`.
+  - `tests/fixtures/inject/` — 15-fixture corpus covering while/for/
+    do-while/range-for/nested/lambda/continue-break-return/already-injected
+    plus an adversarial subdirectory (`goto_based_loop`, `macro_loop`,
+    `single_statement_body`, `comment_with_while`, `string_with_while`).
+  - `tests/test_inject_guards.py` — 27 tests: idempotence, guard-count,
+    comment/string false-positive prevention, goto rejection, do-while
+    tail handling, parameterized fixture sweep (every fixture injects +
+    compiles `-Werror`-clean), runtime-termination tests for infinite
+    fixtures (subprocess with 1s timeout), integration test injecting
+    into `pursuit_v1` / `cluster_v1` and compiling them against the
+    engine, CLI `--check` mode exit codes.
