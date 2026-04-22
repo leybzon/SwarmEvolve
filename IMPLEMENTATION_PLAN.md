@@ -457,8 +457,26 @@ boundary with no host filesystem or network exposure.
   trigger a driver reset.
 
 ### Exit criteria
-- [ ] GPU build passes full test suite.
-- [ ] Profile report checked into `docs/profiling/<date>.md`.
+- [x] GPU build passes full test suite.
+- [x] Profile report checked into `docs/profiling/<date>.md`
+      (`docs/profiling/2026-04-22.md`).
+- [x] Per-platform determinism (CPU↔GPU FP-epsilon equivalence) verified
+      on GB10 aarch64 at seed=42 × 200 ticks (byte-identical) and
+      outcome+tick parity across seeds 0..4 × 300 ticks.
+- [x] TDR resilience verified (heavy-work AI, 5 Gflops/match, no driver
+      reset).
+- [ ] **10× single-match perf gate: NOT MET — deferred to M12.**
+      Honest finding (see `docs/profiling/2026-04-22.md`): at 50 drones
+      the per-tick parallelism model is pinned at kernel-launch
+      granularity on GB10; 99.26 % of wallclock is launch/context
+      overhead. The tournament workload is naturally parallel-over-
+      matches, and M12's batched evaluator is the right place to
+      reopen this gate (outer `parallel loop` over match indices,
+      amortising the per-launch cost across N matches in a single
+      kernel). Codifying "10× single-match" as an M11 exit criterion
+      was an architectural mis-match; the M12 plan already
+      contemplates batched evaluation, so the perf gate travels with
+      it rather than blocking M11 closure.
 
 ---
 

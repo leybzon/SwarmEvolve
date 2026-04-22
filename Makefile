@@ -15,7 +15,10 @@ PYTHON     ?= python3
 # -Wno-unknown-pragmas: `#pragma acc routine seq` is legal under OpenACC
 # (nvc++) and mandated by spec to be silently ignored by other compilers.
 # Apple clang already does; g++ warns, and -Werror would promote to failure.
+# nvc++ does not accept -Wno-unknown-pragmas (it natively understands `acc`
+# pragmas and never warns on them) so CXXFLAGS_GPU omits it.
 CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
+CXXFLAGS_GPU    = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
 # Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
 # the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
 # Linux CI sets SANITIZE=1 to exercise the sanitized build.
@@ -23,7 +26,7 @@ CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -W
 ifeq ($(SANITIZE),1)
   CXXFLAGS_DEBUG += -fsanitize=address,undefined -fno-omit-frame-pointer
 endif
-ACCFLAGS        = -acc=gpu -gpu=managed -Minfo=accel
+ACCFLAGS        = -acc=gpu -gpu=mem:managed -Minfo=accel
 
 # -------- sources --------
 SRC_ENGINE   = src/engine.cpp
@@ -66,7 +69,7 @@ build-linux-cpu: $(BUILD_DIR)
 	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(SRC_ALL) -o $(TARGET)
 
 build-linux-gpu: $(BUILD_DIR)
-	$(CXX_GPU) $(CXXFLAGS_COMMON) $(ACCFLAGS) $(SRC_ALL) -o $(TARGET)
+	$(CXX_GPU) $(CXXFLAGS_GPU) $(ACCFLAGS) $(SRC_ALL) -o $(TARGET)
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)

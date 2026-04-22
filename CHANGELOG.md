@@ -297,3 +297,49 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     `test_evolve_requires_opponent` asserting the evolve sub-command is
     now real (exits `EXIT_INVALID_INPUT` with `--opponent` in stderr
     rather than the pre-M10 `not-implemented` stub message).
+- GPU port & profiling (M11):
+  - OpenACC parallelisation of all four game-loop phases in
+    `src/engine.h` (`movement_phase`, `combat_phase_one_side`,
+    `apply_cooldowns`, `apply_deaths`, `decrement_cooldowns`,
+    `route_messages`) and `src/engine.cpp` (`project_enemies`,
+    `query_phase<TeamAAiCallable>`, `query_phase<TeamBAiCallable>`).
+    Each `#pragma acc parallel loop` carries explicit `[0:n]` data-clause
+    bounds — critical because nvc++ defaults to 1-byte transfers for
+    unbounded pointer parameters (earlier drafts corrupted 9 of 10
+    death flags on round-trip).
+  - Template functors `TeamAAiCallable` / `TeamBAiCallable` (with
+    `#pragma acc routine seq` on `operator()`) replace the function-
+    pointer call path in `query_phase`, since nvc++ cannot lower
+    indirect calls to device code.
+  - `copy` (not `copyout`) for `attacker_cooldowns_out`: the combat
+    kernel writes only successful-attacker slots; `copyout` would
+    transfer uninitialized device memory back for the untouched slots.
+    Caller contract (host-zero before call) documented inline.
+  - `Makefile`: split `CXXFLAGS_GPU` without `-Wno-unknown-pragmas`
+    (nvc++ rejects that flag and natively understands `#pragma acc`);
+    `-gpu=mem:managed` replaces deprecated `-gpu=managed`.
+  - `tests/test_gpu_equivalence.py` — two tests verifying per-platform
+    determinism (SPEC §7.6): byte-identical traces at seed=42 × 200
+    ticks, and outcome+tick-count parity across seeds 0..4 at 300
+    ticks. Skips on hosts without nvc++.
+  - `tests/test_gpu_tdr_stress.py` + `tests/fixtures/tdr_stress_ai.cpp`
+    — 50-drone × 300-tick match with a hard-bounded 5 000-iter trig-
+    accumulate loop per drone per tick (≈ 5 Gflops for the whole
+    match). Verifies the GB10 TDR watchdog is never tripped; skips
+    without nvc++.
+  - `scripts/profile.py` — Nsight Systems wrapper emitting a
+    `.nsys-rep` archive plus per-kernel / per-memcpy / OpenACC CSVs
+    and a `summary.json` with the top-N kernels and wallclock.
+    Tolerates nsys rc=2 soft warnings (e.g. "CPU IP/backtrace
+    sampling not supported") when the report archive is produced.
+    Exit codes: `0` ok, `2` usage, `40` nsys missing, `41` binary
+    missing, `42` nsys failed.
+  - `docs/profiling/2026-04-22.md` — honest M11 profiling report.
+    Headline finding: the 10× perf gate is **not met** at 50 drones ×
+    1000 ticks on GB10. GPU wallclock is ~1000× the CPU wallclock
+    because per-tick parallelism with n=50 is pinned at kernel-launch
+    granularity; device-side work + memcpy account for only 42 ms of
+    a 5 764 ms run (99.26 % overhead). Recommendation: defer the 10×
+    gate to M12 where batched parallel-over-matches amortises launch
+    overhead across N matches. This is recorded as an architectural
+    mismatch, not a coding defect.

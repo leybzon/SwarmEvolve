@@ -125,6 +125,19 @@ struct World {
     float      msgs_b[MAX_DRONES][MSG_SIZE]{};
     float      mem_a[MAX_DRONES][MEM_SIZE]{};
     float      mem_b[MAX_DRONES][MEM_SIZE]{};
+    // Per-tick scratch enemy views (one per team, projected from the
+    // opposing AllyState). Kept in the World so managed memory /
+    // present-data clauses see a single stable host pointer rather than
+    // a fresh stack location each tick.
+    EnemyState enemies_for_a[MAX_DRONES]{};
+    EnemyState enemies_for_b[MAX_DRONES]{};
+    // Combat-phase scratch (cooldowns + pending deaths). Likewise keeping
+    // these in the World avoids stack-allocated arrays inside the tick loop,
+    // which are unfriendly to OpenACC managed memory on nvc++.
+    int        new_cd_a[MAX_DRONES]{};
+    int        new_cd_b[MAX_DRONES]{};
+    bool       deaths_a[MAX_DRONES]{};
+    bool       deaths_b[MAX_DRONES]{};
 };
 
 static World g_world{};
@@ -197,15 +210,39 @@ void write_trace_line(std::FILE* f, int tick, const World& w, const char* outcom
 
 // ---------------------------------------------------------------------------
 // Query phase: call AI for each alive drone of one side.
+//
+// nvc++ cannot generate device code through a plain function pointer (no
+// indirect calls on GPU without function tables). We therefore wrap each
+// team's drone_ai in a tiny functor whose operator() is `acc routine seq`
+// and forwards to the real AI. A template parameter lets OpenACC see the
+// concrete callable type at the call site, so the kernel body inlines the
+// functor and the inlined functor calls the fixed, acc-routine-seq AI.
 // ---------------------------------------------------------------------------
-using AiFn = void (*)(int, const GameParams*, const AllyState*, const EnemyState*,
-                      const float [][MSG_SIZE], float*, Action*);
+
+struct TeamAAiCallable {
+    #pragma acc routine seq
+    void operator()(int my_id, const GameParams* p, const AllyState* a,
+                    const EnemyState* e, const float (*msgs)[MSG_SIZE],
+                    float* mem, Action* out) const {
+        TeamA::drone_ai(my_id, p, a, e, msgs, mem, out);
+    }
+};
+
+struct TeamBAiCallable {
+    #pragma acc routine seq
+    void operator()(int my_id, const GameParams* p, const AllyState* a,
+                    const EnemyState* e, const float (*msgs)[MSG_SIZE],
+                    float* mem, Action* out) const {
+        TeamB::drone_ai(my_id, p, a, e, msgs, mem, out);
+    }
+};
 
 // View helpers to convert AllyState array into an EnemyState array visible to
 // the opposing AI. We pack into a fixed-size scratch buffer rather than
 // aliasing (different layout). This runs once per tick per team and is
 // cheap (n <= MAX_DRONES).
 void project_enemies(const AllyState* src, EnemyState* dst, int n) {
+    #pragma acc parallel loop copyin(src[0:n]) copyout(dst[0:n])
     for (int i = 0; i < n; ++i) {
         dst[i].id    = src[i].id;
         dst[i].pos   = src[i].pos;
@@ -213,17 +250,23 @@ void project_enemies(const AllyState* src, EnemyState* dst, int n) {
     }
 }
 
-void query_phase(AiFn fn, int my_n, int their_n,
+template <typename AiCallable>
+void query_phase(AiCallable fn, int my_n, int their_n,
                  const GameParams* params,
                  const AllyState* my_allies,
-                 const AllyState* their_allies,
+                 const EnemyState* enemy_view,
                  const float msgs[][MSG_SIZE],
                  float memory[][MEM_SIZE],
                  Action* out_actions) {
-    // Scratch enemy view, stack-allocated per call.
-    EnemyState enemy_view[MAX_DRONES]{};
-    project_enemies(their_allies, enemy_view, their_n);
-
+    // `their_n` is used only inside the `#pragma acc` data clause for the
+    // enemy_view copyin bound. Non-OpenACC compilers skip the pragma, so we
+    // touch `their_n` explicitly to silence -Werror=unused-parameter.
+    (void)their_n;
+    #pragma acc parallel loop                                                  \
+        copyin(my_allies[0:my_n], enemy_view[0:their_n],                       \
+               msgs[0:my_n][0:MSG_SIZE])                                       \
+        copy(memory[0:my_n][0:MEM_SIZE])                                       \
+        copyout(out_actions[0:my_n])
     for (int i = 0; i < my_n; ++i) {
         if (!my_allies[i].alive) {
             // Dead drones skip AI and emit a zeroed action. This also
@@ -277,11 +320,17 @@ int main(int argc, char** argv) {
         g_world.params.current_tick = t;
 
         // Phase 1: Query (both teams).
-        query_phase(&TeamA::drone_ai, g_world.params.num_drones_a, g_world.params.num_drones_b,
-                    &g_world.params, g_world.a, g_world.b,
+        // Project enemy views into World-resident scratch buffers (static
+        // storage, managed-memory-friendly on nvc++). project_enemies
+        // itself carries `#pragma acc parallel loop`.
+        project_enemies(g_world.b, g_world.enemies_for_a, g_world.params.num_drones_b);
+        project_enemies(g_world.a, g_world.enemies_for_b, g_world.params.num_drones_a);
+
+        query_phase(TeamAAiCallable{}, g_world.params.num_drones_a, g_world.params.num_drones_b,
+                    &g_world.params, g_world.a, g_world.enemies_for_a,
                     g_world.msgs_a, g_world.mem_a, g_world.act_a);
-        query_phase(&TeamB::drone_ai, g_world.params.num_drones_b, g_world.params.num_drones_a,
-                    &g_world.params, g_world.b, g_world.a,
+        query_phase(TeamBAiCallable{}, g_world.params.num_drones_b, g_world.params.num_drones_a,
+                    &g_world.params, g_world.b, g_world.enemies_for_b,
                     g_world.msgs_b, g_world.mem_b, g_world.act_b);
 
         // Phase 2: Movement.
@@ -290,21 +339,23 @@ int main(int argc, char** argv) {
         swarmevolve::engine::movement_phase(g_world.b, g_world.act_b,
                                              g_world.params.num_drones_b, g_world.params);
 
-        // Phase 3: Combat. Each side computes into scratch buffers; both
-        // attack resolutions read pre-death `alive` state (focus-fire +
-        // mutual-destruction semantics per SPECIFICATION §3.4).
-        int  new_cd_a[MAX_DRONES] = {};
-        int  new_cd_b[MAX_DRONES] = {};
-        bool deaths_a[MAX_DRONES] = {};
-        bool deaths_b[MAX_DRONES] = {};
+        // Phase 3: Combat. Each side computes into World-resident scratch
+        // buffers (managed-memory friendly). Both attack resolutions read
+        // pre-death `alive` state (focus-fire + mutual-destruction
+        // semantics per SPECIFICATION §3.4). Buffers must be zeroed each
+        // tick because combat_phase_one_side writes only on-hit.
+        std::memset(g_world.new_cd_a, 0, sizeof(g_world.new_cd_a));
+        std::memset(g_world.new_cd_b, 0, sizeof(g_world.new_cd_b));
+        std::memset(g_world.deaths_a, 0, sizeof(g_world.deaths_a));
+        std::memset(g_world.deaths_b, 0, sizeof(g_world.deaths_b));
         swarmevolve::engine::combat_phase_one_side(
             g_world.a, g_world.act_a, g_world.params.num_drones_a,
             g_world.b, g_world.params.num_drones_b,
-            g_world.params, new_cd_a, deaths_b);
+            g_world.params, g_world.new_cd_a, g_world.deaths_b);
         swarmevolve::engine::combat_phase_one_side(
             g_world.b, g_world.act_b, g_world.params.num_drones_b,
             g_world.a, g_world.params.num_drones_a,
-            g_world.params, new_cd_b, deaths_a);
+            g_world.params, g_world.new_cd_b, g_world.deaths_a);
 
         // Phase 4: Cleanup. Order matters:
         //   1. Apply attacker cooldowns (must happen while attackers are
@@ -312,10 +363,10 @@ int main(int argc, char** argv) {
         //   2. Apply deaths.
         //   3. Decrement cooldowns on still-alive drones.
         //   4. Route messages (zeros for the newly-dead).
-        swarmevolve::engine::apply_cooldowns(g_world.a, new_cd_a, g_world.params.num_drones_a);
-        swarmevolve::engine::apply_cooldowns(g_world.b, new_cd_b, g_world.params.num_drones_b);
-        swarmevolve::engine::apply_deaths(g_world.a, deaths_a, g_world.params.num_drones_a);
-        swarmevolve::engine::apply_deaths(g_world.b, deaths_b, g_world.params.num_drones_b);
+        swarmevolve::engine::apply_cooldowns(g_world.a, g_world.new_cd_a, g_world.params.num_drones_a);
+        swarmevolve::engine::apply_cooldowns(g_world.b, g_world.new_cd_b, g_world.params.num_drones_b);
+        swarmevolve::engine::apply_deaths(g_world.a, g_world.deaths_a, g_world.params.num_drones_a);
+        swarmevolve::engine::apply_deaths(g_world.b, g_world.deaths_b, g_world.params.num_drones_b);
         swarmevolve::engine::decrement_cooldowns(g_world.a, g_world.params.num_drones_a);
         swarmevolve::engine::decrement_cooldowns(g_world.b, g_world.params.num_drones_b);
         swarmevolve::engine::route_messages(g_world.a, g_world.act_a, g_world.msgs_a,
