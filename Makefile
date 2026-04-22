@@ -124,13 +124,17 @@ visualize-demo:
 	$(PYTHON) scripts/visualizer.py data/traces/demo.jsonl data/videos/demo.mp4
 	@echo "Video written to data/videos/demo.mp4"
 
-# -------- docker (placeholder targets; implemented in M8) --------
-docker-build:
-	@test -f docker/Dockerfile.sandbox || (echo "docker/Dockerfile.sandbox not yet present (M8)"; exit 0)
-	docker build -f docker/Dockerfile.sandbox -t swarmevolve-sandbox:latest .
+# -------- docker (M8 sandbox) --------
+SANDBOX_IMAGE ?= swarmevolve-sandbox:latest
 
+docker-build:
+	@test -f docker/Dockerfile.sandbox || (echo "docker/Dockerfile.sandbox missing"; exit 1)
+	docker build -f docker/Dockerfile.sandbox -t $(SANDBOX_IMAGE) .
+
+# Run only the sandbox test modules; other Python tests stay fast-path.
 docker-test:
-	@echo "docker-test will be implemented in M8 (sandbox milestone)"
+	SANDBOX_IMAGE=$(SANDBOX_IMAGE) $(PYTHON) -m pytest -v \
+	    tests/test_sandbox_ok.py tests/test_sandbox_escape.py
 
 # -------- maintenance --------
 clean:

@@ -163,3 +163,35 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   - `anthropic>=0.34,<1` moved from optional `[llm]` to actively
     exercised; install with `pip install swarmevolve[llm]` or a
     plain `pip install anthropic`.
+- Sandbox container (M8):
+  - `docker/Dockerfile.sandbox` — multi-stage image (Ubuntu 22.04)
+    carrying g++, `libstdc++-11-dev`, Python 3, the engine + headers,
+    the frozen baselines, and `scripts/inject_guards.py` baked into
+    `/opt/swarmevolve/`. Runs as uid 65534:65534.
+  - `docker/entrypoint.sh` — inject loop-guards → compile with
+    `-Werror -Wno-unknown-pragmas` → run the engine; writes
+    `/work/out/sandbox_status.json` with `status ∈ {ok,
+    invalid_input, inject_failed, compile_failed, engine_crashed}`.
+  - `scripts/sandbox.py` — host-side Python wrapper with the
+    spec-exact flag tuple (`--rm --network=none --cap-drop=ALL
+    --security-opt no-new-privileges --read-only
+    --tmpfs /tmp:size=64m,mode=1777,exec,nosuid,nodev
+    --memory=512m --pids-limit=64 --cpus=2 --user 65534:65534`),
+    runtime auto-detection (`$CONTAINER_RUNTIME` → docker → podman),
+    host wall-clock timeout, and a `SandboxResult` dataclass.
+  - `Makefile` — `docker-build` and `docker-test` targets; the
+    latter runs only the sandbox test modules.
+  - `tests/test_sandbox_ok.py` — 7 tests: spec-exact flag pin,
+    command-shape, missing-team guard, byte-identical baseline
+    trace inside the sandbox vs the golden, missing-input structured
+    failure, compile-failure status capture, and CLI
+    image-missing exit code (21).
+  - `tests/test_sandbox_escape.py` — 5 containment tests planting
+    synthetic adversarial payloads (network egress, read-only
+    rootfs breach, fork bomb, infinite match, 2-GiB memory bomb);
+    each asserts the sandbox contains the attempt without harming
+    the host. Payloads are scoped to the first AI-query tick
+    (`current_tick > 1` early-return) to keep runs bounded.
+  - Tests skip cleanly when no container runtime or sandbox image is
+    present. On macOS with Colima, tests stage temp dirs under
+    `~/.pytest-sandbox` because Colima's virtiofs only shares `$HOME`.
