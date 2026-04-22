@@ -487,16 +487,44 @@ boundary with no host filesystem or network exposure.
 ### Deliverables
 - `scripts/tournament.py`: round-robin and Swiss pairings; outputs Elo-like
   ratings plus raw win-matrix.
-- `scripts/analysis.ipynb`: fitness-curve plots, strategy clustering
-  (pairwise behavior distance), video compilation of "most informative"
-  matches.
+- `scripts/analysis.py` + `scripts/analysis.ipynb`: fitness-curve plots,
+  strategy clustering (pairwise behaviour distance), "most informative"
+  matches picker. Video compilation was descoped — it requires
+  substantial new code on top of `visualizer.py` and was not on the
+  critical path for the exit criterion.
+- `scripts/render_report.py`: stdlib-only Markdown report renderer.
 
 ### Tests
-- Tournament with 4 known AIs produces stable rankings across 3 reruns.
+- [x] `test_round_robin_4ai_stable_across_3_reruns` — 4-AI tournament
+      (pursuit, cluster, stationary, drift) produces byte-identical Elo
+      ratings across three independent runs with the same seed_base.
+- [x] `test_win_matrix_conservation` — accounting invariant.
+- [x] `test_swiss_top1_matches_rr_top1_for_dominant_player` — dominance
+      regime sanity.
+- [x] `test_canonical_json_is_byte_stable_across_reruns` — byte-for-byte
+      canonical record reproducibility (volatile fields excluded).
+- [x] `test_events_log_has_start_and_end` — ExperimentLog integration.
 
 ### Exit criteria
-- [ ] Final report template renders from a completed experiment directory
-      with zero manual edits.
+- [x] Final report template renders from a completed experiment directory
+      with zero manual edits (`tests/test_render_report.py`, 8 tests).
+
+### Deferred to later milestones
+- **10× single-match GPU perf gate** (inherited from M11). The
+  tournament workload is naturally parallel-over-matches, but the
+  batched-evaluator variant of the GPU engine (outer `parallel loop`
+  over match indices with the per-drone loop as the inner kernel) is
+  a substantial new codepath — replacing the `evaluate_fitness`
+  process pool with a single batched GPU launch — and does not fit
+  inside M12 alongside the scheduler/analysis/report stack. Tracked
+  as a follow-up item; will be revisited when the next GPU-bound
+  workload appears.
+- **Video compilation of "most informative" matches.** The plan's
+  original notebook-era wording implied stitching trace playback into
+  an MP4 per "surprising" pairing. The surprise metric is now computed
+  (`scripts/analysis.py:top_matches`) and dumped as JSON; trace
+  replay + video stitching on top of the existing `visualizer.py`
+  remains a stretch goal.
 
 ---
 

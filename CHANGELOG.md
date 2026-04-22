@@ -343,3 +343,59 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     gate to M12 where batched parallel-over-matches amortises launch
     overhead across N matches. This is recorded as an architectural
     mismatch, not a coding defect.
+- Tournament & analysis (M12):
+  - `scripts/tournament.py` — round-robin and Swiss tournament runner
+    producing Elo-like ratings + a raw win matrix. Each pairing is
+    evaluated both directions (AI as TeamA and TeamB) to average out
+    the engine's spawn-layout asymmetry. Seed derivation is
+    deterministic per ordered pair via SHA-256 of
+    `"seed_base|team_a|team_b"` so two runs with the same config
+    produce byte-identical `tournament.canonical.json`. Elo updates
+    apply per-match (not per-pairing) so high-N pairings get more
+    weight. Outputs: `tournament.json`, `tournament.canonical.json`,
+    `ratings.csv`, `win_matrix.csv`, `events.jsonl`. Exit codes:
+    `0` ok, `2` usage, `40` compile failure, `41` no compiler.
+  - `scripts/analysis.py` — plots + derived stats from completed
+    experiment directories. Tournament analysis produces
+    `rating_trajectory.png`, `win_matrix_heatmap.png`,
+    `clustering.png` (single-linkage dendrogram of behavioural
+    distance, defined as symmetrised |wins_a(i,j) − wins_a(j,i)| /
+    n_matches), and `top_matches.json` (the pairings with the largest
+    Elo surprise). Evolution analysis produces a champion-trajectory
+    `fitness.png`. matplotlib is optional; when missing, a
+    `skipped.json` stub is written and exit is still 0.
+  - `scripts/analysis.ipynb` — thin notebook that imports
+    `scripts/analysis.py` and displays its PNGs inline (interactive
+    use only; the real logic is unit-tested in the `.py` module).
+  - `scripts/render_report.py` — stdlib-only Markdown report
+    renderer. Given a completed experiment directory, emits
+    `report.md` with sections for environment, tournament (ratings
+    table, participants, plots, most-informative matches), and
+    evolution (champion fitness, generations). Missing inputs
+    degrade to a graceful "no results" section. M12 exit criterion
+    met: zero manual edits between a completed experiment dir and
+    a publishable Markdown report. `--run-analysis` flag
+    auto-invokes `scripts.analysis` if plots are absent.
+  - `tests/test_tournament.py` — 14 tests covering pure Elo update
+    (monotone + zero-sum), pair-seed determinism, round-robin
+    schedule coverage, PairingResult outcomes accounting, plus
+    integration tests: 4-AI rankings stable across 3 reruns (the
+    M12 exit-criterion test), win-matrix conservation, Swiss top-1
+    matches round-robin top-1 for a dominant player, ExperimentLog
+    event schema, canonical-JSON byte stability, and three CLI
+    error-path tests.
+  - `tests/test_analysis.py` — 7 tests covering in-memory synthetic
+    tournament dicts: `load_tournament` dir+file, behaviour-distance
+    symmetry and diagonal, `top_matches` sort invariant, full
+    artefact production (gated on matplotlib), matplotlib-missing
+    fallback, and CLI smoke.
+  - `tests/test_render_report.py` — 8 tests: tournament sections,
+    evolve sections, empty-dir graceful degradation, custom output
+    path, CLI error path, analysis-plot references, most-informative
+    matches table.
+  - `tests/fixtures/drift_ai.cpp` — minimal fourth test AI (drifts
+    in +x, never attacks) so the 4-AI tournament-stability test
+    has a distinct fourth participant without promoting it to a
+    frozen baseline.
+  - Final test counts: **225 passed, 4 skipped** (3 GPU-only,
+    1 matplotlib XOR).
