@@ -32,7 +32,7 @@ BUILD_DIR    = build
 
 # -------- phony targets --------
 .PHONY: all help build-macos build-linux-cpu build-linux-gpu \
-        test test-cpp test-python lint format clean run-demo \
+        test test-cpp test-python lint format clean run-demo visualize-demo \
         docker-build docker-test check doctor
 
 all: help
@@ -49,6 +49,7 @@ help:
 	@echo "  format           - Auto-format C++ and Python sources"
 	@echo "  check            - lint + test (what CI runs)"
 	@echo "  run-demo         - Build and run a demo match producing a trace"
+	@echo "  visualize-demo   - Render data/traces/demo.jsonl to data/videos/demo.mp4"
 	@echo "  docker-build     - Build the sandbox container image (M8)"
 	@echo "  docker-test      - Run sandbox test suite (M8)"
 	@echo "  clean            - Remove build artifacts and transient data"
@@ -113,8 +114,15 @@ check: lint test
 
 # -------- demo --------
 run-demo: build-macos
+	@mkdir -p data/traces
 	./$(TARGET) --record data/traces/demo.jsonl --seed 42
 	@echo "Trace written to data/traces/demo.jsonl"
+
+visualize-demo:
+	@test -f data/traces/demo.jsonl || (echo "data/traces/demo.jsonl missing (run 'make run-demo' first)"; exit 1)
+	@mkdir -p data/videos
+	$(PYTHON) scripts/visualizer.py data/traces/demo.jsonl data/videos/demo.mp4
+	@echo "Video written to data/videos/demo.mp4"
 
 # -------- docker (placeholder targets; implemented in M8) --------
 docker-build:

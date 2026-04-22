@@ -57,3 +57,21 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     the golden trace byte-for-byte.
   - Added `jsonschema>=4.21,<5` to project dependencies (already pinned
     in `pyproject.toml`).
+- Visualizer (M5):
+  - `scripts/visualizer.py` — render any valid trace JSONL to an MP4 via
+    `cv2.VideoWriter` (mp4v codec, no ffmpeg dependency). Draws each
+    drone as a filled circle (blue Team A, red Team B), a faint
+    disable-range ring, and a cyan cooldown bar. Dead drones render as
+    grey X markers. Coordinate system is Y-down to match the engine
+    (SPECIFICATION §1.2) — OpenCV is natively Y-down so no axis flip.
+  - HUD overlay with tick / alive counts / final outcome.
+  - CLI flags: `--fps`, `--resolution WxH`, `--arena WxH`,
+    `--disable-range`, `--no-range-ring`, `-v`.
+  - `tests/test_visualizer.py` — 8 tests: golden-trace round-trip
+    matches frame count, resolution honoured, Y-down correctness
+    (drone at y=50 renders in top half), distinct team colors, dead
+    drones suppress the range ring, cooldown bar scales with cooldown,
+    CLI rejects missing trace (exit 2, structured stderr), malformed
+    JSON raises `ValueError`.
+  - `make visualize-demo` target renders `data/traces/demo.jsonl` →
+    `data/videos/demo.mp4`.
