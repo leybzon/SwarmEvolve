@@ -127,3 +127,39 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   - `tests/test_orchestrator_cli.py` — argument parsing, `--help`,
     stub sub-command exits, in-process tests for `detect_compiler`,
     `JsonFormatter`, and the `MockClient` queue.
+- Live LLM integration (early slice of M10):
+  - `scripts/llm_client.py` extended with a real `AnthropicClient`
+    wrapping `anthropic.Anthropic.messages.create`. Reads
+    `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` from the environment so
+    secrets never appear on the command line or in persisted files.
+    Exponential-backoff retry for transient errors
+    (`APIConnectionError`, `APITimeoutError`, `RateLimitError`,
+    `InternalServerError`); fatal errors are redacted via
+    `redact_secrets` before surfacing.
+  - `LLMError`, `extract_cpp_block(text)` (prefers ``` ```cpp ``` ``` /
+    ``` ```c++ ``` ``` fences, falls back to any fenced block), and a
+    frozen `LLMResponse` dataclass with token counts + stop reason.
+  - `prompts/evolve_ai.md` — single-turn prompt template. Placeholders:
+    `{TEAM_LETTER}`, `{NAMESPACE}`, `{OPPONENT_NAME}`,
+    `{OPPONENT_SOURCE}`, `{TYPES_HEADER}`, `{ABI_HEADER}`. Enumerates
+    hard rules (no heap / no STL / no I/O / no `goto` loops /
+    braced bodies only / pure function of inputs).
+  - `scripts/evolve_once.py` — single-shot driver: render prompt →
+    `AnthropicClient.generate` (or `--client=mock` for offline tests)
+    → `extract_cpp_block` → banned-token lint → guard injection →
+    delegate to `scripts/orchestrator.py run` → consolidate
+    `evolve_once.json` summary beside the match's `results.json`.
+    Exit codes 20/21/22/23/24 for LLM / parse / lint / inject /
+    orchestrator failures respectively.
+  - `tests/test_llm_client.py` — 15 tests: fence extraction (tagged,
+    untagged, case-insensitive, cpp-preferred), secret redaction,
+    `MockClient` queue semantics, and an `AnthropicClient` stub-SDK
+    triple (happy path, transient-error retry, fatal-error
+    redaction).
+  - `tests/test_evolve_once.py` — 4 offline pipeline tests using
+    `--client=mock`: dry-run, mock-pursuit vs stationary end-to-end
+    (pursuit wins), banned-token rejection (`std::vector`), and
+    parse-fail on a fenceless response.
+  - `anthropic>=0.34,<1` moved from optional `[llm]` to actively
+    exercised; install with `pip install swarmevolve[llm]` or a
+    plain `pip install anthropic`.
