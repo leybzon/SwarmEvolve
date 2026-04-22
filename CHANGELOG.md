@@ -28,3 +28,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   cooldown decrement, and termination.
 - Opt-in `SANITIZE=1` Makefile switch (Linux CI uses it; macOS defaults to
   off to avoid Homebrew-LLVM ASan dyld issues).
+- Baseline AIs (M3): `src/a/team_a_ai.cpp` (nearest-enemy pursuit) and
+  `src/b/team_b_ai.cpp` (weighted cluster + focus-fire with opportunistic
+  in-range fallback).
+- Frozen baseline corpus under `src/baselines/` (`pursuit_v1.cpp`,
+  `cluster_v1.cpp`, `stationary_v1.cpp`) using the `TEAM_NS_PLACEHOLDER`
+  namespace token so one source can be rendered into either `TeamA` or
+  `TeamB` by the test harness.
+- `src/baselines/README.md` documents the freeze policy (version-bump,
+  never edit-in-place).
+- `tests/test_baselines.py` — pytest integration suite: pursuit vs
+  stationary ≥ 95/100, pursuit vs cluster no side > 80%, determinism
+  (same seed → byte-identical trace; different seed → different trace),
+  banned-token lint applied to all frozen baselines.

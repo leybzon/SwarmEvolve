@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 //
-// Team B AI — "Cluster + Focus-Fire" baseline (M3).
+// "Cluster + Focus-Fire" baseline (M3). FROZEN COPY.
+//
+// Uses placeholder namespace `TEAM_NS_PLACEHOLDER`; see
+// src/baselines/pursuit_v1.cpp for the rationale.
 //
 // Strategy:
 //   1. Compute the centroid of all alive allies. This biases the swarm to
@@ -30,7 +33,7 @@
 
 #include <cmath>
 
-namespace TeamB {
+namespace TEAM_NS_PLACEHOLDER {
 
 namespace {
 
@@ -185,4 +188,4 @@ void drone_ai(int          my_id,
     out_action->message_out[3] = static_cast<float>(alive_count);
 }
 
-}  // namespace TeamB
+}  // namespace TEAM_NS_PLACEHOLDER
