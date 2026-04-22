@@ -49,8 +49,9 @@ milestone's exit criteria are green.
 | M10 | LLM client + evolutionary loop  | 3 days   | host           | med    |
 | M11 | GPU port + profiling            | 3 days   | Linux/NVIDIA   | high   |
 | M12 | Tournament + analysis tooling   | 2 days   | host           | low    |
+| M13 | GPU scaling study (1K–100K drones) | 3 days | NVIDIA Spark   | high   |
 
-Total estimate: ~27 engineer-days. Parallelizable across two engineers after M4.
+Total estimate: ~30 engineer-days. Parallelizable across two engineers after M4.
 
 ---
 
@@ -528,9 +529,183 @@ boundary with no host filesystem or network exposure.
 
 ---
 
-## 15. Cross-Cutting Practices
+## 15. Milestone M13 — GPU Scaling Study (1K–100K drones)
 
-### 15.1 Testing Strategy
+**Goal**: Honestly answer the question deferred from M11 — *does the
+OpenACC GPU port deliver real end-to-end acceleration at realistic
+tournament scales?* — by measuring wall-clock of a single match on
+both CPU and GPU backends as the drone count scales from 1 000 up to
+100 000 drones. Report the result whether favourable or not; if GPU
+fails to beat CPU in any regime, say so in a committed perf-report
+artefact and recommend next steps.
+
+### Approach
+
+- **Hardware target**: NVIDIA DGX Spark (or equivalent NVIDIA box),
+  Linux toolchain with `nvc++` + OpenACC.
+- **Stress axes**:
+  - *Drone count* `N ∈ {1 000, 10 000, 100 000}` with 50/50 Team A/Team B
+    split.
+  - *Arena size* scaled with `√N` to hold density approximately constant
+    (primary axis). Fixed-arena and fixed-N/scaled-arena variants are
+    tracked as stretch runs.
+- **Baselines**:
+  - *CPU-single*: engine built with `clang++`/`g++`, single-threaded.
+  - *CPU-all-cores*: same engine with an OpenMP parallel-for over the
+    per-drone query phase. The honest benchmark is GPU vs this, not
+    GPU vs single-core.
+- **Measurement hygiene (the hot path must be pure compute)**:
+  - No trace recording (`--record` disabled for benchmark runs).
+  - No `ExperimentLog` events inside the tick loop; bookends only.
+  - No Python orchestrator involvement — C++ binary invoked directly
+    with a new `--benchmark` mode.
+  - No `#pragma acc` `present()` debug checks.
+  - No video, no visualization, no per-tick stdout.
+- **ABI preserved**: we intentionally keep the O(N²) neighbour-inspection
+  pattern in the AI ABI. The point of this milestone is to stress the
+  GPU with exactly the workload it is theoretically good at — changing
+  the ABI to k-nearest or spatial hashing would defeat the experiment.
+  Per-AI arithmetic complexity is held constant; only `N` moves.
+- **Match definition for scaling runs**: 200 ticks, fixed seed, both
+  AIs = the pursuit baseline (removes AI-side variance from the signal).
+
+### Deliverables
+
+- `src/engine_bench.cpp` (or a `--benchmark` flag on the existing
+  engine binary) — minimal entry point that:
+  - Accepts `--n-drones`, `--ticks`, `--arena-scale`, `--backend
+    {cpu1,cpu_omp,gpu}`, `--repeats`.
+  - Runs N repeats of a fixed-seed match, prints a single JSON line
+    per repeat: `{"backend":..., "n":..., "ticks":..., "wall_ms":...,
+    "per_tick_us":...}`.
+  - No trace, no logging, no side effects beyond stdout.
+- `scripts/bench_gpu.py` — driver that sweeps `(backend, N, repeats)`,
+  collects the JSON lines, writes a canonical `bench_results.json`
+  plus a pivoted `bench_results.csv`.
+- `scripts/bench_plot.py` — produces:
+  - `wall_ms_vs_N.png` (log-log): CPU1, CPU-OMP, GPU overlay.
+  - `speedup_vs_N.png`: GPU ÷ CPU-OMP as a function of N.
+  - `per_tick_us_vs_N.png`.
+- `docs/perf_report.md` — the committed finding artefact. Must
+  contain:
+  - Hardware + software provenance (GPU model, driver, compiler,
+    commit SHA).
+  - Methodology section (exact command lines, seed, arena scaling
+    rule, what was stripped from the hot path).
+  - Raw data table.
+  - The three plots above.
+  - A one-paragraph *honest conclusion*: either "GPU ≥10× CPU-OMP at
+    N=X (crossover at N=Y)" or "GPU did not exceed CPU-OMP speedup of
+    Z× in the tested regime; recommend next steps A/B/C".
+- `Makefile` targets: `bench-cpu1`, `bench-cpu-omp`, `bench-gpu`,
+  `bench-all` (runs the sweep and regenerates the report).
+- OpenMP port of the per-drone query phase in `src/engine.cpp`
+  (minimal, single `#pragma omp parallel for`; guarded by
+  `#ifdef _OPENMP`). Must remain deterministic — no reductions over
+  RNG, no shared mutable state. Golden-trace determinism tests
+  (from M4) must still pass with OpenMP enabled.
+
+### Tests
+
+- [ ] `test_bench_binary_smoke` — `--benchmark --n-drones 1000
+      --ticks 10 --backend cpu1` runs in < 5 s and emits a parseable
+      JSON line.
+- [ ] `test_bench_backends_agree_at_small_N` — CPU1, CPU-OMP, GPU
+      produce identical final drone state for `N=64, ticks=100,
+      seed=42`. (Determinism preservation across backends.)
+- [ ] `test_bench_no_side_effects` — running `--benchmark` produces
+      no files on disk other than stdout JSON.
+- [ ] `test_bench_plot_regenerates_from_canonical_json` — given a
+      fixture `bench_results.json`, `scripts/bench_plot.py` produces
+      byte-stable-ish PNGs (size + hash of a downscaled version) and
+      never touches the network.
+- [ ] `test_perf_report_contains_conclusion` — `docs/perf_report.md`
+      must contain one of the two required conclusion sentences
+      (regex-matched); the CI gate forces an honest wrap-up.
+
+### Exit criteria
+
+M13 is **deliverable-gated**, not performance-gated. The milestone
+closes when:
+
+- [ ] `docs/perf_report.md` is committed with full methodology, raw
+      data at `N ∈ {1 000, 10 000, 100 000}` on CPU1, CPU-OMP, and
+      GPU backends, measured on NVIDIA Spark.
+- [ ] `make bench-all` reproduces the report's raw data within
+      tolerance on the same machine.
+- [ ] All four scaling plots are regenerable from
+      `bench_results.json` via `scripts/bench_plot.py`.
+- [ ] The report contains an explicit, honest conclusion sentence —
+      if GPU ≥10× CPU-OMP somewhere on the grid, we celebrate and
+      report the crossover N; if not, the report states this and
+      names concrete next steps (larger batches, kernel fusion,
+      async streams, or dropping the OpenACC path).
+- [ ] OpenMP addition does not break any existing determinism or
+      unit test (full suite stays green).
+
+### Risks and mitigations
+
+- **GPU TDR at large N** — at 100K drones with O(N²) inspection, per-
+  kernel time can blow through the Windows/Linux watchdog limit.
+  *Mitigation*: tile the query phase into chunks of ≤`CHUNK_DRONES`
+  drones per kernel launch; `CHUNK_DRONES` is a compile-time knob.
+- **OpenMP non-determinism** — if any reduction accidentally depends
+  on thread interleaving, the cross-backend equality test fails.
+  *Mitigation*: the OpenMP port only parallelises the read-only query
+  phase (which writes to per-drone output slots, no reductions); the
+  movement/combat phases stay serial.
+- **Hardware access risk** — if Spark is unavailable, M13 stalls.
+  *Mitigation*: CPU1 + CPU-OMP halves of the sweep can be produced on
+  any Linux box and committed first; the GPU half is overlaid when
+  Spark is available.
+- **Measurement noise at small N** — 1K drones × 200 ticks may
+  complete in single-digit milliseconds, dominated by kernel launch
+  overhead. *Mitigation*: `--repeats ≥ 30` at each `(backend, N)`;
+  report median + IQR, not mean.
+- **Memory blow-up at 100K** — `AllyState[100000]` inspection arrays
+  per drone would be ~GB-scale if naively allocated per tick.
+  *Mitigation*: the engine already uses a single shared arena for
+  per-tick state; we audit the allocation path before the big run.
+
+### Scope-outs (explicit)
+
+- No multi-GPU, no NCCL, no distributed runs.
+- No async overlap with LLM calls or orchestrator.
+- No JIT compilation, no PTX hand-tuning.
+- No change to the AI ABI (no k-nearest, no spatial hashing). If the
+  O(N²) pattern is what's killing us, that's a finding, not a
+  defect to fix inside M13.
+- No video output, no visualization regeneration in the benchmark
+  path.
+- No new tournament or evolution functionality.
+
+### Deferred ideas captured for future milestones
+
+Explicitly documented so they are not lost, but **out of scope for
+M13**:
+
+- **M14 candidate — Media & demo artefacts**: video compilation of
+  "most informative" matches (deferred from M12), shareable web
+  report, demo MP4 pipeline.
+- **M15 candidate — Richer evolution operators**: crossover, island
+  model, novelty search, tournament-driven selection replacing pure
+  elitism in `scripts/evolve.py`.
+- **M16 candidate — Platform hardening**: self-hosted GPU CI runner,
+  full-tournament replay-from-seeds reproducibility audit, sandbox
+  security review, longer-run reliability.
+- **M17 candidate — Scientific write-up**: multi-day end-to-end
+  evolution run, analysed and narrated as a paper-style artefact
+  using the M12 tooling.
+
+Any of these may be promoted to the next milestone based on M13's
+outcome — e.g. if M13 concludes GPU is not the bottleneck, M15
+becomes higher priority than further GPU work.
+
+---
+
+## 16. Cross-Cutting Practices
+
+### 16.1 Testing Strategy
 
 | Layer                | Tool                      | Gate      |
 |----------------------|---------------------------|-----------|
@@ -550,7 +725,7 @@ boundary with no host filesystem or network exposure.
 - Every bug fix lands **with** a regression test that would have caught it.
 - No `sleep()` in tests; use event-driven waits.
 
-### 15.2 CI / CD
+### 16.2 CI / CD
 
 - PR workflow: lint → build-{macos,linux} → test-{cpp,python} → docs-check.
 - Nightly workflow: fuzz (30 min), full determinism matrix (seeds 0..99),
@@ -560,7 +735,7 @@ boundary with no host filesystem or network exposure.
 - Branch protection on `main`: required checks, linear history, signed commits
   encouraged.
 
-### 15.3 Security
+### 16.3 Security
 
 - **SECURITY.md** describes disclosure process (private email, 90-day window).
 - **Secrets** only in `.env` (git-ignored) and GitHub Actions secrets;
@@ -576,7 +751,7 @@ boundary with no host filesystem or network exposure.
 - **Code provenance**: every compiled AI binary traceable to an LLM response
   ID + prompt hash stored in the experiment log.
 
-### 15.4 Documentation Discipline
+### 16.4 Documentation Discipline
 
 - A PR that changes engine behavior must update `SPECIFICATION.md` in the same
   commit. CI `docs-check` job:
@@ -586,7 +761,7 @@ boundary with no host filesystem or network exposure.
   - Runs `markdownlint`.
 - `CHANGELOG.md` updated per PR under `## Unreleased`.
 
-### 15.5 Performance & Observability
+### 16.5 Performance & Observability
 
 - Every engine run emits a final stderr line:
   `METRICS ticks=<n> ms=<n> drones_a=<n> drones_b=<n> outcome=<tag>`.
@@ -595,7 +770,7 @@ boundary with no host filesystem or network exposure.
 - Regression budget: a PR that adds more than 10% wall-clock to
   `baselines/pursuit vs cluster, seed=0, 1000 ticks` must explain why.
 
-### 15.6 Code Style
+### 16.6 Code Style
 
 - C++17; `clang-format` config in repo; `-Wall -Wextra -Werror -Wshadow
   -Wpedantic`.
@@ -604,7 +779,7 @@ boundary with no host filesystem or network exposure.
 - Shell: `shellcheck` clean.
 - No TODOs without an issue link: `// TODO(#123): ...`.
 
-### 15.7 Reproducibility
+### 16.7 Reproducibility
 
 - Every experiment directory includes:
   - Exact git SHA of repo.
@@ -614,7 +789,7 @@ boundary with no host filesystem or network exposure.
 - `scripts/reproduce.py <experiment_id>` rebuilds the environment and reruns
   the experiment; CI validates reproducibility weekly on a small preset.
 
-### 15.8 Evolutionary-Loop Safety
+### 16.8 Evolutionary-Loop Safety
 
 - Hard cap on per-generation compile failures (default 5) before the loop
   aborts and surfaces the last successful checkpoint.
@@ -625,7 +800,7 @@ boundary with no host filesystem or network exposure.
 
 ---
 
-## 16. Risk Register
+## 17. Risk Register
 
 | Risk                                            | Likelihood | Impact | Mitigation |
 |-------------------------------------------------|------------|--------|------------|
@@ -639,7 +814,7 @@ boundary with no host filesystem or network exposure.
 
 ---
 
-## 17. Definition of Done (Project-Level)
+## 18. Definition of Done (Project-Level)
 
 - [ ] M0–M12 exit criteria all green on `main`.
 - [ ] One end-to-end evolutionary run (≥ 50 generations) archived in
@@ -652,7 +827,7 @@ boundary with no host filesystem or network exposure.
 
 ---
 
-## 18. Open Decisions (Revisit Before M10)
+## 19. Open Decisions (Revisit Before M10)
 
 These are intentionally deferred; decide when the corresponding milestone
 begins, document in this section, and commit.
