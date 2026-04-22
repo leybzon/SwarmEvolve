@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://swarmevolve/docs/results_schema.json",
+  "title": "Orchestrator Match Results",
+  "description": "Structured output of `scripts/orchestrator.py run` — one record describing one match (compile + execute). Written to <out-dir>/results.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "team_a",
+    "team_b",
+    "seed",
+    "max_ticks",
+    "compile",
+    "match",
+    "artifacts",
+    "host"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Bumped on every breaking change to this schema."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "compile_failed", "engine_crashed", "timeout", "invalid_input"],
+      "description": "Terminal status of the match pipeline."
+    },
+    "team_a": {
+      "$ref": "#/definitions/team"
+    },
+    "team_b": {
+      "$ref": "#/definitions/team"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_ticks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "compile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compiler", "flags", "return_code", "wall_ms"],
+      "properties": {
+        "compiler": {
+          "type": "string",
+          "description": "Path or name of the C++ compiler used."
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "return_code": {
+          "type": "integer"
+        },
+        "wall_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" }
+      }
+    },
+    "match": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Null when compile failed. Otherwise the engine-run summary.",
+      "required": ["return_code", "outcome", "ticks", "a_alive", "b_alive", "wall_ms"],
+      "properties": {
+        "return_code": {
+          "type": "integer",
+          "description": "Engine exit code: 0=A wins, 1=B wins, 2=draw."
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["A_WIN", "B_WIN", "DRAW"]
+        },
+        "ticks": { "type": "integer", "minimum": 0 },
+        "a_alive": { "type": "integer", "minimum": 0 },
+        "b_alive": { "type": "integer", "minimum": 0 },
+        "wall_ms": { "type": "integer", "minimum": 0 },
+        "stderr_tail": {
+          "type": "string",
+          "description": "Last ~4 KiB of engine stderr, for debugging."
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trace_path": {
+          "type": ["string", "null"],
+          "description": "Absolute path to the JSONL trace file, or null if --no-record."
+        },
+        "video_path": {
+          "type": ["string", "null"],
+          "description": "Absolute path to the rendered MP4, or null if --no-video."
+        },
+        "binary_path": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "python", "git_sha"],
+      "properties": {
+        "platform": { "type": "string" },
+        "python": { "type": "string" },
+        "git_sha": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "definitions": {
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_path", "source_sha256"],
+      "properties": {
+        "source_path": {
+          "type": "string",
+          "description": "Absolute path to the AI source file at run time."
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "injected": {
+          "type": "boolean",
+          "description": "True if guard injection was applied to this source."
+        }
+      }
+    }
+  }
+}

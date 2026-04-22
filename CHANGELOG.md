@@ -99,3 +99,31 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
     fixtures (subprocess with 1s timeout), integration test injecting
     into `pursuit_v1` / `cluster_v1` and compiling them against the
     engine, CLI `--check` mode exit codes.
+- Orchestrator CLI (M7):
+  - `scripts/orchestrator.py` — `run` sub-command renders both AI sources
+    (with `TEAM_NS_PLACEHOLDER` substitution), compiles them into a
+    single engine binary under `<out-dir>/build/`, executes one match
+    with configurable `--seed` / `--max-ticks` / `--drones-a` / `--drones-b`
+    / `--timeout`, and writes a structured `results.json`. Optional
+    `--video` hands the trace to `scripts/visualizer.py`. Stub
+    sub-commands `evaluate` (M9), `evolve` (M10), `tournament` (M12)
+    return `EXIT_INVALID_INPUT` with a `not-implemented` log record.
+  - Exit codes: `0` success, `2` invalid input / missing AI, `3`
+    compilation failed, `4` engine crash / timeout, `10` internal error.
+  - JSON-formatted structured logs (`-v` info, `-vv` debug).
+  - `docs/results_schema.json` (JSON Schema draft-07) — normative
+    description of `results.json` (`schema_version=1`, `status`,
+    `team_{a,b}` with SHA-256, `compile`, `match`, `artifacts`, `host`).
+  - `scripts/llm_client.py` — `LLMClient` protocol + `LLMResponse`
+    dataclass + `StubClient` / `MockClient` (M10 replaces the stub
+    with real Anthropic / Gemini adapters).
+  - `scripts/fitness.py` — `FitnessResult` dataclass + `evaluate_fitness`
+    API stub (M9 replaces the body).
+  - `tests/test_orchestrator_run.py` — end-to-end: happy path matches
+    golden outcome (`DRAW` @ tick 116, `pursuit_v1 vs cluster_v1`
+    seed=42); `--no-record` suppresses trace; missing AI → exit 2;
+    compile failure → exit 3 + structured `results.json`; forced timeout
+    → exit 4; no artifact paths ever escape `--out-dir`.
+  - `tests/test_orchestrator_cli.py` — argument parsing, `--help`,
+    stub sub-command exits, in-process tests for `detect_compiler`,
+    `JsonFormatter`, and the `MockClient` queue.
