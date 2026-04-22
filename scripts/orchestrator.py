@@ -581,9 +581,200 @@ def _render_video(trace_path: Path, video_path: Path, logger: logging.Logger) ->
 # ------------------------------------------------------------------------
 
 def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
-    logger.error("not-implemented",
-                 extra={"extra_fields": {"command": "evaluate", "milestone": "M9"}})
-    return EXIT_INVALID_INPUT
+    """(M9) Run ``--n-matches`` seeded matches and emit fitness.json + events.jsonl.
+
+    Unlike ``run``, this sub-command never emits a trace by default —
+    fitness evaluation is about aggregate stats across many matches,
+    not per-match introspection. ``--record-traces`` re-enables them
+    but is off by default to keep disk usage bounded.
+    """
+    # Local imports so fitness.py / experiment_log.py remain optional
+    # for callers that only use `run`.
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import fitness as _fitness  # noqa: PLC0415
+    import experiment_log as _explog  # noqa: PLC0415
+
+    team_a = Path(args.team_a).resolve()
+    team_b = Path(args.team_b).resolve()
+    if not team_a.is_file():
+        logger.error("missing-team-a-source",
+                     extra={"extra_fields": {"path": str(team_a)}})
+        return EXIT_INVALID_INPUT
+    if not team_b.is_file():
+        logger.error("missing-team-b-source",
+                     extra={"extra_fields": {"path": str(team_b)}})
+        return EXIT_INVALID_INPUT
+
+    if args.out_dir is None:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        out_dir = REPO_ROOT / "data" / "experiments" / f"eval_{stamp}"
+    else:
+        out_dir = Path(args.out_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    compiler = args.compiler or detect_compiler()
+    if compiler is None:
+        logger.error("no-compiler-found")
+        return EXIT_INVALID_INPUT
+
+    cfg = {
+        "n_matches": args.n_matches,
+        "seed_base": args.seed_base,
+        "workers": args.workers,
+        "max_ticks": args.max_ticks,
+        "timeout": args.timeout,
+        "compiler": compiler,
+    }
+
+    try:
+        with _explog.ExperimentLog(out_dir) as log:
+            log.write_start(
+                experiment_type="fitness",
+                team_a_src=team_a,
+                team_b_src=team_b,
+                config=cfg,
+            )
+            logger.info("evaluate-start", extra={"extra_fields": cfg})
+            try:
+                result = _fitness.evaluate_fitness(
+                    team_a, team_b,
+                    n_matches=args.n_matches,
+                    seed_base=args.seed_base,
+                    workers=args.workers,
+                    max_ticks=args.max_ticks,
+                    timeout=args.timeout,
+                    compiler=compiler,
+                    scratch_root=out_dir / "build",
+                )
+            except _fitness.CompileError as exc:
+                log.write("compile_failed", error=str(exc))
+                logger.error("compile-failed",
+                             extra={"extra_fields": {"error": str(exc)[:512]}})
+                return EXIT_COMPILE_FAILED
+            except (FileNotFoundError, ValueError, RuntimeError) as exc:
+                log.write("evaluate_failed", error=str(exc))
+                logger.error("evaluate-failed",
+                             extra={"extra_fields": {"error": str(exc)}})
+                return EXIT_INVALID_INPUT
+
+            # Record every match individually so replay can walk the log.
+            for match in result.per_match:
+                log.write("match_result", **match)
+            log.write(
+                "fitness_summary",
+                wins_a=result.wins_a, wins_b=result.wins_b,
+                draws=result.draws, invalid=result.invalid,
+                mean=result.mean, stdev=result.stdev,
+                ci_low=result.ci_low, ci_high=result.ci_high,
+                wall_seconds=result.wall_seconds,
+            )
+
+        # Write fitness.json OUTSIDE the log ctx so the log is closed
+        # before we touch the sibling file; avoids interleaving.
+        fitness_path = out_dir / "fitness.json"
+        fitness_path.write_text(
+            json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n"
+        )
+        logger.info("evaluate-done",
+                    extra={"extra_fields": {
+                        "wins_a": result.wins_a, "wins_b": result.wins_b,
+                        "draws": result.draws, "mean": result.mean,
+                        "fitness_path": str(fitness_path),
+                    }})
+
+        # Guard: if more than half the matches crashed/timeout'd, surface
+        # that as a pipeline error instead of silently returning 0.
+        if result.n_matches > 0 and result.invalid * 2 > result.n_matches:
+            logger.error("too-many-invalid-matches",
+                         extra={"extra_fields": {
+                             "invalid": result.invalid,
+                             "n_matches": result.n_matches,
+                         }})
+            return EXIT_RUN_FAILED
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("evaluate-internal-error",
+                         extra={"extra_fields": {"error": str(exc)}})
+        return EXIT_INTERNAL
+    return EXIT_OK
+
+
+def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
+    """(M9) Re-run the exact matches captured in a previous ``events.jsonl``.
+
+    The replay must reproduce the original ``fitness_summary`` bit-for-
+    bit (mean, stdev, wins, draws). Any divergence exits 4.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import fitness as _fitness  # noqa: PLC0415
+    import experiment_log as _explog  # noqa: PLC0415
+
+    run_dir = Path(args.run_dir).resolve()
+    if not run_dir.is_dir():
+        logger.error("missing-run-dir",
+                     extra={"extra_fields": {"path": str(run_dir)}})
+        return EXIT_INVALID_INPUT
+
+    try:
+        events = _explog.ExperimentLog.read(run_dir)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.error("bad-events-log",
+                     extra={"extra_fields": {"error": str(exc)}})
+        return EXIT_INVALID_INPUT
+
+    start_ev = next((e for e in events if e.get("type") == "experiment_start"), None)
+    summary_ev = next((e for e in events if e.get("type") == "fitness_summary"), None)
+    if start_ev is None or summary_ev is None:
+        logger.error("events-missing-start-or-summary")
+        return EXIT_INVALID_INPUT
+    if start_ev.get("experiment_type") != "fitness":
+        logger.error("not-a-fitness-run",
+                     extra={"extra_fields": {
+                         "experiment_type": start_ev.get("experiment_type"),
+                     }})
+        return EXIT_INVALID_INPUT
+
+    env = start_ev.get("environment", {})
+    team_a = Path(env.get("team_a", {}).get("path", ""))
+    team_b = Path(env.get("team_b", {}).get("path", ""))
+    cfg = start_ev.get("config", {})
+    if not team_a.is_file() or not team_b.is_file():
+        logger.error("source-file-missing-for-replay",
+                     extra={"extra_fields": {
+                         "team_a": str(team_a), "team_b": str(team_b),
+                     }})
+        return EXIT_INVALID_INPUT
+
+    logger.info("replay-start",
+                extra={"extra_fields": {"run_dir": str(run_dir),
+                                         "n_matches": cfg.get("n_matches")}})
+    result = _fitness.evaluate_fitness(
+        team_a, team_b,
+        n_matches=cfg.get("n_matches", 1),
+        seed_base=cfg.get("seed_base", 0),
+        workers=cfg.get("workers"),
+        max_ticks=cfg.get("max_ticks", 1000),
+        timeout=cfg.get("timeout", 10.0),
+        compiler=cfg.get("compiler"),
+        scratch_root=run_dir / "replay_build",
+    )
+
+    # Compare the reproducible subset of fields; ci/wall_seconds are
+    # deterministic *given* the scores, so we check those too.
+    for key in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev",
+                "ci_low", "ci_high"):
+        original = summary_ev.get(key)
+        replayed = getattr(result, key)
+        if original != replayed:
+            logger.error("replay-divergence",
+                         extra={"extra_fields": {
+                             "field": key, "original": original,
+                             "replayed": replayed,
+                         }})
+            return EXIT_RUN_FAILED
+
+    logger.info("replay-ok",
+                extra={"extra_fields": {"run_dir": str(run_dir)}})
+    return EXIT_OK
 
 
 def cmd_evolve(args: argparse.Namespace, logger: logging.Logger) -> int:
@@ -646,8 +837,37 @@ def build_parser() -> argparse.ArgumentParser:
                      help="engine wall-clock timeout in seconds")
     run.set_defaults(func=cmd_run)
 
-    evaluate = sub.add_parser("evaluate", help="(M9) run N matches and compute fitness")
+    evaluate = sub.add_parser(
+        "evaluate",
+        help="run N matches, compute fitness, and write events.jsonl + fitness.json",
+    )
+    evaluate.add_argument("--team-a", required=True,
+                          help="path to Team A AI source file")
+    evaluate.add_argument("--team-b", required=True,
+                          help="path to Team B AI source file")
+    evaluate.add_argument("--n-matches", type=_positive_int, default=20,
+                          help="number of matches to run (default: 20)")
+    evaluate.add_argument("--seed-base", type=_non_negative_int, default=0,
+                          help="first seed; seeds are [seed_base, seed_base+n_matches)")
+    evaluate.add_argument("--workers", type=_positive_int, default=None,
+                          help="worker processes; default: min(cpu_count, n_matches)")
+    evaluate.add_argument("--max-ticks", type=_positive_int, default=1000,
+                          help="per-match tick cap (default: 1000)")
+    evaluate.add_argument("--timeout", type=float, default=10.0,
+                          help="per-match wall-clock timeout in seconds (default: 10)")
+    evaluate.add_argument("--compiler", default=None,
+                          help="override C++ compiler; default: $CXX or auto-detect")
+    evaluate.add_argument("--out-dir", default=None,
+                          help="where to write fitness.json + events.jsonl")
     evaluate.set_defaults(func=cmd_evaluate)
+
+    replay = sub.add_parser(
+        "replay",
+        help="re-run a previous fitness experiment and verify byte-identical summary",
+    )
+    replay.add_argument("run_dir",
+                        help="path to a previous experiment directory (contains events.jsonl)")
+    replay.set_defaults(func=cmd_replay)
 
     evolve = sub.add_parser("evolve", help="(M10) closed-loop LLM evolution")
     evolve.set_defaults(func=cmd_evolve)

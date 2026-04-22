@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://swarmevolve.io/schemas/fitness.v1.json",
+  "title": "FitnessResult",
+  "description": "Aggregate fitness output produced by scripts/fitness.py and written to <out-dir>/fitness.json by `orchestrator.py evaluate`. See IMPLEMENTATION_PLAN §M9.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "team_a_path",
+    "team_b_path",
+    "n_matches",
+    "seed_base",
+    "wins_a",
+    "wins_b",
+    "draws",
+    "invalid",
+    "mean",
+    "stdev",
+    "ci_low",
+    "ci_high",
+    "wall_seconds",
+    "workers",
+    "compiler",
+    "per_match"
+  ],
+  "properties": {
+    "team_a_path": {"type": "string"},
+    "team_b_path": {"type": "string"},
+    "n_matches": {"type": "integer", "minimum": 1},
+    "seed_base": {"type": "integer", "minimum": 0},
+    "wins_a": {"type": "integer", "minimum": 0},
+    "wins_b": {"type": "integer", "minimum": 0},
+    "draws": {"type": "integer", "minimum": 0},
+    "invalid": {"type": "integer", "minimum": 0},
+    "mean": {"type": "number", "minimum": -1, "maximum": 1},
+    "stdev": {"type": "number", "minimum": 0},
+    "ci_low": {"type": ["number", "null"]},
+    "ci_high": {"type": ["number", "null"]},
+    "wall_seconds": {"type": "number", "minimum": 0},
+    "workers": {"type": "integer", "minimum": 1},
+    "compiler": {"type": "string"},
+    "per_match": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seed",
+          "outcome",
+          "score",
+          "ticks",
+          "wall_ms",
+          "a_alive",
+          "b_alive",
+          "return_code"
+        ],
+        "properties": {
+          "seed": {"type": "integer", "minimum": 0},
+          "outcome": {
+            "enum": ["A_WIN", "B_WIN", "DRAW", "TIMEOUT", "CRASH"]
+          },
+          "score": {"type": "number", "minimum": -1, "maximum": 1},
+          "ticks": {"type": "integer", "minimum": 0},
+          "wall_ms": {"type": "integer", "minimum": 0},
+          "a_alive": {"type": "integer", "minimum": 0},
+          "b_alive": {"type": "integer", "minimum": 0},
+          "return_code": {"type": "integer"}
+        }
+      }
+    }
+  }
+}

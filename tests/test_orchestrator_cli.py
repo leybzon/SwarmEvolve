@@ -80,11 +80,12 @@ def test_run_rejects_zero_drones():
     assert result.returncode != 0
 
 
-def test_evaluate_stub_returns_invalid_input():
-    # Parsing succeeds; stub handler returns EXIT_INVALID_INPUT.
+def test_evaluate_requires_team_paths():
+    # M9 promoted `evaluate` from stub → real. Missing required args are
+    # argparse errors (exit 2) rather than the old "not-implemented" stub.
     result = _run(["evaluate"])
-    assert result.returncode == orchestrator.EXIT_INVALID_INPUT
-    assert "not-implemented" in result.stderr
+    assert result.returncode == 2  # argparse's own usage-error code
+    assert "--team-a" in result.stderr
 
 
 def test_evolve_stub_returns_invalid_input():
@@ -176,12 +177,11 @@ def test_json_formatter_emits_single_line():
 
 def test_stubs_raise_not_implemented():
     import llm_client as _llm  # noqa: E402 — scripts/ on sys.path above
-    import fitness as _fit
 
     with pytest.raises(NotImplementedError):
         _llm.StubClient().generate("hi")
-    with pytest.raises(NotImplementedError):
-        _fit.evaluate_fitness("/a", "/b", n_matches=1)
+    # NB: fitness.evaluate_fitness is no longer a stub as of M9 — see
+    # test_fitness.py for its real-behaviour contract tests.
 
 
 def test_mock_llm_client_returns_queued_responses():

@@ -195,3 +195,54 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   - Tests skip cleanly when no container runtime or sandbox image is
     present. On macOS with Colima, tests stage temp dirs under
     `~/.pytest-sandbox` because Colima's virtiofs only shares `$HOME`.
+- Fitness evaluator & experiment logging (M9):
+  - `scripts/fitness.py` — promoted from stub to real implementation.
+    `evaluate_fitness(team_a, team_b, *, n_matches, seed_base, workers,
+    ...)` compiles each pairing once per worker, dispatches matches
+    across a `ProcessPoolExecutor` with round-robin seed partitioning,
+    and returns a frozen `FitnessResult` dataclass (wins/draws/invalid,
+    mean, stdev, 95 % percentile bootstrap CI, per-match list). Scores
+    are `+1 A_WIN / -1 B_WIN / 0 DRAW`; TIMEOUT/CRASH count as
+    `invalid` rather than `draws`. The bootstrap's RNG seed is derived
+    from `sha256("ci:<seed_base>:<n_matches>")` so CIs reproduce
+    bit-identically without an extra CLI knob. Raises `CompileError`
+    on pipeline-level compile failures; single-worker path is
+    synchronous to dodge the pickle boundary.
+  - `scripts/experiment_log.py` — new append-only JSONL log
+    (`<run_dir>/events.jsonl`) with monotonic `seq`, ISO-8601 UTC
+    timestamps, and recursive secret redaction (`sk-ant-…`,
+    `sk-…{20+}`, `AIza…`, `Bearer …`). `ExperimentLog` is a context
+    manager that guarantees `experiment_error` + `experiment_end`
+    events even on exception. `build_environment_snapshot()` captures
+    git SHA, dirty flag, `pyproject.toml` hash, Python version,
+    platform, CPU count, hostname, and SHA-256 of each AI source.
+  - `scripts/orchestrator.py evaluate` — new sub-command replacing the
+    prior stub. Writes `fitness.json` (validated against
+    `docs/fitness_schema.json`) and `events.jsonl`; per-match results
+    are logged individually so `replay` can walk the log; exits 4 if
+    more than half the matches are invalid.
+  - `scripts/orchestrator.py replay <run_dir>` — new sub-command that
+    reads a prior `events.jsonl`, extracts the experiment config, and
+    re-runs `evaluate_fitness`; compares `wins_a/b/draws/invalid/mean/
+    stdev/ci_low/ci_high` field-by-field and exits 4 on any divergence.
+  - `docs/fitness_schema.json` — JSON Schema draft-07 for
+    `fitness.json`; used by the test suite to pin the output format.
+  - `tests/test_fitness.py` — 13 tests: bootstrap CI determinism +
+    seed-variance + single-sample rejection + degenerate-collapse,
+    arg validation, module-scoped `short_run` fixture sharing the
+    compile cost, field population, CI bracketing, stability (same
+    inputs → identical aggregates), workers=1 vs 2 aggregate
+    equivalence, self-play `|mean| ≤ 0.5`, JSON round-trip, and
+    `CompileError` propagation.
+  - `tests/test_experiment_log.py` — 18 tests covering all four
+    secret-key patterns, dict/list recursion, git-SHA false-positive
+    guard, non-string pass-through, environment snapshot keys,
+    monotonic `seq`, write-outside-context error, payload redaction,
+    `_raw=True` escape hatch, `write_start` shape,
+    `FileNotFoundError` on missing log, malformed-line detection,
+    exception → error+end, and append-only on reopen.
+  - `tests/test_orchestrator_evaluate.py` — 10 end-to-end CLI tests:
+    schema well-formed, `fitness.json` + `events.jsonl` shape, summary
+    matches `fitness.json`, missing `--team-a/-b` exits 2, compile
+    failure exits 3 with `compile_failed` event, replay parity exits
+    0, missing/empty run dir exit 2.
