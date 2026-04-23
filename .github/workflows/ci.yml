@@ -95,6 +95,40 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+  reproduce-smoke:
+    name: Reproducibility smoke (M20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run mini-track twice against frozen mock LLM
+        # Exits 0 only if the two back-to-back track_a runs produce the
+        # same deterministic fingerprint. Divergence => exit 30.
+        run: |
+          python3 scripts/reproduce.py \
+            --mini-config scripts/ci_fixtures/mini_track_a \
+            --out-root build/mini_track_a \
+            --seeds 1,2 \
+            --generations 2 \
+            --n-matches 3 \
+            -v
+      - name: Upload fingerprints on divergence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproduce-fingerprints
+          path: |
+            build/mini_track_a/fingerprint_a.json
+            build/mini_track_a/fingerprint_b.json
+          if-no-files-found: ignore
+
   docs-check:
     name: Docs integrity
     runs-on: ubuntu-latest

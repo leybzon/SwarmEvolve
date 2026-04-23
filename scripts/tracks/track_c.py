@@ -44,13 +44,14 @@ if str(_SCRIPTS) not in sys.path:
 
 from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT,
+    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
     PURSUIT_V1,
     build_common_parser, forward_common_argv,
     invoke_evolve,
     read_state, read_champion_path, sha256_file, copy_snapshot,
     neutralised_copy,
     summarise_lineage, write_manifest, atomic_write_json,
+    BudgetExceeded, TokenBudget,
     tournament,
 )
 
@@ -253,9 +254,11 @@ def _run_coevo(
     seed_ai_a: Path, seed_ai_b: Path,
     generations: int, yardstick_every: int, yardstick_n_matches: int,
     common_argv: list[str], resume: bool, workers: int | None,
-) -> dict[str, Path]:
+    budget: TokenBudget, track_root: Path,
+) -> tuple[dict[str, Path], bool]:
     """Drive the two lineages in lock-step. Returns the final champion
-    path for each lineage."""
+    path for each lineage and a flag that is True iff the budget
+    tripped during the run."""
     coevo_dir.mkdir(parents=True, exist_ok=True)
 
     # Seed snapshots.
@@ -273,6 +276,11 @@ def _run_coevo(
     current = {"A": champion_a, "B": champion_b}
 
     for gen_idx in range(generations):
+        try:
+            budget.enforce(track_root, logger=_LOG)
+        except BudgetExceeded as e:
+            _LOG.error("%s", e)
+            return current, True
         # Snapshot both champions at the start of the round so that
         # each lineage's step sees the *same* opponent throughout gen_idx.
         opp_snapshots = dict(current)
@@ -316,7 +324,7 @@ def _run_coevo(
                 workers=workers,
             )
 
-    return current
+    return current, False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -352,11 +360,13 @@ def main(argv: list[str] | None = None) -> int:
     common_argv = forward_common_argv(args)
     ys_every = max(0, args.yardstick_every)
     ys_n = args.yardstick_n_matches or args.n_matches
+    budget = TokenBudget(max_tokens=max(0, args.max_tokens))
 
     lineages: list = []
+    budget_exceeded = False
     for seed in seeds:
         coevo_dir = _coevo_dir(track_root, seed)
-        final = _run_coevo(
+        final, tripped = _run_coevo(
             seed=seed, coevo_dir=coevo_dir,
             seed_ai_a=seed_ai_a, seed_ai_b=seed_ai_b,
             generations=args.generations,
@@ -364,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
             yardstick_n_matches=ys_n,
             common_argv=common_argv, resume=args.resume,
             workers=args.workers,
+            budget=budget, track_root=track_root,
         )
         # One manifest row per (seed, lineage).
         for lab in _LINEAGES:
@@ -377,6 +388,9 @@ def main(argv: list[str] | None = None) -> int:
             # Encode lineage label in the run_dir for disambiguation.
             row.run_dir = str(_lineage_root(coevo_dir, lab).resolve())
             lineages.append(row)
+        if tripped:
+            budget_exceeded = True
+            break
 
     manifest_path = track_root / "track_c_manifest.json"
     write_manifest(
@@ -393,11 +407,14 @@ def main(argv: list[str] | None = None) -> int:
             "yardstick_n_matches": ys_n,
             "aar_enabled": args.aar,
             "journal_enabled": args.journal,
+            "max_tokens": budget.max_tokens,
+            "tokens_total": budget.total(track_root),
+            "budget_exceeded": budget_exceeded,
         },
     )
     _LOG.info("Track C manifest: %s (%d lineage rows)",
               manifest_path, len(lineages))
-    return EXIT_OK
+    return EXIT_BUDGET_EXCEEDED if budget_exceeded else EXIT_OK
 
 
 if __name__ == "__main__":  # pragma: no cover

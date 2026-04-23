@@ -36,13 +36,14 @@ if str(_SCRIPTS) not in sys.path:
 
 from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT,
+    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
     PURSUIT_V1,
     build_common_parser, forward_common_argv,
     invoke_evolve,
     read_state, read_champion_path, sha256_file, copy_snapshot,
     neutralised_copy,
     summarise_lineage, write_manifest, atomic_write_json,
+    BudgetExceeded, TokenBudget,
     tournament,
 )
 
@@ -129,11 +130,12 @@ def _run_one_step(
 def _run_chain(
     *, seed: int, lineage_dir: Path, initial_seed_ai: Path,
     as_team: str, generations: int, common_argv: list[str],
-    resume: bool,
-) -> list[Path]:
+    resume: bool, budget: TokenBudget, track_root: Path,
+) -> tuple[list[Path], bool]:
     """Run ``generations`` sequential 1-generation steps. Returns the
     list of champion snapshots (one per completed step, may include
-    the initial seed as ``gen_seed.cpp``).
+    the initial seed as ``gen_seed.cpp``) and a boolean flag that is
+    True iff the budget tripped mid-chain.
     """
     lineage_dir.mkdir(parents=True, exist_ok=True)
     # Stash the seed-ai for reproducibility & round-robin inclusion.
@@ -144,6 +146,11 @@ def _run_chain(
 
     current_champ = seed_snap
     for gen_idx in range(generations):
+        try:
+            budget.enforce(track_root, logger=_LOG)
+        except BudgetExceeded as e:
+            _LOG.error("%s", e)
+            return champion_snapshots, True
         step_dir = _step_dir(lineage_dir, gen_idx)
         _run_one_step(
             seed=seed, step_dir=step_dir,
@@ -164,7 +171,7 @@ def _run_chain(
             copy_snapshot(new_champ, promoted)
             champion_snapshots.append(promoted)
             current_champ = promoted
-    return champion_snapshots
+    return champion_snapshots, False
 
 
 def _final_round_robin(
@@ -252,16 +259,19 @@ def main(argv: list[str] | None = None) -> int:
 
     common_argv = forward_common_argv(args)
     rr_n_matches = args.rr_n_matches or args.n_matches
+    budget = TokenBudget(max_tokens=max(0, args.max_tokens))
 
     lineages = []
     rr_summaries: dict[str, dict] = {}
+    budget_exceeded = False
     for seed in seeds:
         lineage_dir = _lineage_dir(track_root, seed)
-        champions = _run_chain(
+        champions, tripped = _run_chain(
             seed=seed, lineage_dir=lineage_dir,
             initial_seed_ai=initial_seed_ai,
             as_team=args.as_team, generations=args.generations,
             common_argv=common_argv, resume=args.resume,
+            budget=budget, track_root=track_root,
         )
         # Summarise the *last* step's state.json as the lineage summary
         # (that's the "current" champion and the largest cumulative token
@@ -271,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
             last_step if last_step.is_dir() else lineage_dir,
             seed=seed,
         ))
+        if tripped:
+            budget_exceeded = True
+            break
         if not args.no_rr:
             rr_summaries[f"seed{seed}"] = _final_round_robin(
                 lineage_dir=lineage_dir,
@@ -295,11 +308,14 @@ def main(argv: list[str] | None = None) -> int:
             "rr_summaries": rr_summaries,
             "aar_enabled": args.aar,
             "journal_enabled": args.journal,
+            "max_tokens": budget.max_tokens,
+            "tokens_total": budget.total(track_root),
+            "budget_exceeded": budget_exceeded,
         },
     )
     _LOG.info("Track B manifest: %s (%d lineages)",
               manifest_path, len(lineages))
-    return EXIT_OK
+    return EXIT_BUDGET_EXCEEDED if budget_exceeded else EXIT_OK
 
 
 if __name__ == "__main__":  # pragma: no cover

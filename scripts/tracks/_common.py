@@ -93,6 +93,10 @@ def build_common_parser(prog: str, description: str) -> argparse.ArgumentParser:
                    help="evolve checkpoint cadence (generations)")
     p.add_argument("--max-compile-failures", type=int, default=5)
     p.add_argument("--accept-margin", type=float, default=0.0)
+    p.add_argument("--max-tokens", type=int, default=0,
+                   help="Hard cap on cumulative LLM tokens (input+output) "
+                        "summed across every state.json under --out-dir. "
+                        "0 disables enforcement.")
     p.add_argument("-v", "--verbose", action="count", default=0)
     return p
 
@@ -317,9 +321,15 @@ def write_manifest(
     atomic_write_json(out_path, payload)
 
 
+from tracks._budget import BudgetExceeded, TokenBudget  # noqa: E402
+
+EXIT_BUDGET_EXCEEDED = 40  # track runner aborted because --max-tokens was crossed
+
+
 __all__ = [
     "PURSUIT_V1", "REPO_ROOT",
     "EXIT_OK", "EXIT_INVALID_INPUT", "EXIT_RESUME_FAILED", "EXIT_EVOLVE_FAILED",
+    "EXIT_BUDGET_EXCEEDED",
     "TRACK_MANIFEST_SCHEMA_VERSION",
     "build_common_parser", "forward_common_argv",
     "invoke_evolve",
@@ -327,5 +337,6 @@ __all__ = [
     "copy_snapshot", "neutralise_namespace", "neutralised_copy",
     "PLACEHOLDER_TOKEN",
     "LineageSummary", "summarise_lineage", "write_manifest",
+    "BudgetExceeded", "TokenBudget",
     "tournament", "evolve",
 ]

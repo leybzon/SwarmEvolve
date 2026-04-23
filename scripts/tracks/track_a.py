@@ -27,11 +27,12 @@ if str(_SCRIPTS) not in sys.path:
 
 from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT,
+    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
     PURSUIT_V1,
     build_common_parser, forward_common_argv,
     invoke_evolve,
     read_state, summarise_lineage, write_manifest,
+    BudgetExceeded, TokenBudget,
 )
 
 TRACK = "A"
@@ -127,10 +128,18 @@ def main(argv: list[str] | None = None) -> int:
     track_root.mkdir(parents=True, exist_ok=True)
 
     common_argv = forward_common_argv(args)
+    budget = TokenBudget(max_tokens=max(0, args.max_tokens))
 
     lineages = []
+    budget_exceeded = False
     for seed in seeds:
         seed_dir = track_root / f"seed{seed}"
+        try:
+            budget.enforce(track_root, logger=_LOG)
+        except BudgetExceeded as e:
+            _LOG.error("%s", e)
+            budget_exceeded = True
+            break
         _run_one_lineage(
             seed=seed, seed_dir=seed_dir, resume=args.resume,
             common_argv=common_argv, opponent=opponent,
@@ -152,10 +161,13 @@ def main(argv: list[str] | None = None) -> int:
             "n_matches": args.n_matches,
             "aar_enabled": args.aar,
             "journal_enabled": args.journal,
+            "max_tokens": budget.max_tokens,
+            "tokens_total": budget.total(track_root),
+            "budget_exceeded": budget_exceeded,
         },
     )
     _LOG.info("Track A manifest: %s (%d lineages)", manifest_path, len(lineages))
-    return EXIT_OK
+    return EXIT_BUDGET_EXCEEDED if budget_exceeded else EXIT_OK
 
 
 if __name__ == "__main__":  # pragma: no cover
