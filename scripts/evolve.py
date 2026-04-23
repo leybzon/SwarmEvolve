@@ -85,8 +85,10 @@ if str(_HERE) not in sys.path:
 import experiment_log  # noqa: E402
 import fitness as fitness_mod  # noqa: E402
 import inject_guards  # noqa: E402
+import journal as journal_mod  # noqa: E402 (M16 wiring)
 import lint_ai_tokens  # noqa: E402
 import llm_client  # noqa: E402
+import telemetry_aar  # noqa: E402 (M16 wiring)
 
 REPO_ROOT = _HERE.parent
 PROMPTS = REPO_ROOT / "prompts"
@@ -178,6 +180,13 @@ class LoopConfig:
     prompt_template_path: str
     mock_response_paths: list[str] = field(default_factory=list)
     recent_fitness_window: int = 5
+    # M16: 2x2 ablation flags. Default ON for both so normal runs get the
+    # full feedback loop; Track-B / Track-C ablations flip these.
+    aar_enabled: bool = True
+    journal_enabled: bool = True
+    # Which seed to replay for the per-generation AAR capture. The loop
+    # always replays the first seed of the generation (seed_base_root +
+    # gen * n_matches), so the AAR is reproducible bit-for-bit on resume.
 
 
 @dataclass
@@ -268,13 +277,21 @@ def _render_prompt(
     opponent_name: str,
     opponent_source: Path,
     recent_fitness_note: str,
+    aar_block: str = "(disabled)",
+    prior_lessons_block: str = "(disabled)",
 ) -> str:
-    """Substitute the M7.5 template + append a recent-fitness suffix.
+    """Substitute the M7.5 template + append recent-fitness + AAR/journal.
 
     The template itself has no slot for "recent fitness", so we append a
     short section after the rendered template. This keeps the template
     authoritative for the prompt skeleton while letting the loop inject
     context that evolve_once doesn't need.
+
+    ``{AAR}`` and ``{PRIOR_LESSONS}`` (M16) are substituted if present
+    in the template; otherwise the blocks are appended at the end so
+    older templates keep working. Each defaults to ``(disabled)`` when
+    the ablation flag is off — the exact sentinel string is part of
+    the prompt contract so tests can assert ablation took effect.
     """
     template = template_path.read_text()
     base = (template
@@ -284,8 +301,16 @@ def _render_prompt(
             .replace("{OPPONENT_SOURCE}", opponent_source.read_text())
             .replace("{TYPES_HEADER}", TYPES_HEADER.read_text())
             .replace("{ABI_HEADER}", ABI_HEADER.read_text()))
+    substituted_aar = "{AAR}" in base
+    substituted_lessons = "{PRIOR_LESSONS}" in base
+    base = base.replace("{AAR}", aar_block).replace("{PRIOR_LESSONS}", prior_lessons_block)
     if recent_fitness_note:
         base += "\n\n# Recent fitness\n\n" + recent_fitness_note + "\n"
+    # Append fallback sections if the template didn't carry the slots.
+    if not substituted_lessons:
+        base += "\n\n# Prior lessons (journal)\n\n" + prior_lessons_block + "\n"
+    if not substituted_aar:
+        base += "\n\n# After-action report (previous generation)\n\n" + aar_block + "\n"
     return base
 
 
@@ -359,6 +384,244 @@ def _build_client(
 
 
 # ------------------------------------------------------------------------
+# M16: AAR + journal plumbing
+# ------------------------------------------------------------------------
+
+JOURNAL_FILENAME = "journal.jsonl"
+
+
+def _journal_path(run_dir: Path) -> Path:
+    return run_dir / JOURNAL_FILENAME
+
+
+def _aar_paths(gen_dir: Path) -> tuple[Path, Path, Path]:
+    """Return (trace, markdown, structured_json) paths for this gen."""
+    return (gen_dir / "aar_trace.jsonl",
+            gen_dir / "aar.md",
+            gen_dir / "aar.json")
+
+
+def _capture_aar(
+    *,
+    injected_path: Path,
+    opponent_path: Path,
+    team_letter: str,
+    seed: int,
+    gen_dir: Path,
+    logger: logging.Logger,
+    max_ticks: int = 600,
+    timeout: float = 30.0,
+) -> dict[str, Any] | None:
+    """Run one recorded match and render the AAR.
+
+    Returns the structured AAR dict on success, or ``None`` on any
+    failure (engine non-outcome exit, trace missing/invalid, metric
+    compute failure). Failures are logged but never raised — AAR is
+    best-effort so it never blocks the evolutionary loop.
+    """
+    # Compile via fitness._compile (reused) against the correct team layout.
+    try:
+        if team_letter == "A":
+            ta, tb = injected_path, opponent_path
+        else:
+            ta, tb = opponent_path, injected_path
+        work_dir = gen_dir / "aar_build"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        compiler = fitness_mod._find_compiler()  # noqa: SLF001 - reuse
+        if not compiler:
+            logger.warning("aar-compile-skipped gen=%s no-compiler", gen_dir.name)
+            return None
+        binary = fitness_mod._compile(ta, tb, work_dir, compiler)  # noqa: SLF001
+    except Exception as exc:  # pragma: no cover - compile path exercised in M10 tests
+        logger.warning("aar-compile-failed gen=%s err=%s", gen_dir.name, exc)
+        return None
+
+    trace_path, md_path, json_path = _aar_paths(gen_dir)
+    try:
+        import subprocess
+        proc = subprocess.run(
+            [str(binary),
+             "--seed", str(seed),
+             "--max-ticks", str(max_ticks),
+             "--record", str(trace_path),
+             "--record-actions"],
+            capture_output=True, text=True, timeout=timeout, check=False,
+        )
+        # Outcome exit codes (0/1/2) are all valid terminations.
+        if proc.returncode not in (0, 1, 2):
+            logger.warning("aar-engine-nonoutcome gen=%s rc=%d stderr=%r",
+                           gen_dir.name, proc.returncode, proc.stderr[:200])
+            return None
+    except Exception as exc:
+        logger.warning("aar-engine-failed gen=%s err=%s", gen_dir.name, exc)
+        return None
+
+    try:
+        report = telemetry_aar.render_aar(trace_path, perspective=team_letter, fmt="both")
+    except Exception as exc:
+        logger.warning("aar-render-failed gen=%s err=%s", gen_dir.name, exc)
+        return None
+
+    md_path.write_text(report.markdown)
+    json_path.write_text(json.dumps(report.structured, sort_keys=True, indent=2) + "\n")
+    return dict(report.structured)
+
+
+def _deterministic_journal_entry(
+    *,
+    state: LoopState,
+    summary: GenSummary,
+    aar_metrics: dict[str, Any] | None,
+    parent_generation: int | None,
+    timestamp_utc: str,
+) -> dict[str, Any]:
+    """Build a rule-based journal entry grounded in the AAR.
+
+    This is the M16 baseline writer: deterministic, never hallucinates,
+    always passes the M15c metric-grounding check by construction. The
+    M17 LLM-authored writer will replace this path for Track-C.
+    """
+    status = summary.status
+    ok = status == STATUS_ACCEPTED or status == STATUS_REJECTED
+    fitness = summary.mean
+    parent_mean = None
+    for prev in reversed(state.history):
+        if prev.generation != summary.generation and prev.mean is not None:
+            parent_mean = prev.mean
+            break
+    fitness_delta = (fitness - parent_mean) if (fitness is not None and parent_mean is not None) else None
+
+    if not ok:
+        verdict = "stalled"
+        hypothesis = f"candidate failed in stage: {status}"
+        tags: list[str] = [status]
+        advice = "fix upstream failure before iterating on strategy"
+        mech_expected = ""
+        mech_observed = summary.reject_reason or ""
+        outcome_summary = f"gen {summary.generation} did not evaluate: {status}"
+        cited: dict[str, Any] = {}
+        status_out = status
+        fitness_out: float | None = None
+        fitness_delta_out: float | None = None
+    else:
+        if summary.accepted:
+            verdict = "confirmed"
+        elif fitness_delta is not None and fitness_delta > 0:
+            verdict = "partial"
+        else:
+            verdict = "rejected"
+        hypothesis = ("accept-if-better candidate; measure combat metrics "
+                      "and compare to prior champion")
+        tags_set: list[str] = ["accept_if_better"]
+        if aar_metrics:
+            ff = aar_metrics.get("focus_fire_redundancy")
+            if isinstance(ff, (int, float)) and ff > 0.3:
+                tags_set.append("focus_fire")
+            cd = aar_metrics.get("cooldown_utilization_us")
+            if isinstance(cd, (int, float)) and cd < 0.3:
+                tags_set.append("low_cooldown_uptime")
+            mpd = aar_metrics.get("mean_pairwise_distance_us")
+            if isinstance(mpd, (int, float)) and mpd < 40:
+                tags_set.append("tight_formation")
+            elif isinstance(mpd, (int, float)) and mpd > 120:
+                tags_set.append("loose_formation")
+        tags = tags_set[:6]
+        advice = ("carry forward" if summary.accepted else
+                  "try a different mechanism next generation")
+        mech_expected = "mean score improves over champion"
+        ci_s = ""
+        if summary.ci_low is not None and summary.ci_high is not None:
+            ci_s = f" ci=[{summary.ci_low:+.3f},{summary.ci_high:+.3f}]"
+        mech_observed = f"mean={fitness:+.3f}{ci_s}"
+        outcome_summary = (
+            f"{'accepted' if summary.accepted else 'rejected'}: "
+            f"a={summary.wins_a} b={summary.wins_b} draws={summary.draws} "
+            f"invalid={summary.invalid}"
+        )[:240]
+        # Cite a small, deterministic subset of AAR numbers.
+        cited = {}
+        if aar_metrics:
+            for k in ("outcome", "ticks", "shots_fired_us", "shots_hit_us",
+                      "focus_fire_redundancy", "cooldown_utilization_us",
+                      "mean_pairwise_distance_us"):
+                if k in aar_metrics:
+                    cited[k] = aar_metrics[k]
+        status_out = "ok"
+        fitness_out = fitness
+        fitness_delta_out = fitness_delta
+
+    entry: dict[str, Any] = {
+        "schema_version": journal_mod.JOURNAL_SCHEMA_VERSION,
+        "generation": summary.generation,
+        "timestamp_utc": timestamp_utc,
+        "parent_generation": parent_generation,
+        "track": "A",  # tracks B/C are introduced in M19; default to "A".
+        "model": state.config.model,
+        "seed": state.config.seed_base_root,
+        "status": status_out,
+        "fitness": fitness_out,
+        "fitness_delta": fitness_delta_out,
+        "outcome_summary": outcome_summary,
+        "hypothesis_tested": hypothesis,
+        "mechanism_expected": mech_expected,
+        "mechanism_observed": mech_observed,
+        "verdict": verdict,
+        "tactic_tags": tags,
+        "advice_to_future_self": advice,
+        "aar_metrics_cited": cited,
+        "validation": {
+            "schema_valid": True,
+            "metrics_match_aar": True,
+            "rewrites": 0,
+        },
+    }
+    return entry
+
+
+def _build_context_blocks(
+    *,
+    run_dir: Path,
+    state: LoopState,
+    logger: logging.Logger,
+) -> tuple[str, str]:
+    """Return (aar_block, prior_lessons_block) for the *next* prompt.
+
+    - AAR block: markdown of the most recent generation's aar.md if it
+      exists; otherwise ``(none — no prior generation yet)``. Disabled
+      ablation short-circuits to the sentinel ``(disabled)``.
+    - Prior-lessons block: recall() from journal.jsonl rendered via
+      journal.render_for_prompt, with planned_tags drawn from the most
+      recent entry's tactic_tags (self-continuation bias; reviewers
+      can swap this in M17).
+    """
+    aar_block = "(disabled)" if not state.config.aar_enabled else "(none — no prior generation yet)"
+    lessons_block = "(disabled)" if not state.config.journal_enabled else "(none — first generation in this lineage.)"
+
+    if state.config.aar_enabled:
+        # Last generation that produced an AAR sidecar.
+        for g in reversed(state.history):
+            md = run_dir / "gens" / f"{g.generation:04d}" / "aar.md"
+            if md.is_file():
+                aar_block = md.read_text().rstrip() + "\n"
+                break
+
+    if state.config.journal_enabled:
+        jp = _journal_path(run_dir)
+        if jp.is_file():
+            try:
+                entries = journal_mod.read_entries(jp)
+                planned: list[str] = []
+                if entries:
+                    planned = list(entries[-1].get("tactic_tags") or [])
+                picked = journal_mod.recall(jp, planned_tags=planned)
+                lessons_block = journal_mod.render_for_prompt(picked).rstrip() + "\n"
+            except Exception as exc:
+                logger.warning("journal-recall-failed err=%s", exc)
+
+    return aar_block, lessons_block
+
+
+# ------------------------------------------------------------------------
 # One generation
 # ------------------------------------------------------------------------
 
@@ -390,6 +653,9 @@ def _run_generation(
 
     # ---- Prompt -----------------------------------------------------
     note = _recent_fitness_note(state.history, cfg.recent_fitness_window)
+    aar_block, lessons_block = _build_context_blocks(
+        run_dir=run_dir, state=state, logger=logger,
+    )
     try:
         prompt_text = _render_prompt(
             Path(cfg.prompt_template_path),
@@ -398,6 +664,8 @@ def _run_generation(
             opponent_name=opponent_name,
             opponent_source=opponent_path,
             recent_fitness_note=note,
+            aar_block=aar_block,
+            prior_lessons_block=lessons_block,
         )
     except OSError as exc:
         logger.error("prompt-render-failed err=%s", exc)
@@ -601,6 +869,20 @@ def _run_generation(
         invalid=summary.invalid,
         wall_seconds=summary.wall_seconds,
     )
+
+    # ---- AAR capture (M16) -----------------------------------------
+    # Best-effort: one recorded match at this gen's base seed. Writes
+    # gen_dir/aar.md + aar.json; a failure leaves no sidecars so the
+    # next generation's `{AAR}` slot stays at its default sentinel.
+    if cfg.aar_enabled:
+        _capture_aar(
+            injected_path=injected_path,
+            opponent_path=opponent_path,
+            team_letter=team_letter,
+            seed=seed_base,
+            gen_dir=gen_dir,
+            logger=logger,
+        )
     return summary, mock_cursor
 
 
@@ -867,6 +1149,47 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
             state.history.append(summary)
             if summary.status in COUNTS_AS_FAILURE:
                 state.compile_failures += 1
+
+            # ---- Journal append (M16) -----------------------------------
+            # Deterministic, rule-based writer. Always grounded in the
+            # AAR that _run_generation just emitted (if any); stall
+            # generations get verdict=stalled with null fitness to match
+            # NEXT_PHASE_PLAN §2 Q14.
+            if state.config.journal_enabled:
+                aar_metrics: dict[str, Any] | None = None
+                if state.config.aar_enabled:
+                    _, _, aar_json = _aar_paths(run_dir / "gens" / f"{summary.generation:04d}")
+                    if aar_json.is_file():
+                        try:
+                            aar_metrics = json.loads(aar_json.read_text())
+                        except Exception as exc:
+                            logger.warning("aar-json-reread-failed gen=%d err=%s",
+                                           summary.generation, exc)
+                parent_gen: int | None = None
+                for prev in reversed(state.history[:-1]):
+                    if prev.status in (STATUS_ACCEPTED, STATUS_REJECTED):
+                        parent_gen = prev.generation
+                        break
+                entry = _deterministic_journal_entry(
+                    state=state,
+                    summary=summary,
+                    aar_metrics=aar_metrics,
+                    parent_generation=parent_gen,
+                    timestamp_utc=datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
+                )
+                vr = journal_mod.append_entry(_journal_path(run_dir), entry, aar_metrics)
+                log.write(
+                    "journal_append",
+                    generation=summary.generation,
+                    ok=vr.ok,
+                    written=vr.written,
+                    metrics_match_aar=vr.metrics_match_aar,
+                    schema_valid=vr.schema_valid,
+                    errors=list(vr.errors),
+                )
+
             state.generation += 1
             _write_state(run_dir, state)
 
@@ -959,6 +1282,20 @@ def _build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--seed-ai", default=None,
                         help="initial champion AI (default: --opponent)")
     parser.add_argument("--prompt", default=str(PROMPTS / "evolve_ai.md"))
+    # M16 2x2 ablation flags. Paired --aar/--no-aar + --journal/--no-journal.
+    aar_group = parser.add_mutually_exclusive_group()
+    aar_group.add_argument("--aar", dest="aar", action="store_true",
+                           help="render per-gen After-Action Report into the "
+                                "next prompt (default on)")
+    aar_group.add_argument("--no-aar", dest="aar", action="store_false",
+                           help="disable AAR capture + injection (ablation)")
+    parser.set_defaults(aar=True)
+    journal_group = parser.add_mutually_exclusive_group()
+    journal_group.add_argument("--journal", dest="journal", action="store_true",
+                               help="append + recall a learning journal (default on)")
+    journal_group.add_argument("--no-journal", dest="journal", action="store_false",
+                               help="disable journal append + recall (ablation)")
+    parser.set_defaults(journal=True)
     parser.add_argument("-v", "--verbose", action="count", default=0)
     return parser
 
@@ -1059,6 +1396,8 @@ def main(argv: list[str] | None = None) -> int:
         seed_ai_path=str(seed_ai_path),
         prompt_template_path=str(prompt_path),
         mock_response_paths=mock_paths,
+        aar_enabled=args.aar,
+        journal_enabled=args.journal,
     )
 
     run_dir = Path(args.out_dir).resolve() if args.out_dir else _default_run_dir()

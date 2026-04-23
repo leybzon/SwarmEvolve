@@ -97,6 +97,14 @@ are `[0, arena_width] x [0, arena_height]`.
   `-Wall -Wextra -Wshadow -Wpedantic -Werror`.
 * Keep it under ~250 lines. Comments welcome; cleverness optional.
 
+# After-Action Report (last generation)
+
+{AAR}
+
+# Lessons from prior generations
+
+{PRIOR_LESSONS}
+
 # Response format
 
 Return **one** fenced ```cpp``` block containing the entire file. No

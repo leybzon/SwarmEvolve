@@ -68,7 +68,9 @@
         "seed_ai_path",
         "prompt_template_path",
         "mock_response_paths",
-        "recent_fitness_window"
+        "recent_fitness_window",
+        "aar_enabled",
+        "journal_enabled"
       ],
       "properties": {
         "team_letter": {"enum": ["A", "B"]},
@@ -88,7 +90,9 @@
           "type": "array",
           "items": {"type": "string"}
         },
-        "recent_fitness_window": {"type": "integer", "minimum": 0}
+        "recent_fitness_window": {"type": "integer", "minimum": 0},
+        "aar_enabled": {"type": "boolean"},
+        "journal_enabled": {"type": "boolean"}
       }
     },
     "history": {

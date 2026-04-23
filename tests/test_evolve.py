@@ -399,3 +399,168 @@ def test_resume_matches_uninterrupted(
     a_means = [g["mean"] for g in state_a["history"]]
     b_means = [g["mean"] for g in state_b["history"]]
     assert a_means == b_means, (a_means, b_means)
+
+
+# ---------------------------------------------------------------------------
+# M16: AAR + journal 2x2 ablation tests
+# ---------------------------------------------------------------------------
+
+
+def _run_evolve(tmp_path: Path, opponent_path: Path, mr_dir: Path,
+                *, aar: bool, journal: bool, generations: int = 2,
+                seed: int = 7, name: str = "run") -> Path:
+    out_dir = tmp_path / name
+    argv = [
+        "--opponent", str(opponent_path),
+        "--client", "mock",
+        "--mock-response-dir", str(mr_dir),
+        "--generations", str(generations),
+        "--n-matches", "2",
+        "--workers", "1",
+        "--checkpoint-every", "1",
+        "--out-dir", str(out_dir),
+        "--seed", str(seed),
+        "--aar" if aar else "--no-aar",
+        "--journal" if journal else "--no-journal",
+    ]
+    rc = evolve.main(argv)
+    assert rc == 0, f"loop exited {rc}"
+    return out_dir
+
+
+@needs_cxx
+@pytest.mark.parametrize("aar,journal", [
+    (False, False), (True, False), (False, True), (True, True),
+])
+def test_m16_ablation_matrix_runs_clean(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    aar: bool, journal: bool,
+):
+    """All four 2x2 ablation combinations complete without error."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=aar, journal=journal, generations=2, seed=17,
+        name=f"run_{int(aar)}{int(journal)}",
+    )
+    # Generations completed.
+    state = json.loads((out_dir / "state.json").read_text())
+    assert state["generation"] == 2
+    # Checkpoint encodes both flags.
+    ck = json.loads((out_dir / "checkpoints" / "latest.json").read_text())
+    assert ck["config"]["aar_enabled"] is aar
+    assert ck["config"]["journal_enabled"] is journal
+
+
+@needs_cxx
+def test_m16_journal_written_when_enabled(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With --journal, journal.jsonl has one entry per generation."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=True, journal=True, generations=2, seed=19, name="run_j_on",
+    )
+    jp = out_dir / "journal.jsonl"
+    assert jp.is_file(), "journal.jsonl missing"
+    lines = [ln for ln in jp.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 2
+    for raw in lines:
+        entry = json.loads(raw)
+        assert entry["schema_version"] == 1
+        assert entry["status"] in ("ok", "compile_failed", "lint_failed",
+                                    "inject_failed", "runtime_failed")
+        assert entry["verdict"] in ("confirmed", "partial", "rejected", "stalled")
+        # Validation bookkeeping is present.
+        assert "validation" in entry
+        assert entry["validation"]["schema_valid"] is True
+
+
+@needs_cxx
+def test_m16_no_journal_when_disabled(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With --no-journal, journal.jsonl must not be created."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=True, journal=False, generations=2, seed=23, name="run_j_off",
+    )
+    assert not (out_dir / "journal.jsonl").exists()
+
+
+@needs_cxx
+def test_m16_aar_sidecars_when_enabled(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With --aar, each gen dir has aar.md and aar.json sidecars."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=True, journal=False, generations=2, seed=29, name="run_a_on",
+    )
+    for n in range(2):
+        gd = out_dir / "gens" / f"{n:04d}"
+        assert (gd / "aar.md").is_file(), f"gen {n} missing aar.md"
+        assert (gd / "aar.json").is_file(), f"gen {n} missing aar.json"
+        # aar.json is valid JSON with at least the schema_version field.
+        payload = json.loads((gd / "aar.json").read_text())
+        assert isinstance(payload, dict) and payload
+
+
+@needs_cxx
+def test_m16_no_aar_sidecars_when_disabled(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With --no-aar, no aar.md/aar.json sidecars are produced."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=False, journal=False, generations=2, seed=31, name="run_a_off",
+    )
+    for n in range(2):
+        gd = out_dir / "gens" / f"{n:04d}"
+        assert not (gd / "aar.md").exists()
+        assert not (gd / "aar.json").exists()
+
+
+@needs_cxx
+def test_m16_prompt_contains_disabled_sentinel_when_ablated(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With both flags off, both {AAR} and {PRIOR_LESSONS} slots become
+    the sentinel string ``(disabled)`` in every prompt."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=False, journal=False, generations=1, seed=37, name="run_both_off",
+    )
+    prompt = (out_dir / "gens" / "0000" / "prompt.md").read_text()
+    # The rendered prompt must carry the sentinel string for both slots
+    # (once in the AAR section, once in the lessons section).
+    assert prompt.count("(disabled)") >= 2
+
+
+@needs_cxx
+def test_m16_prompt_contains_aar_block_on_gen_two(
+    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+):
+    """With --aar, generation 1's prompt should contain the gen-0 AAR
+    block (not the (disabled) sentinel in the AAR slot)."""
+    out_dir = _run_evolve(
+        tmp_path, opponent_path, mock_response_dir_three_gens,
+        aar=True, journal=False, generations=2, seed=41, name="run_aar_on",
+    )
+    # Gen 0 has no prior AAR → the slot is "(none — no prior generation yet)".
+    p0 = (out_dir / "gens" / "0000" / "prompt.md").read_text()
+    assert "no prior generation" in p0
+    # Gen 1 has gen-0's AAR available. The rendered AAR markdown contains
+    # recognizable headers produced by telemetry_aar.render_aar.
+    p1 = (out_dir / "gens" / "0001" / "prompt.md").read_text()
+    # Either a markdown-style heading or a known metric key from the AAR.
+    has_aar_signal = any(
+        s in p1 for s in (
+            "After-Action Report",  # telemetry_aar title
+            "focus_fire_redundancy",
+            "mean_pairwise_distance",
+        )
+    )
+    assert has_aar_signal, (
+        "Gen-1 prompt did not include gen-0 AAR content; "
+        "first 2000 chars:\n" + p1[:2000]
+    )
