@@ -26,6 +26,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   and perf-report marker test.
 - `docs/perf_report.md` — methodology + hardware-placeholder skeleton
   with `<!-- CONCLUSION_PENDING -->` exit marker.
+- M13: GPU scaling study — GPU (OpenACC) delivers 6.7× over 20-core
+  OpenMP at N=100K; crossover at N≈4K. Measured on NVIDIA GB10
+  (Grace-Blackwell) with nvc++ 25.11. Data: `data/bench/bench_results.json`,
+  plots: `data/bench/plots/*.png`, report: `docs/perf_report.md`.
 - `docs/m13_handoff.md` — full Spark-Claude runbook: prerequisites,
   build commands, expected wall-clock times, TDR escalation, and the
   honest-conclusion template.

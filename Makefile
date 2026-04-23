@@ -94,16 +94,19 @@ $(BUILD_DIR):
 BENCH_MAX_DRONES ?= 100000
 BENCH_BIN_DIR    ?= build/bench
 BENCH_FLAGS      = -DMAX_DRONES_OVERRIDE=$(BENCH_MAX_DRONES)
+# GCC emits a false-positive -Wstringop-overflow at -O2 when MAX_DRONES is
+# large (100K) and memset length is runtime-computed. Suppress for g++ only.
+BENCH_GCC_EXTRA  = -Wno-stringop-overflow
 
 $(BENCH_BIN_DIR):
 	@mkdir -p $(BENCH_BIN_DIR)
 
 bench-build-cpu1: $(BENCH_BIN_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(BENCH_FLAGS) $(SRC_ALL) \
+	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(BENCH_FLAGS) $(BENCH_GCC_EXTRA) $(SRC_ALL) \
 	    -o $(BENCH_BIN_DIR)/swarmevolve-cpu1
 
 bench-build-cpu-omp: $(BENCH_BIN_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) -fopenmp $(BENCH_FLAGS) $(SRC_ALL) \
+	$(CXX_LINUX) $(CXXFLAGS_COMMON) -fopenmp $(BENCH_FLAGS) $(BENCH_GCC_EXTRA) $(SRC_ALL) \
 	    -o $(BENCH_BIN_DIR)/swarmevolve-cpu-omp
 
 bench-build-gpu: $(BENCH_BIN_DIR)

@@ -67,6 +67,9 @@ def _build_bench_binary(
         "-Wpedantic",
         "-Werror",
         "-Wno-unknown-pragmas",
+        # GCC 13+ emits a false-positive -Wstringop-overflow at -O2 when
+        # MAX_DRONES_OVERRIDE is set and memset length is runtime-computed.
+        "-Wno-stringop-overflow",
         f"-I{REPO_ROOT / 'src'}",
     ]
     if max_drones_override is not None:
@@ -255,7 +258,7 @@ def _probe_openmp(cc: str) -> bool:
         except (OSError, subprocess.TimeoutExpired):
             _OMP_PROBE_CACHE[cc] = False
             return False
-    ok = proc.returncode == 0 and out.is_file()
+        ok = proc.returncode == 0 and out.is_file()
     _OMP_PROBE_CACHE[cc] = ok
     return ok
 
@@ -460,12 +463,13 @@ def test_regenerate_report_rewrites_marker_region(tmp_path: Path) -> None:
     assert text.count("<!-- BENCH_DATA_END -->") == 1
 
 
-def test_perf_report_skeleton_has_conclusion_marker() -> None:
-    """The committed perf_report.md must expose the marker region + TODO conclusion.
+def test_perf_report_has_data_markers_and_conclusion() -> None:
+    """The committed perf_report.md must have data markers and a landed conclusion.
 
-    Lets future edits freely rewrite the data region without breaking the
-    human-authored preamble, and ensures the exit-criterion prose slot
-    exists so the Spark session knows where to land its conclusion.
+    The BENCH_DATA markers allow the report regenerator to fill in the
+    data table without touching the surrounding prose. The conclusion
+    must be present (the CONCLUSION_PENDING placeholder must have been
+    replaced by the Spark session's honest finding).
     """
     report = REPO_ROOT / "docs" / "perf_report.md"
     if not report.is_file():
@@ -473,7 +477,8 @@ def test_perf_report_skeleton_has_conclusion_marker() -> None:
     text = report.read_text()
     assert "<!-- BENCH_DATA_START -->" in text
     assert "<!-- BENCH_DATA_END -->" in text
-    assert "<!-- CONCLUSION_PENDING -->" in text, (
-        "perf_report.md must contain <!-- CONCLUSION_PENDING --> until the "
-        "Spark run fills in the honest exit-criterion sentence"
+    assert "<!-- CONCLUSION_PENDING -->" not in text, (
+        "perf_report.md still contains <!-- CONCLUSION_PENDING -->; "
+        "the Spark session must replace it with the honest conclusion"
     )
+    assert "Conclusion" in text, "perf_report.md must contain a conclusion"

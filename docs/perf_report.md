@@ -1,7 +1,6 @@
 # SwarmEvolve M13 — GPU Scaling Study
 
-> **Status:** scaffolding committed; measurements pending on NVIDIA Spark.
-> <!-- CONCLUSION_PENDING -->
+> **Conclusion:** GPU (OpenACC) delivers 6.7× speedup over 20-core OpenMP at N=100 000 drones/team; at N=1 000 the GPU is 4× slower due to kernel launch overhead, with the crossover at approximately N≈4 000.
 
 ## 1. Purpose
 
@@ -89,22 +88,32 @@ Per-backend: `make bench-cpu1`, `make bench-cpu-omp`, `make bench-gpu`.
 
 ## 3. Hardware & toolchain
 
-Both the CPU-baseline host and the GPU host will be filled in by the
-Spark-Claude session once the measurements run. For scaffolding, the
-placeholders below preserve the structure so the final diff is clean.
+All three backends ran on the same NVIDIA Spark (Grace-Blackwell) host
+with unified memory, so CPU↔GPU data transfer overhead is minimal.
 
-* **CPU baseline host (cpu1, cpu_omp):** _TBD — e.g. NVIDIA Spark host, ARM64 CPU, N cores_
-* **GPU host (gpu):** _TBD — NVIDIA Spark, GPU model, CUDA version_
-* **nvc++ version:** _TBD_
-* **g++ version:** _TBD_
-* **OpenMP runtime:** _TBD_
+* **Host:** NVIDIA GB10 (Grace-Blackwell), ARM64 (Cortex-X925 + Cortex-A725), 20 cores, 128 GB unified memory
+* **GPU:** NVIDIA GB10 integrated GPU, CUDA 13.0
+* **nvc++ version:** 25.11-0 linuxarm64 (NVIDIA HPC SDK)
+* **g++ version:** 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1)
+* **OpenMP runtime:** libgomp, OpenMP 4.5 (`_OPENMP 201511`)
 
 ## 4. Results
 
 ### 4.1 Raw data
 
 <!-- BENCH_DATA_START -->
-_No data yet — run `make bench-all` on Spark to populate this section._
+
+| Backend | N | Repeats | Wall ms (median) | Wall ms (p25–p75) | µs / tick |
+|---------|--:|--------:|-----------------:|------------------:|---------:|
+| `cpu1` | 1000 | 30 | 106.89 | 100.36–111.98 | 534.4 |
+| `cpu1` | 10000 | 30 | 10448.79 | 10332.11–10516.86 | 52243.9 |
+| `cpu_omp` | 1000 | 30 | 45.81 | 38.54–57.86 | 229.0 |
+| `cpu_omp` | 10000 | 30 | 2263.70 | 2192.40–2324.59 | 11318.5 |
+| `cpu_omp` | 100000 | 30 | 202104.22 | 200346.94–203868.12 | 1010521.1 |
+| `gpu` | 1000 | 30 | 183.76 | 168.54–207.75 | 918.8 |
+| `gpu` | 10000 | 30 | 1200.33 | 1191.86–1213.02 | 6001.6 |
+| `gpu` | 100000 | 30 | 30028.03 | 29985.22–30102.82 | 150140.2 |
+
 <!-- BENCH_DATA_END -->
 
 ### 4.2 Plots
@@ -120,15 +129,63 @@ Reproduce: `python3 scripts/bench_plot.py --out data/bench`.
 
 ## 5. Discussion
 
-_To be filled in by the Spark-Claude session after the sweep runs. At a
-minimum this section must:_
+### 5.1 Conclusion
 
-1. _State the single honest conclusion sentence (also written to the
-   top of the report — search for `<!-- CONCLUSION_PENDING -->`)._
-2. _Identify the first N at which the GPU overtakes the best CPU
-   backend, if any._
-3. _Call out any cells that failed to complete (TDR, OOM, etc.) and why._
-4. _Name the next experiment worth running given the result._
+GPU (OpenACC) delivers **6.7× speedup** over the 20-core OpenMP baseline
+at N=100 000 drones/team; at N=1 000 the GPU is **4× slower** due to
+kernel launch overhead, with the GPU–CPU crossover at approximately
+**N≈4 000**.
+
+### 5.2 Crossover point
+
+The GPU overtakes CPU-OMP between N=1 000 (GPU 4× slower) and N=10 000
+(GPU 1.9× faster). Linear interpolation on the log-log curve places the
+crossover at approximately N≈4 000. Below this threshold, single-thread
+or OpenMP CPU is preferred.
+
+### 5.3 Speedup table
+
+| N       | GPU vs CPU-OMP | GPU vs CPU1 | OMP vs CPU1 |
+|--------:|---------------:|------------:|------------:|
+| 1 000   | 0.25×          | 0.58×       | 2.3×        |
+| 10 000  | 1.89×          | 8.7×        | 4.6×        |
+| 100 000 | 6.73×          | ~34.8× (est)| —           |
+
+CPU1 at N=100 000 was skipped (estimated >17 min/match, ~8.5 hours for
+30 repeats). The 34.8× figure is extrapolated from the O(N²) scaling
+observed between N=1 000 and N=10 000.
+
+### 5.4 Cell failures
+
+**None.** All (backend, N) cells completed successfully with zero
+failures across 240 total measurements. No TDR, OOM, or timeout events
+were observed. The NVIDIA GB10 unified memory architecture eliminated
+the host↔device transfer bottleneck that discrete GPUs would face.
+
+### 5.5 Observations
+
+* **GPU variance is remarkably low.** The GPU IQR at N=100 000 is
+  29 985–30 103 ms (0.4%), vs CPU-OMP's 200 347–203 868 ms (1.7%).
+  GPU execution is more deterministic in wall-clock terms.
+* **OpenMP scaling is sub-linear.** On 20 cores, OMP achieves only
+  2.3–4.6× over single-thread (expected: closer to 10–15× for an
+  embarrassingly parallel workload). The O(N²) combat phase is not
+  parallelised by OpenMP in the current engine; only the query phase
+  benefits.
+* **Unified memory advantage.** The GB10's unified memory means
+  `-gpu=mem:managed` incurs no PCIe transfer cost. On a discrete GPU,
+  the crossover N would likely shift higher.
+
+### 5.6 Recommended next experiment
+
+1. **O(N·k) k-nearest-neighbours rewrite** for the combat phase — the
+   current O(N²) all-pairs check is the dominant cost at large N and
+   would benefit both CPU and GPU.
+2. **Discrete GPU measurement** (e.g. A100/H100) to quantify PCIe
+   transfer overhead and determine whether the unified-memory crossover
+   generalises.
+3. **Scaling beyond N=100 000** — the GB10 handled 100K cleanly; test
+   200K and 500K to find the memory ceiling.
 
 ## 6. Known risks
 
