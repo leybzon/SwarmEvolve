@@ -23,27 +23,34 @@ SwarmEvolve is a research platform that tests evolutionary software development 
 
 ## Project Status
 
+All milestones M0–M14 from [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) are
+landed on `main`. The system is functional end-to-end: LLMs can generate C++
+drone AIs, those AIs compete in sandboxed matches, evolutionary loops iterate
+on fitness, and tournaments rank populations by Elo.
+
 **Phase 0: Specification** (Complete)
-- [x] README, ARCHITECTURE, SPECIFICATION, DEVELOPMENT, CLAUDE guides
+- [x] README, ARCHITECTURE, SPECIFICATION, DEVELOPMENT, CLAUDE, IMPLEMENTATION_PLAN
 
-**Phase 1: Local MVP** (Current — no source code checked in yet)
-- [ ] Repository structure initialization (`src/`, `scripts/`, `tests/`, `data/`)
-- [ ] `src/types.h` POD definitions
-- [ ] Core engine with bounded physics and deterministic combat
-- [ ] Baseline dummy AI implementations
-- [ ] Python compiler/visualizer pipeline
-- [ ] JSON trace → MP4 video rendering
-- [ ] Makefile
+**Phase 1: Local MVP** (Complete — M0–M7)
+- [x] Repository structure (`src/`, `scripts/`, `tests/`, `data/`)
+- [x] `src/types.h` POD definitions and ABI freeze (M1)
+- [x] CPU engine with bounded physics and deterministic combat (M2)
+- [x] Baseline AIs: `stationary_v1`, `pursuit_v1`, `cluster_v1` (M3)
+- [x] Trace format + determinism tests (M4) and MP4 visualizer (M5)
+- [x] Loop-guard injector (M6) and orchestrator CLI (M7)
 
-**Phase 2: Evolutionary Orchestration** (Upcoming)
-- [ ] Multi-round fitness evaluation
-- [ ] Loop guard injection system
-- [ ] LLM compilation retry logic
+**Phase 2: Sandboxing & Evolutionary Orchestration** (Complete — M8–M10)
+- [x] Sandbox container for untrusted LLM binaries (M8)
+- [x] Fitness evaluator with multi-seed scoring & experiment log (M9)
+- [x] Anthropic / Gemini clients + evolutionary loop (`scripts/evolve.py`, M10)
 
-**Phase 3: GPU Scale & LLM Integration** (Future)
-- [ ] NVIDIA Spark cluster deployment
-- [ ] OpenACC parallelization verification
-- [ ] Claude/Gemini API integration
+**Phase 3: GPU Scale, Tournament, Demo** (Complete — M11–M14)
+- [x] OpenACC GPU port with profiling harness (M11)
+- [x] Round-robin / Swiss tournament runner with Elo (M12)
+- [x] GPU scaling study to N=100K drones (M13 — ~6.7× over OpenMP, crossover ~4K)
+- [x] Media & demo artefacts (M14)
+
+See recent commits for milestone landings; the head of `main` is the most up-to-date reference.
 
 ## Quick Start
 
@@ -75,6 +82,24 @@ nvc++ -std=c++17 -O3 -acc=gpu -gpu=managed -o swarmevolve src/engine.cpp src/a/*
 
 # Generate visualization
 python3 scripts/visualizer.py trace.jsonl output.mp4
+```
+
+### Evolve & Tournament
+
+```bash
+# One-shot: ask an LLM to write a Team A AI against pursuit_v1, compile, match
+export ANTHROPIC_API_KEY=...
+python3 scripts/evolve_once.py --opponent src/baselines/pursuit_v1.cpp \
+    --as-team A --out-dir data/runs/evolve_once
+
+# Full evolutionary loop (multi-generation, multi-seed fitness)
+python3 scripts/evolve.py --help
+
+# Round-robin tournament with Elo ratings
+python3 scripts/tournament.py \
+    --ai src/baselines/pursuit_v1.cpp --name pursuit \
+    --ai src/baselines/cluster_v1.cpp --name cluster \
+    --mode round_robin --n-matches 10 --out-dir data/runs/tourney
 ```
 
 ## Architecture Overview
