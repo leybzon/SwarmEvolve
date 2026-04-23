@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/leybzon/SwarmEvolve/docs/track_manifest_schema.json",
+  "title": "SwarmEvolve Track Manifest (M19)",
+  "description": "Top-level summary emitted at `<track-root>/track_<lowercase>_manifest.json` by scripts/tracks/track_{a,b,c}.py. One manifest per track root, one lineage row per (seed[, lineage]). Unknown top-level keys are tolerated (future extra telemetry).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "track",
+    "model",
+    "lineages"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "description": "Track-manifest schema version. M19 initial release is 1.",
+      "type": "integer",
+      "const": 1
+    },
+    "track": {
+      "description": "Which track produced this manifest.",
+      "type": "string",
+      "enum": ["A", "B", "C"]
+    },
+    "model": {
+      "description": "Model id (e.g. 'claude-opus-4-7'). Empty string when the run used --client=mock and no model was specified.",
+      "type": "string"
+    },
+    "lineages": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/LineageSummary"}
+    }
+  },
+  "definitions": {
+    "LineageSummary": {
+      "type": "object",
+      "required": [
+        "seed",
+        "run_dir",
+        "generations_run",
+        "generations_accepted",
+        "champion_generation",
+        "champion_sha256",
+        "champion_fitness_mean",
+        "tokens_input",
+        "tokens_output"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "description": "The lineage seed (evolve --seed).",
+          "type": "integer"
+        },
+        "run_dir": {
+          "description": "Absolute path of the lineage (track-A: seed<N>/; track-B: seed<N>/gen<LAST>/; track-C: seed<N>/<LINEAGE>/).",
+          "type": "string"
+        },
+        "generations_run": {
+          "description": "Number of generation attempts in the lineage's history (any status).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "generations_accepted": {
+          "description": "Number of generations whose candidate beat the current champion.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "champion_generation": {
+          "description": "Generation index of the current champion; -1 when the seed AI is still champion.",
+          "type": "integer"
+        },
+        "champion_sha256": {
+          "description": "SHA-256 of the champion's .cpp source; null when no champion file is present yet.",
+          "type": ["string", "null"]
+        },
+        "champion_fitness_mean": {
+          "description": "Champion's measured mean fitness from the last evaluation; null when not yet measured.",
+          "type": ["number", "null"]
+        },
+        "tokens_input": {
+          "description": "Cumulative LLM input tokens across the lineage's generations.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_output": {
+          "description": "Cumulative LLM output tokens across the lineage's generations.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
