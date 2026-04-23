@@ -50,8 +50,9 @@ milestone's exit criteria are green.
 | M11 | GPU port + profiling            | 3 days   | Linux/NVIDIA   | high   |
 | M12 | Tournament + analysis tooling   | 2 days   | host           | low    |
 | M13 | GPU scaling study (1K–100K drones) | 3 days | NVIDIA Spark   | high   |
+| M14 | Media & demo artefacts          | 3 days   | macOS + host   | low    |
 
-Total estimate: ~30 engineer-days. Parallelizable across two engineers after M4.
+Total estimate: ~33 engineer-days. Parallelizable across two engineers after M4.
 
 ---
 
@@ -703,9 +704,162 @@ becomes higher priority than further GPU work.
 
 ---
 
-## 16. Cross-Cutting Practices
+## 16. Milestone M14 — Media & Demo Artefacts
 
-### 16.1 Testing Strategy
+**Goal**: Turn the M1–M13 engineering output into shareable, reviewable
+artefacts. Specifically: (a) a reproducible demo MP4 showing a
+representative match, (b) a "most informative matches" video reel
+driven by `scripts/analysis.py:top_matches` (deferred from M12), and
+(c) a README/landing-page refresh that surfaces the M13 GPU scaling
+finding. This milestone is **deliverable-gated, not narrative-gated**
+— the goal is durable artefacts in the repo, not a marketing push.
+
+### Entry criteria
+
+- M12 tournament + analysis tooling is green on `main`.
+- M13 `docs/perf_report.md` is committed with the conclusion sentence.
+- `scripts/visualizer.py` still renders the golden trace to MP4 within
+  the M5 time budget.
+
+### Approach
+
+- **Reuse, don't rewrite**: the demo pipeline is a composition of
+  existing tools (`orchestrator.py run` → trace → `visualizer.py` →
+  MP4). M14 adds the *glue* (a stitcher + a README update), not new
+  rendering code.
+- **Determinism preserved**: every demo artefact is regenerable from
+  a pinned seed + pinned baselines + pinned commit SHA. The README
+  links to the exact `make` target that regenerates it.
+- **No new runtime deps in the hot path**. MP4 stitching uses the
+  existing `opencv-python` dependency from M5; falls back to a
+  `concat`-style ffmpeg pass only if explicitly requested via
+  `--backend ffmpeg`.
+- **Honest framing**: the demo README section reports the M13 finding
+  verbatim (6.7× over OpenMP at N=100K, 4× slower at N=1K, crossover
+  ≈ N=4K). No speedup inflation, no cherry-picked N.
+
+### Deliverables
+
+- `scripts/demo_compile.py` — takes a list of `(trace.jsonl, label)`
+  pairs and produces a single stitched MP4 with title cards between
+  segments. Stdlib + `opencv-python` only.
+- `scripts/make_demo.py` — entry point that:
+  - Runs `pursuit_v1 vs cluster_v1` at `seed=42, N=50, 1000 ticks`
+    (the canonical M3 demo match).
+  - Renders via `visualizer.py` to `data/videos/demo_seed42.mp4`.
+  - Writes `data/videos/demo_manifest.json` (commit SHA, seed,
+    baseline SHAs, hardware, duration).
+- `scripts/top_matches_reel.py` — takes an experiment directory,
+  invokes `scripts/analysis.py:top_matches` to pick the *k* most
+  informative matches, renders each via `visualizer.py`, stitches
+  via `demo_compile.py`. Output: `data/videos/top_matches_<run_id>.mp4`
+  + manifest.
+- `docs/demo.md` — narrative walkthrough of the demo (what to watch
+  for, Team A vs Team B colour key, disable-range circle, cooldown
+  bar). Links the MP4 artefact.
+- `README.md` updates:
+  - Top-of-README "See it in action" section with embedded demo MP4
+    link and the M13 one-line finding.
+  - "Reproduce" subsection pointing at `make demo`.
+  - Tournament-results subsection (satisfies §18 DoD item) linking
+    `data/experiments/<run_id>/report.md` from a committed reference
+    experiment.
+- `Makefile` targets:
+  - `demo` — runs `make_demo.py` end-to-end.
+  - `top-matches-reel EXPERIMENT=<path>` — runs `top_matches_reel.py`.
+  - `demo-clean` — removes `data/videos/*.mp4` and manifests.
+
+### Cross-cutting rules
+
+- No new third-party Python dependencies. Everything rides on
+  already-pinned `opencv-python`, `matplotlib`, and stdlib.
+- No network access in any demo script. The reel script reads local
+  experiment directories only.
+- Generated MP4s live under `data/videos/` (already `.gitignore`-d).
+  *Manifests* are committed; the MP4 itself is regenerable and may be
+  attached to a GitHub Release rather than checked in.
+- `docs/demo.md` references only committed artefacts (manifests,
+  still-frame PNGs if any); the MP4 link is relative so a release
+  download substitutes cleanly for the local file.
+
+### Tests
+
+- [ ] `test_make_demo_smoke` — `make demo` produces a non-empty MP4
+      plus a manifest JSON that validates against a small schema
+      (fields: `seed`, `commit_sha`, `baselines`, `n_drones`,
+      `ticks`, `duration_s`).
+- [ ] `test_demo_manifest_fields` — manifest includes git SHA, both
+      baseline SHA-256s, arena size, seed; regex asserts no API keys
+      or absolute host paths leak in.
+- [ ] `test_top_matches_reel_smoke` — given a fixture experiment
+      directory with 4 traces, `top_matches_reel.py --k 2` produces
+      a 2-segment stitched MP4.
+- [ ] `test_demo_deterministic` — running `make demo` twice at the
+      same commit SHA produces byte-identical trace files (MP4 bytes
+      are NOT required to match; encoder non-determinism is tolerated,
+      per M5 precedent).
+- [ ] `test_readme_links_resolve` — every relative link under the
+      new README sections points at a committed file or a documented
+      release artefact (reuse `docs-check` harness).
+
+### Exit criteria
+
+- [ ] `make demo` produces `data/videos/demo_seed42.mp4` plus its
+      manifest on a freshly-cloned repo (macOS) in < 60 s.
+- [ ] `docs/demo.md` committed, linked from README, and the README's
+      "See it in action" section renders correctly on GitHub.
+- [ ] At least one `top_matches_reel` run committed as a *manifest*
+      (not MP4) against the reference experiment.
+- [ ] Full test suite stays green; no new external dep in
+      `requirements.txt`.
+- [ ] §18 DoD items **"Recorded demo video linked from README"** and
+      **"Tournament results in README"** are satisfied.
+
+### Risks and mitigations
+
+- **Encoder non-determinism** — `cv2.VideoWriter` output bytes vary
+  across OpenCV patch versions. *Mitigation*: test on trace bytes
+  (deterministic) rather than MP4 bytes; pin `opencv-python` version
+  in `requirements.txt` (already pinned from M5).
+- **Large MP4 artefacts in git** — a multi-minute reel can exceed
+  100 MB. *Mitigation*: MP4s stay in `.gitignore`; only manifests
+  commit. Release workflow (§17.2) attaches the MP4 to the GitHub
+  Release.
+- **Stale README claims** — M13 numbers could drift if the engine
+  is retuned after M14 lands. *Mitigation*: README cites
+  `docs/perf_report.md` with a section anchor rather than repeating
+  numbers inline; a single-source-of-truth rule.
+- **`top_matches` surprise metric produces a boring reel** — the
+  "most informative" picker may cluster around a single strategy
+  archetype. *Mitigation*: the reel script takes an explicit
+  `--strategy-diversity-weight` that the analyst can tune; default
+  preserves current M12 behaviour.
+
+### Scope-outs (explicit)
+
+- No interactive web viewer (stretch goal beyond M14; tracked as
+  M14.1 if requested).
+- No live-rendered dashboards; everything is a static artefact.
+- No re-running of the M10 evolutionary loop to generate fresh demo
+  footage — the reference experiment is whatever M12/M13 produced.
+- No audio track, no narration, no subtitle burn-in.
+- No re-tuning of M3 baselines to "look better" on camera.
+
+### Deferred ideas captured for future milestones
+
+- **M14.1 — Web viewer**: static HTML/Canvas trace replayer so a
+  reviewer can scrub a match without downloading an MP4.
+- **M15 candidate — Richer evolution operators** (unchanged from
+  M13's list).
+- **M16 candidate — Platform hardening** (unchanged).
+- **M17 candidate — Scientific write-up** — now has a demo reel to
+  cite, so promoting this after M14 becomes lower-friction.
+
+---
+
+## 17. Cross-Cutting Practices
+
+### 17.1 Testing Strategy
 
 | Layer                | Tool                      | Gate      |
 |----------------------|---------------------------|-----------|
@@ -725,7 +879,7 @@ becomes higher priority than further GPU work.
 - Every bug fix lands **with** a regression test that would have caught it.
 - No `sleep()` in tests; use event-driven waits.
 
-### 16.2 CI / CD
+### 17.2 CI / CD
 
 - PR workflow: lint → build-{macos,linux} → test-{cpp,python} → docs-check.
 - Nightly workflow: fuzz (30 min), full determinism matrix (seeds 0..99),
@@ -735,7 +889,7 @@ becomes higher priority than further GPU work.
 - Branch protection on `main`: required checks, linear history, signed commits
   encouraged.
 
-### 16.3 Security
+### 17.3 Security
 
 - **SECURITY.md** describes disclosure process (private email, 90-day window).
 - **Secrets** only in `.env` (git-ignored) and GitHub Actions secrets;
@@ -751,7 +905,7 @@ becomes higher priority than further GPU work.
 - **Code provenance**: every compiled AI binary traceable to an LLM response
   ID + prompt hash stored in the experiment log.
 
-### 16.4 Documentation Discipline
+### 17.4 Documentation Discipline
 
 - A PR that changes engine behavior must update `SPECIFICATION.md` in the same
   commit. CI `docs-check` job:
@@ -761,7 +915,7 @@ becomes higher priority than further GPU work.
   - Runs `markdownlint`.
 - `CHANGELOG.md` updated per PR under `## Unreleased`.
 
-### 16.5 Performance & Observability
+### 17.5 Performance & Observability
 
 - Every engine run emits a final stderr line:
   `METRICS ticks=<n> ms=<n> drones_a=<n> drones_b=<n> outcome=<tag>`.
@@ -770,7 +924,7 @@ becomes higher priority than further GPU work.
 - Regression budget: a PR that adds more than 10% wall-clock to
   `baselines/pursuit vs cluster, seed=0, 1000 ticks` must explain why.
 
-### 16.6 Code Style
+### 17.6 Code Style
 
 - C++17; `clang-format` config in repo; `-Wall -Wextra -Werror -Wshadow
   -Wpedantic`.
@@ -779,7 +933,7 @@ becomes higher priority than further GPU work.
 - Shell: `shellcheck` clean.
 - No TODOs without an issue link: `// TODO(#123): ...`.
 
-### 16.7 Reproducibility
+### 17.7 Reproducibility
 
 - Every experiment directory includes:
   - Exact git SHA of repo.
@@ -789,7 +943,7 @@ becomes higher priority than further GPU work.
 - `scripts/reproduce.py <experiment_id>` rebuilds the environment and reruns
   the experiment; CI validates reproducibility weekly on a small preset.
 
-### 16.8 Evolutionary-Loop Safety
+### 17.8 Evolutionary-Loop Safety
 
 - Hard cap on per-generation compile failures (default 5) before the loop
   aborts and surfaces the last successful checkpoint.
@@ -800,7 +954,7 @@ becomes higher priority than further GPU work.
 
 ---
 
-## 17. Risk Register
+## 18. Risk Register
 
 | Risk                                            | Likelihood | Impact | Mitigation |
 |-------------------------------------------------|------------|--------|------------|
@@ -814,9 +968,9 @@ becomes higher priority than further GPU work.
 
 ---
 
-## 18. Definition of Done (Project-Level)
+## 19. Definition of Done (Project-Level)
 
-- [ ] M0–M12 exit criteria all green on `main`.
+- [ ] M0–M14 exit criteria all green on `main`.
 - [ ] One end-to-end evolutionary run (≥ 50 generations) archived in
       `data/experiments/` with full reproducibility metadata.
 - [ ] Tournament results comparing Claude-evolved vs Gemini-evolved AIs
@@ -827,7 +981,7 @@ becomes higher priority than further GPU work.
 
 ---
 
-## 19. Open Decisions (Revisit Before M10)
+## 20. Open Decisions (Revisit Before M10)
 
 These are intentionally deferred; decide when the corresponding milestone
 begins, document in this section, and commit.
