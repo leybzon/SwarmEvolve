@@ -1,12 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/leybzon/SwarmEvolve/docs/trace_schema.json",
-  "title": "SwarmEvolve Trace Line",
-  "description": "One JSON Lines record produced by the SwarmEvolve engine (see SPECIFICATION.md §4.1). Each tick the engine emits exactly one such object on its own line; the final line additionally carries the `outcome` field.",
+  "title": "SwarmEvolve Trace Line (v1 + v2)",
+  "description": "One JSON Lines record produced by the SwarmEvolve engine (see SPECIFICATION.md §4.1). Each tick the engine emits exactly one such object on its own line; the final line additionally carries the `outcome` field. Schema version 1 (legacy) contains only {tick, team_a, team_b, outcome?}. Schema version 2 (M15a, opt-in via --record-actions) additionally carries {schema_version, actions_a, actions_b, attacks} and is used by the telemetry/AAR toolchain. Both versions validate against this schema — v2-only fields are marked optional.",
   "type": "object",
   "required": ["tick", "team_a", "team_b"],
   "additionalProperties": false,
   "properties": {
+    "schema_version": {
+      "description": "Emitted only by v2 (--record-actions). v1 lines omit this field. When present, must equal 2.",
+      "type": "integer",
+      "const": 2
+    },
     "tick": {
       "description": "Zero-indexed tick number. Tick 0 is the pre-movement spawn snapshot.",
       "type": "integer",
@@ -25,6 +30,26 @@
       "minItems": 1,
       "maxItems": 50,
       "items": { "$ref": "#/definitions/DroneState" }
+    },
+    "actions_a": {
+      "description": "Team A per-drone actions applied during this tick. Present only in v2. One entry per Team A drone (same order as team_a). Dead drones have zeroed action fields.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/DroneAction" }
+    },
+    "actions_b": {
+      "description": "Team B per-drone actions applied during this tick. Present only in v2. Same contract as actions_a.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/DroneAction" }
+    },
+    "attacks": {
+      "description": "Resolved attack events for this tick. Present only in v2. Empty array on tick 0 and on ticks where no attacker was both alive, off-cooldown, and had a valid target_id. One entry per committed attempt; `hit` discriminates landed vs missed shots.",
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/definitions/AttackEvent" }
     },
     "outcome": {
       "description": "Terminal outcome tag. Only present on the final trace line.",
@@ -60,6 +85,82 @@
         "alive": {
           "description": "True iff this drone is still alive at the end of the tick.",
           "type": "boolean"
+        }
+      }
+    },
+    "DroneAction": {
+      "type": "object",
+      "required": ["id", "alive", "vx", "vy", "target_id", "msg"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Drone id, matches the DroneState entry at the same position.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 49
+        },
+        "alive": {
+          "description": "Whether the drone was alive at query time this tick. If false, all action fields are zeroed.",
+          "type": "boolean"
+        },
+        "vx": {
+          "description": "X component of the velocity vector (pre-clamp). Emitted with %.4f precision.",
+          "type": "number"
+        },
+        "vy": {
+          "description": "Y component of the velocity vector (pre-clamp). Emitted with %.4f precision.",
+          "type": "number"
+        },
+        "target_id": {
+          "description": "Enemy id targeted this tick, -1 for no attack. Out-of-range ids are treated as no-ops by combat resolution.",
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 49
+        },
+        "msg": {
+          "description": "Broadcast message out (MSG_SIZE == 4 floats). Delivered to teammates next tick.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "AttackEvent": {
+      "type": "object",
+      "required": ["atk_team", "atk_id", "tgt_team", "tgt_id", "hit", "dist"],
+      "additionalProperties": false,
+      "properties": {
+        "atk_team": {
+          "description": "Attacker team id. 0 = Team A, 1 = Team B.",
+          "type": "integer",
+          "enum": [0, 1]
+        },
+        "atk_id": {
+          "description": "Attacker drone id within its team.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 49
+        },
+        "tgt_team": {
+          "description": "Target team id. 0 = Team A, 1 = Team B. Always opposite of atk_team.",
+          "type": "integer",
+          "enum": [0, 1]
+        },
+        "tgt_id": {
+          "description": "Target drone id within its team.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 49
+        },
+        "hit": {
+          "description": "True iff the attacker was in range AND the target was alive at resolution time. False for out-of-range attempts and attempts at already-dead targets.",
+          "type": "boolean"
+        },
+        "dist": {
+          "description": "Euclidean distance between attacker and target at resolution time. Emitted with %.4f precision.",
+          "type": "number",
+          "minimum": 0
         }
       }
     }

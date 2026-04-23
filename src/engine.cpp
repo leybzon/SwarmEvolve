@@ -49,6 +49,11 @@ struct CliArgs {
     bool benchmark          = false;
     int repeats             = 1;
     bool help               = false;
+    // M15a: when true, the trace includes per-tick `actions[]` and
+    // `attacks[]` arrays (schema v2). Off by default so legacy consumers
+    // (visualizer, golden-trace determinism test) see the v1 format
+    // byte-for-byte. Has no effect unless --record is also set.
+    bool record_actions     = false;
 };
 
 void print_help() {
@@ -66,6 +71,10 @@ void print_help() {
         "  --benchmark         Benchmark mode: no trace, no logging, one\n"
         "                      JSON line per repeat emitted to stdout.\n"
         "  --repeats <int>     Benchmark mode: repeats per invocation (default: 1).\n"
+        "  --record-actions    Emit schema v2 trace: include per-tick `actions[]`\n"
+        "                      (velocity, target_id, message_out) and `attacks[]`\n"
+        "                      (attacker/target team+id, hit flag). Requires --record.\n"
+        "                      Off by default to preserve v1 byte-for-byte parity.\n"
         "  --help              Print this message.\n");
 }
 
@@ -109,6 +118,8 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
             out->arena_scale = std::strtof(v, nullptr);
         } else if (std::strcmp(a, "--benchmark") == 0) {
             out->benchmark = true;
+        } else if (std::strcmp(a, "--record-actions") == 0) {
+            out->record_actions = true;
         } else if (std::strcmp(a, "--repeats") == 0) {
             const char* v = need_value(a);
             if (!v) return 1;
@@ -142,6 +153,17 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
         std::fprintf(stderr,
             "ERROR kind=cli detail=benchmark-excludes-record\n"
             "       --benchmark mode is side-effect-free by design; --record is forbidden.\n");
+        return 1;
+    }
+    if (out->record_actions && out->record_path == nullptr) {
+        std::fprintf(stderr,
+            "ERROR kind=cli detail=record-actions-requires-record\n"
+            "       --record-actions has no effect without --record.\n");
+        return 1;
+    }
+    if (out->record_actions && out->benchmark) {
+        std::fprintf(stderr,
+            "ERROR kind=cli detail=record-actions-excludes-benchmark\n");
         return 1;
     }
     return 0;
@@ -235,11 +257,148 @@ void write_team_array(std::FILE* f, const AllyState* drones, int n) {
     std::fputc(']', f);
 }
 
+// M15a: emit per-team `actions[]` array — one entry per drone (including dead
+// drones, whose action is a zeroed Action). Field order is pinned so the
+// output is byte-reproducible across platforms. %.2f matches the team_a/team_b
+// arrays for positions; velocity uses %.4f to retain one more digit (the
+// max_velocity is 5.0 and AIs frequently emit small corrections sub-0.01).
+void write_actions_array(std::FILE* f, const Action* actions, const AllyState* drones, int n) {
+    std::fputc('[', f);
+    for (int i = 0; i < n; ++i) {
+        if (i > 0) std::fputc(',', f);
+        std::fprintf(f,
+            "{\"id\":%d,\"alive\":%s,\"vx\":%.4f,\"vy\":%.4f,\"target_id\":%d,"
+            "\"msg\":[%.4f,%.4f,%.4f,%.4f]}",
+            drones[i].id, drones[i].alive ? "true" : "false",
+            actions[i].velocity.x, actions[i].velocity.y,
+            actions[i].target_id,
+            actions[i].message_out[0], actions[i].message_out[1],
+            actions[i].message_out[2], actions[i].message_out[3]);
+    }
+    std::fputc(']', f);
+}
+
+// M15a: emit the `attacks[]` array. Each element is a single resolved attack
+// from the combat phase at this tick. "hit" is true iff the attacker's shot
+// actually landed (all four criteria from engine.h::combat_phase_one_side
+// satisfied AND the target is alive at resolution time). We also record
+// attempts where target_id was in range of the attacker but the shot was
+// rejected by cooldown or dead-target, so that AAR can compute wasted-shot
+// metrics. The canonical source-of-truth is the combat phase's own logic;
+// we re-run it deterministically on the host (same criteria, same iteration
+// order) to avoid plumbing event buffers through the GPU kernels.
+struct AttackEvent {
+    int   attacker_team;  // 0=A, 1=B
+    int   attacker_id;
+    int   target_team;    // 0=A, 1=B
+    int   target_id;
+    bool  hit;            // true iff all four success criteria held
+    float dist;           // attacker<->target Euclidean at resolution time
+};
+
+// Compute attack events for one attacking team. The inputs are the
+// PRE-COMBAT world state (after the movement phase, before deaths are
+// applied) so that the per-event `hit` flag matches the actual combat
+// outcome. Matches engine.h::combat_phase_one_side semantics exactly.
+// Returns number of events written. `out` must have capacity >= n_att.
+int compute_attack_events(int attacker_team,
+                          const AllyState* attackers,
+                          const Action*    attacker_actions,
+                          int              n_att,
+                          int              target_team,
+                          const AllyState* defenders,
+                          int              n_def,
+                          const GameParams& params,
+                          AttackEvent*     out) {
+    int n = 0;
+    for (int i = 0; i < n_att; ++i) {
+        const int tid = attacker_actions[i].target_id;
+        // Only emit an event if the attacker (a) is alive, (b) is off
+        // cooldown, and (c) nominated a target in range. This mirrors
+        // the spec's "attempt" definition; record-keeping for pure
+        // no-ops (target_id == -1 or dead attacker) would explode the
+        // event stream size without adding information.
+        if (!attackers[i].alive) continue;
+        if (attackers[i].cooldown > 0) continue;
+        if (tid < 0 || tid >= n_def) continue;
+
+        const float dx = attackers[i].pos.x - defenders[tid].pos.x;
+        const float dy = attackers[i].pos.y - defenders[tid].pos.y;
+        const float dist_sq = dx * dx + dy * dy;
+        const float range_sq = params.disable_range * params.disable_range;
+
+        // "hit" matches combat_phase_one_side's criterion: in range AND
+        // target alive. Out-of-range attempts are still recorded (hit=false)
+        // so AAR can distinguish "shot wasted on cooldown partner" from
+        // "shot wasted at out-of-range enemy".
+        const bool in_range = (dist_sq <= range_sq);
+        const bool tgt_alive = defenders[tid].alive;
+        const bool hit = in_range && tgt_alive;
+
+        // Only record events where the attacker actually committed to a
+        // target. Pure miss-by-distance is useful telemetry; attempts at
+        // out-of-range targets are less so but we keep them to let AAR
+        // spot "always-shooting-too-far" AI pathologies.
+        out[n].attacker_team = attacker_team;
+        out[n].attacker_id   = i;
+        out[n].target_team   = target_team;
+        out[n].target_id     = tid;
+        out[n].hit           = hit;
+        out[n].dist          = std::sqrt(dist_sq);
+        ++n;
+    }
+    return n;
+}
+
+void write_attacks_array(std::FILE* f, const AttackEvent* events, int n) {
+    std::fputc('[', f);
+    for (int i = 0; i < n; ++i) {
+        if (i > 0) std::fputc(',', f);
+        std::fprintf(f,
+            "{\"atk_team\":%d,\"atk_id\":%d,\"tgt_team\":%d,\"tgt_id\":%d,"
+            "\"hit\":%s,\"dist\":%.4f}",
+            events[i].attacker_team, events[i].attacker_id,
+            events[i].target_team, events[i].target_id,
+            events[i].hit ? "true" : "false", events[i].dist);
+    }
+    std::fputc(']', f);
+}
+
+// v1 trace line (legacy; preserved byte-for-byte so the golden SHA still
+// matches). Do not add fields here.
 void write_trace_line(std::FILE* f, int tick, const World& w, const char* outcome_tag_or_null) {
     std::fprintf(f, "{\"tick\":%d,\"team_a\":", tick);
     write_team_array(f, w.a, w.params.num_drones_a);
     std::fprintf(f, ",\"team_b\":");
     write_team_array(f, w.b, w.params.num_drones_b);
+    if (outcome_tag_or_null) {
+        std::fprintf(f, ",\"outcome\":\"%s\"", outcome_tag_or_null);
+    }
+    std::fprintf(f, "}\n");
+}
+
+// v2 trace line (M15a). Adds `schema_version`, `actions_a`, `actions_b`,
+// and `attacks` fields alongside the v1 `team_a`/`team_b` arrays. The v1
+// arrays are kept byte-identical so downstream tools that only read them
+// (visualizer, existing schema validator with v2 schema) continue to work.
+// `tick_actions_a` / `tick_actions_b` are the actions that were applied
+// during this tick (post-query, pre-next-tick). `events`/`n_events` are
+// the attack events resolved in this tick's combat phase.
+void write_trace_line_v2(std::FILE* f, int tick, const World& w,
+                         const Action* tick_actions_a,
+                         const Action* tick_actions_b,
+                         const AttackEvent* events, int n_events,
+                         const char* outcome_tag_or_null) {
+    std::fprintf(f, "{\"schema_version\":2,\"tick\":%d,\"team_a\":", tick);
+    write_team_array(f, w.a, w.params.num_drones_a);
+    std::fprintf(f, ",\"team_b\":");
+    write_team_array(f, w.b, w.params.num_drones_b);
+    std::fprintf(f, ",\"actions_a\":");
+    write_actions_array(f, tick_actions_a, w.a, w.params.num_drones_a);
+    std::fprintf(f, ",\"actions_b\":");
+    write_actions_array(f, tick_actions_b, w.b, w.params.num_drones_b);
+    std::fprintf(f, ",\"attacks\":");
+    write_attacks_array(f, events, n_events);
     if (outcome_tag_or_null) {
         std::fprintf(f, ",\"outcome\":\"%s\"", outcome_tag_or_null);
     }
@@ -331,11 +490,31 @@ void query_phase(AiCallable fn, int my_n, int their_n,
 // number of ticks executed (<= max_ticks) via out-parameters.
 // This is extracted from main() so --benchmark mode can call it in a loop
 // without going through main() twice.
-Outcome run_match(World& w, std::FILE* trace, int* out_ticks_executed) {
+//
+// When `record_actions_v2` is true, the trace is written in schema v2 format
+// (actions_a, actions_b, attacks). Otherwise v1 is emitted (byte-identical
+// to M0..M14 output, preserving the golden-trace SHA).
+Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
+                  int* out_ticks_executed) {
+    // Scratch buffers for schema-v2 attack events. Max capacity is
+    // 2*MAX_DRONES (one potential attempt per drone per tick, across both
+    // teams). Kept on the stack here — the allocation is <1 KiB.
+    AttackEvent attack_events[2 * MAX_DRONES];
+    int n_events = 0;
+
     // Emit the pre-movement tick (tick 0) so the trace always includes the
     // spawn positions. This matches SPECIFICATION §4.1's example where the
-    // first line has tick==0.
-    if (trace) write_trace_line(trace, 0, w, nullptr);
+    // first line has tick==0. For v2 at tick 0 there are no actions or
+    // attacks yet — emit zeroed action arrays and an empty attacks array.
+    if (trace) {
+        if (record_actions_v2) {
+            // act_a/act_b are zero-initialized; tick-0 shows those.
+            write_trace_line_v2(trace, 0, w, w.act_a, w.act_b,
+                                attack_events, 0, nullptr);
+        } else {
+            write_trace_line(trace, 0, w, nullptr);
+        }
+    }
 
     Outcome outcome = swarmevolve::engine::OUTCOME_DRAW;
     bool done = false;
@@ -377,6 +556,22 @@ Outcome run_match(World& w, std::FILE* trace, int* out_ticks_executed) {
             w.a, w.params.num_drones_a,
             w.params, w.new_cd_b, w.deaths_a);
 
+        // M15a: Capture attack events using the same alive/cooldown state
+        // that combat_phase_one_side consumed. Must run BEFORE
+        // apply_cooldowns / apply_deaths so the attacker cooldowns and
+        // defender alive flags reflect the resolution snapshot.
+        n_events = 0;
+        if (record_actions_v2) {
+            n_events += compute_attack_events(
+                /*attacker_team=*/0, w.a, w.act_a, w.params.num_drones_a,
+                /*target_team=*/  1, w.b, w.params.num_drones_b,
+                w.params, attack_events + n_events);
+            n_events += compute_attack_events(
+                /*attacker_team=*/1, w.b, w.act_b, w.params.num_drones_b,
+                /*target_team=*/  0, w.a, w.params.num_drones_a,
+                w.params, attack_events + n_events);
+        }
+
         // Phase 4: Cleanup.
         swarmevolve::engine::apply_cooldowns(w.a, w.new_cd_a, w.params.num_drones_a);
         swarmevolve::engine::apply_cooldowns(w.b, w.new_cd_b, w.params.num_drones_b);
@@ -392,7 +587,13 @@ Outcome run_match(World& w, std::FILE* trace, int* out_ticks_executed) {
                 w.a, w.params.num_drones_a,
                 w.b, w.params.num_drones_b, &outcome)) {
             if (trace) {
-                write_trace_line(trace, t, w, swarmevolve::engine::outcome_tag(outcome));
+                const char* tag = swarmevolve::engine::outcome_tag(outcome);
+                if (record_actions_v2) {
+                    write_trace_line_v2(trace, t, w, w.act_a, w.act_b,
+                                        attack_events, n_events, tag);
+                } else {
+                    write_trace_line(trace, t, w, tag);
+                }
             }
             done = true;
             break;
@@ -401,12 +602,17 @@ Outcome run_match(World& w, std::FILE* trace, int* out_ticks_executed) {
         // Last-iteration line with outcome tag inline.
         const bool is_last_iter = (t == w.params.max_ticks);
         if (trace) {
+            const char* tag = nullptr;
             if (is_last_iter) {
                 const Outcome tick_limit_outcome = swarmevolve::engine::final_outcome(
                     w.a, w.params.num_drones_a, w.b, w.params.num_drones_b);
-                write_trace_line(trace, t, w, swarmevolve::engine::outcome_tag(tick_limit_outcome));
+                tag = swarmevolve::engine::outcome_tag(tick_limit_outcome);
+            }
+            if (record_actions_v2) {
+                write_trace_line_v2(trace, t, w, w.act_a, w.act_b,
+                                    attack_events, n_events, tag);
             } else {
-                write_trace_line(trace, t, w, nullptr);
+                write_trace_line(trace, t, w, tag);
             }
         }
     }
@@ -461,7 +667,9 @@ int main(int argc, char** argv) {
 
             const auto t0 = std::chrono::steady_clock::now();
             int ticks_executed = 0;
-            Outcome outcome = run_match(w, /*trace=*/nullptr, &ticks_executed);
+            Outcome outcome = run_match(w, /*trace=*/nullptr,
+                                        /*record_actions_v2=*/false,
+                                        &ticks_executed);
             const auto t1 = std::chrono::steady_clock::now();
 
             const double wall_ms =
@@ -506,7 +714,7 @@ int main(int argc, char** argv) {
     }
 
     int ticks_executed = 0;
-    Outcome outcome = run_match(w, trace, &ticks_executed);
+    Outcome outcome = run_match(w, trace, cli.record_actions, &ticks_executed);
 
     if (trace) std::fclose(trace);
 
