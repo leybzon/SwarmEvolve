@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/leybzon/SwarmEvolve/docs/tactic_events_schema.json",
+  "title": "SwarmEvolve Tactic Detector Event (M18)",
+  "description": "One JSON Lines record emitted by scripts/tactic_detector.py to `tactic_events.jsonl`. Each record is a first-appearance event for a named tactic (flanking, kiting, focus_fire_discipline, message_coded_targeting). All thresholds are frozen in scripts/tactic_detector.py — any change bumps `schema_version`. See NEXT_PHASE_PLAN.md §M18 for the detector semantics.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tactic",
+    "first_tick",
+    "sustained_ticks",
+    "track",
+    "model",
+    "seed",
+    "generation",
+    "perspective",
+    "evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Tactic-event schema version. The M18 initial release is 1.",
+      "type": "integer",
+      "const": 1
+    },
+    "tactic": {
+      "description": "Canonical tactic name.",
+      "type": "string",
+      "enum": [
+        "flanking",
+        "kiting",
+        "focus_fire_discipline",
+        "message_coded_targeting"
+      ]
+    },
+    "first_tick": {
+      "description": "Zero-indexed tick at which the qualifying condition first became continuously true for this detector. Interpretation per tactic: flanking = start of the ≥90° streak; kiting = start of the ≥100-tick retreat streak; focus_fire_discipline = the tick at which the 200-attempt rolling window first dropped to ≤10% redundant; message_coded_targeting = first tick with any alive-drone target observation.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "sustained_ticks": {
+      "description": "Duration metric associated with the event. For flanking/kiting this is the consecutive-tick streak length at firing. For focus_fire_discipline this is FF_WINDOW_ATTEMPTS (the rolling window size). For message_coded_targeting this is the total number of observation ticks in the NMI window.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "track": {
+      "description": "Experimental track (e.g. A/B/C) or empty string when running ad-hoc.",
+      "type": "string"
+    },
+    "model": {
+      "description": "Model identifier that authored the AI under review.",
+      "type": "string"
+    },
+    "seed": {
+      "description": "Lineage seed; -1 when unspecified.",
+      "type": "integer"
+    },
+    "generation": {
+      "description": "Generation index within the lineage; -1 when unspecified.",
+      "type": "integer"
+    },
+    "perspective": {
+      "description": "Which team we scored the detector from.",
+      "type": "string",
+      "enum": ["a", "b"]
+    },
+    "evidence": {
+      "description": "Detector-specific payload. Keys vary by tactic but every detector must include its triggering threshold for auditability. Examples: flanking → {angle_deg, cluster_sizes, threshold_angle_deg, threshold_streak_ticks}; kiting → {kiting_fraction, max_kiting_fraction, threshold_fraction, threshold_streak_ticks, cos_min}; focus_fire_discipline → {redundant_ratio, window_attempts, threshold_max_ratio}; message_coded_targeting → {best_channel, nmi, target_events, observation_ticks, threshold_nmi}.",
+      "type": "object"
+    }
+  }
+}
