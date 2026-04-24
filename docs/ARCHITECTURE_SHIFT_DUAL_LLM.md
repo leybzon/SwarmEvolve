@@ -3,7 +3,15 @@
 **Status:** Design proposal for review — not yet implemented
 **Supersedes:** The single-LLM path in `scripts/evolve.py` (call site at `evolve.py:736` → `llm_client.AnthropicClient`)
 **Depends on:** Current M15b AAR, M15c journal schema, M16 plumbing; does not require M17 κ-gate to pass
-**Companion doc:** `docs/RETROSPECTIVE_SELF_IMPROVEMENT.md`
+**Companion docs:**
+- `docs/RETROSPECTIVE_SELF_IMPROVEMENT.md` — the empirical analysis that motivated this design
+- `docs/ARCHITECTURE_PHASE_AND_TACTICS.md` — three follow-on extensions (phase-segmented AAR, phase-aware directives, tactic library). **Extension A is folded into Phase 1 of this rollout as a required dependency**; Extensions B and C are described in that companion doc and are required to deliver *emergent strategies within matches and across generations* (the project's research thesis).
+
+**Scope boundary.** The dual-LLM split described here fixes the *cross-generation* reflection loop (Strategist reflects → Coder implements → fitness observed → Strategist re-plans). It does **not** by itself deliver:
+- within-match state-dependent tactics (static C++ from one directive cannot adapt to e.g. being outnumbered mid-match) — see phase-and-tactics doc §4 / Extension B
+- emergent novel tactics accumulating across generations — see phase-and-tactics doc §5 / Extension C
+
+These are explicitly out of scope for this document. This doc is the load-bearing prerequisite for both.
 
 ---
 
@@ -318,6 +326,13 @@ Coder model will implement. Your value is in accurate diagnosis and
 concrete tactic proposals.
 
 # Match telemetry (last generation, team {TEAM_LETTER} perspective)
+
+The AAR below is phase-segmented (AAR v2 — see Extension A). It reports
+metrics both globally and per-phase (opening/midgame/endgame) and per-
+balance-state (ahead/even/outnumbered). Your diagnosis should *localise*
+failure to a phase or balance-state when possible. A metric that looks
+healthy globally may be catastrophically bad in endgame, and vice versa.
+
 {AAR_MARKDOWN}
 
 # Parent code (what the Coder implemented last time)
@@ -512,6 +527,7 @@ A strategist that predicts `+` and frequently gets `−` is miscalibrated; this 
 **Mitigation:**
 1. Explicit anti-stagnation clause in the Strategist prompt: if `observed_fitness_delta == 0` for the last 5 generations, the strategist is *required* to propose a directive with `headline` differing from any of the last 5 and `ablation_control` specifying a meaningful change.
 2. Optional "curriculum" — once fitness hits 0.9, orchestrator swaps the opponent to a harder baseline (`pursuit_v2` when it exists) to keep the gradient alive. This is a separate milestone and orthogonal to the dual-LLM split, but the dual-LLM design makes it cheap to implement because the strategist can be told *"opponent has changed"* in one directive cycle.
+3. **Deeper fix in the phase-and-tactics extensions.** Fitness=1.0 against `pursuit_v1` with a fixed-policy AI does not prove the system has found the limit of strategic space — only the limit of *this opponent's* difficulty. Extensions B and C in `docs/ARCHITECTURE_PHASE_AND_TACTICS.md` broaden what counts as "improvement" to include: using more distinct phases, growing the tactic library, composing primitives successfully. Under those success criteria, fitness=1.0 is *not* a terminating state — the strategist continues to receive progress signal from phase coverage and library diversity metrics. This is the right long-term fix to conservatism collapse; §R11 mitigations (1) and (2) here are the short-term patches.
 
 ### R12 — Strategist-rating-itself adversarial risk
 
@@ -527,12 +543,13 @@ A strategist that predicts `+` and frequently gets `−` is miscalibrated; this 
 - Land the retrospective's §8.1 (parent code in prompt) and §8.2 (Changelog output block) as a single-LLM MVP. This is the **control** for the A/B test.
 - Result: clear baseline number for *"single LLM with parent code + changelog can reach fitness X in Y gens"*.
 
-### Phase 1 — Infrastructure (2 days)
+### Phase 1 — Infrastructure (3 days; was 2 before Extension A was folded in)
 - New module `scripts/strategic_directive.py` with the dataclasses and validator.
 - Extend `scripts/llm_client.py` with per-role client factory.
 - Add `--strategist-*` and `--coder-*` CLI flags to `evolve.py`; keep `--model` as legacy alias.
 - Write `prompts/strategist.md` and revise `prompts/evolve_ai.md` per §7.
 - Unit tests for `StrategicDirective` (de)serialisation and validator.
+- **Extension A (required, from `ARCHITECTURE_PHASE_AND_TACTICS.md` §3):** extend `scripts/telemetry_aar.py` to emit phase-segmented AAR v2 with `by_phase` (opening/midgame/endgame) and `by_balance` (ahead/even/outnumbered) blocks; update `aar.md` renderer; unit tests for short-match degeneracy (A-R1) and fragment merging (A-R2). Without this, the Strategist sees aggregates that hide phase-specific failure, and the dual-LLM reflection loop has no substrate for phase-aware diagnosis.
 
 ### Phase 2 — Wiring (1.5 days)
 - Modify `evolve.py:_evolve_once` to call strategist, validate, render coder prompt, call coder, parse both responses.
@@ -574,11 +591,13 @@ If criteria 1–2 miss but 4–6 pass, the design is *plumbing-complete* but did
 ## 12. Explicit non-goals
 
 This document does **not** cover:
-- Changes to the engine, physics, or AAR computation.
+- Changes to the physics engine or combat resolution.
+- ~~AAR computation changes~~ — **Exception:** Extension A (phase-segmented AAR v2) is a required Phase-1 dependency and is spec'd in `docs/ARCHITECTURE_PHASE_AND_TACTICS.md` §3. The phase-segmentation change to `telemetry_aar.py` lives there, not here.
 - Changes to the opponent (pursuit_v1 stays frozen through this shift).
 - Any change to fitness definition or statistical gates.
 - The reflection-score rubric itself (M17 stays as-is; judge model may change).
 - Human-in-the-loop labelling tools (explicitly out of scope — the goal is to *eliminate* the need for them).
+- Within-match phase state machines, phase-aware directive schemas, or tactic libraries — these are Extensions B and C, covered in full in `docs/ARCHITECTURE_PHASE_AND_TACTICS.md` and built *on top of* this dual-LLM design.
 
 ## 13. Open questions for review
 
@@ -598,5 +617,19 @@ The current loop was designed and shipped as if the generator LLM would reflect 
 
 This is not speculative architecture. The retrospective showed the measured defect; this design is the minimum fix that closes it. The risks listed in §9 are real but each has a documented, implementable mitigation, and the Phase-4 A/B test is the honest check: if the dual-LLM design does not beat the single-LLM MVP by a significant margin, we revert the wiring and keep the simpler system. If it does, we have both the mechanical improvement (loop actually learns) and the scientific improvement (interpretable strategy-outcome trajectories) that the project's thesis claims.
 
+### 14.1 What this doc *does not* promise
+
+Reviewers should read this alongside `docs/ARCHITECTURE_PHASE_AND_TACTICS.md`. Key load-bearing distinction:
+
+- **This doc (dual-LLM)**: fixes the cross-generation reflection loop. Output is a Strategist LLM producing typed directives and a Coder LLM implementing them, each generation. That is necessary but *not sufficient* for the project's research thesis of "emergent strategies."
+- **Phase-and-tactics doc**: builds on top of this design to deliver (a) state-dependent tactics within a match (Extension B: phase state machine, ABI helpers), and (b) strategic accumulation across matches (Extension C: tactic library, M18-as-promotion-gate). Extension A (phase-segmented AAR) is the prerequisite telemetry and is folded into Phase 1 of *this* rollout.
+
+Concretely: if you land this dual-LLM design and stop there, you get a better sampling loop with interpretable reasoning traces — a significant engineering win but still a monolithic-AI generator. You do *not* yet get a system that can claim "advanced tactics emerge over time." That claim requires Extensions B and C, whose ~12-day incremental cost is justified only if this dual-LLM design has already validated that Strategist-directed planning works at all.
+
+The correct reading order for a reviewer evaluating the full research agenda is:
+1. `RETROSPECTIVE_SELF_IMPROVEMENT.md` — why the current loop fails
+2. `ARCHITECTURE_SHIFT_DUAL_LLM.md` (this doc) — fix the reflection loop
+3. `ARCHITECTURE_PHASE_AND_TACTICS.md` — fix the within-match and multi-generation loops
+
 ---
-*End of architecture shift document. Review target: engineering + research leads.*
+*End of architecture shift document. Review target: engineering + research leads. Paired for review with `ARCHITECTURE_PHASE_AND_TACTICS.md`.*
