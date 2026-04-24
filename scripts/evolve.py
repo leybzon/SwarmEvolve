@@ -136,6 +136,15 @@ class GenSummary:
     # Relative path (from run_dir) to the accepted candidate.injected.cpp,
     # only set when accepted=True.
     champion_source_path: str | None = None
+    # How many LLM attempts were made in this generation (1 = first-try
+    # success, 2+ = one or more retries triggered by parse/lint/inject/
+    # compile failures). See ``LoopConfig.max_compile_retries``.
+    n_attempts: int = 1
+    # Status of the attempt whose artefacts are canonicalised into the
+    # top-level gen_dir (the *final* attempt the loop took). This will
+    # match ``status`` in the single-attempt case; on retry-exhaustion
+    # it records the final failure mode for post-hoc analysis.
+    final_attempt_status: str | None = None
 
 
 STATUS_ACCEPTED = "accepted"
@@ -163,6 +172,25 @@ COUNTS_AS_FAILURE = frozenset({
 # ------------------------------------------------------------------------
 
 
+def _filter_fields(cls: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Return ``payload`` filtered to keys that are fields of ``cls``.
+
+    Forward compat: ignores keys the dataclass doesn't know about.
+    Backward compat: lets the dataclass supply defaults for any
+    missing keys added after the checkpoint was written.
+    """
+    known = {f.name for f in dataclasses.fields(cls)}
+    return {k: v for k, v in payload.items() if k in known}
+
+
+def _loop_config_from_dict(payload: dict[str, Any]) -> "LoopConfig":
+    return LoopConfig(**_filter_fields(LoopConfig, payload))
+
+
+def _gen_summary_from_dict(payload: dict[str, Any]) -> "GenSummary":
+    return GenSummary(**_filter_fields(GenSummary, payload))
+
+
 @dataclass
 class LoopConfig:
     team_letter: str
@@ -184,6 +212,14 @@ class LoopConfig:
     # full feedback loop; Track-B / Track-C ablations flip these.
     aar_enabled: bool = True
     journal_enabled: bool = True
+    # Maximum number of LLM retries within a single generation when
+    # parse / lint / inject / compile fail. On each retry the *same*
+    # generation prompt is extended with the failure diagnostic so the
+    # LLM can repair the candidate without losing its planning context.
+    # Set to 0 to disable retries (original single-shot behaviour).
+    # Value of 10 matches the policy set in
+    # docs/adr/0001-compile-flag-policy.md.
+    max_compile_retries: int = 10
     # Which seed to replay for the per-generation AAR capture. The loop
     # always replays the first seed of the generation (seed_base_root +
     # gen * n_matches), so the AAR is reproducible bit-for-bit on resume.
@@ -220,8 +256,8 @@ class LoopState:
 
     @classmethod
     def from_json(cls, payload: dict[str, Any]) -> LoopState:
-        cfg = LoopConfig(**payload["config"])
-        history = [GenSummary(**g) for g in payload.get("history", [])]
+        cfg = _loop_config_from_dict(payload["config"])
+        history = [_gen_summary_from_dict(g) for g in payload.get("history", [])]
         return cls(
             run_id=payload["run_id"],
             wall_start_iso=payload["wall_start_iso"],
@@ -622,6 +658,46 @@ def _build_context_blocks(
 
 
 # ------------------------------------------------------------------------
+# Retry-prompt composer
+# ------------------------------------------------------------------------
+
+
+_RETRY_STDERR_CLIP = 1800  # chars — keep prompt budget bounded on retries.
+
+
+def _compose_retry_prompt(
+    *,
+    base_prompt: str,
+    last_candidate_cpp: str,
+    failure_stage: str,
+    diagnostic: str,
+    attempt_index: int,
+    max_retries: int,
+) -> str:
+    """Return the original prompt extended with a short repair section.
+
+    The LLM sees (1) its previous candidate verbatim in a fenced block
+    labelled "previous attempt", (2) the stage that rejected it, and
+    (3) the first ~1800 chars of the raw diagnostic. We deliberately
+    keep the instructions minimal and mechanical — no "please be more
+    careful", no role-play — because the sandbox is the judge.
+    """
+    clipped = diagnostic if len(diagnostic) <= _RETRY_STDERR_CLIP else (
+        diagnostic[:_RETRY_STDERR_CLIP] + "\n…[truncated]"
+    )
+    retry_note = (
+        f"\n\n# Retry {attempt_index}/{max_retries}\n\n"
+        f"Your previous response failed the **{failure_stage}** stage. "
+        f"Produce a new complete translation unit that fixes the issue "
+        f"below while preserving the strategic intent of the previous "
+        f"attempt where possible.\n\n"
+        f"## Previous attempt\n\n```cpp\n{last_candidate_cpp}\n```\n\n"
+        f"## Failure ({failure_stage})\n\n```\n{clipped}\n```\n"
+    )
+    return base_prompt + retry_note
+
+
+# ------------------------------------------------------------------------
 # One generation
 # ------------------------------------------------------------------------
 
@@ -678,123 +754,261 @@ def _run_generation(
 
     (gen_dir / "prompt.md").write_text(prompt_text)
 
-    # ---- LLM --------------------------------------------------------
-    try:
-        client, mock_cursor = _build_client(
-            cfg.client_kind,
-            model=model,
-            mock_response_paths=cfg.mock_response_paths,
-            mock_cursor=mock_cursor,
-        )
-    except SystemExit as exc:
-        logger.error("client-build-failed err=%s", exc)
-        summary.status = STATUS_LLM_FAILED
-        summary.reject_reason = f"client build: {exc}"
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds)
-        return summary, mock_cursor
+    # ---- LLM + parse + lint + inject + compile/eval retry loop -----
+    #
+    # On parse/lint/inject/compile failure we rebuild the prompt with a
+    # short diagnostic appended and call the LLM again. Each attempt
+    # writes its artefacts under ``gens/<gen>/attempt_<k>/`` for
+    # forensic analysis; the final attempt's artefacts are also copied
+    # to the canonical ``gens/<gen>/`` paths so downstream code
+    # (AAR capture, champion promotion, checkpoint replay) is
+    # unchanged.
+    #
+    # Token counts accumulate across retries (the LLM is called once
+    # per attempt). The mock cursor likewise advances once per attempt.
+    max_retries = max(0, cfg.max_compile_retries)
+    candidate_path: Path | None = None
+    injected_path: Path | None = None
+    result = None
+    last_candidate_cpp: str | None = None
+    current_prompt = prompt_text
 
-    summary.model = client.model
-    try:
-        response = client.generate(prompt_text, max_tokens=4096)
-    except llm_client.LLMError as exc:
-        # Surface the (already-redacted) error; the ExperimentLog will
-        # re-apply redaction on the stored form.
-        msg = llm_client.redact_secrets(str(exc))
-        logger.error("llm-failed err=%s", msg)
-        summary.status = STATUS_LLM_FAILED
-        summary.reject_reason = msg
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds, error=msg)
-        return summary, mock_cursor
-
-    (gen_dir / "response.md").write_text(response.text)
-    summary.llm_input_tokens = response.prompt_tokens
-    summary.llm_output_tokens = response.completion_tokens
-    state.tokens_input += response.prompt_tokens
-    state.tokens_output += response.completion_tokens
-    log.write("llm_response", generation=gen,
-              response_chars=len(response.text),
-              prompt_tokens=response.prompt_tokens,
-              completion_tokens=response.completion_tokens,
-              stop_reason=response.metadata.get("stop_reason", ""))
-
-    # ---- Parse ------------------------------------------------------
-    cpp = llm_client.extract_cpp_block(response.text)
-    if cpp is None:
-        logger.error("no-cpp-block generation=%d", gen)
-        summary.status = STATUS_PARSE_FAILED
-        summary.reject_reason = "no fenced cpp block"
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds)
-        return summary, mock_cursor
-
-    candidate_path = gen_dir / "candidate.cpp"
-    candidate_path.write_text(cpp)
-    summary.candidate_sha256 = _sha256_file(candidate_path)
-
-    # ---- Lint -------------------------------------------------------
-    violations = lint_ai_tokens.scan_file(candidate_path)
-    if violations:
-        logger.error("lint-failed generation=%d n=%d", gen, len(violations))
-        summary.status = STATUS_LINT_FAILED
-        summary.reject_reason = f"{len(violations)} banned-token violations"
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds,
-                  violations=[{"line": ln, "token": tok, "reason": r}
-                              for ln, tok, r in violations[:10]])
-        return summary, mock_cursor
-
-    # ---- Inject -----------------------------------------------------
-    injected_path = gen_dir / "candidate.injected.cpp"
-    try:
-        injected_path.write_text(inject_guards.inject(candidate_path.read_text()))
-    except (inject_guards.InjectorError, ValueError) as exc:
-        logger.error("inject-failed generation=%d err=%s", gen, exc)
-        summary.status = STATUS_INJECT_FAILED
-        summary.reject_reason = str(exc)
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds, error=str(exc))
-        return summary, mock_cursor
-
-    # ---- Evaluate ---------------------------------------------------
-    # The per-generation seed base is deterministic in (seed_base_root,
-    # generation) so a resumed run produces identical fitness samples.
+    # Seed for fitness evaluation is a deterministic function of
+    # (seed_base_root, gen) so resuming mid-run reproduces samples.
     seed_base = cfg.seed_base_root + gen * cfg.n_matches
-    if team_letter == "A":
-        ta_src, tb_src = injected_path, opponent_path
-    else:
-        ta_src, tb_src = opponent_path, injected_path
+    final_attempt_status: str | None = None
 
-    try:
-        result = fitness_mod.evaluate_fitness(
-            ta_src, tb_src,
-            n_matches=cfg.n_matches,
-            seed_base=seed_base,
-            workers=cfg.workers,
-        )
-    except fitness_mod.CompileError as exc:
-        logger.error("compile-failed generation=%d err=%s", gen, exc)
-        summary.status = STATUS_COMPILE_FAILED
-        summary.reject_reason = str(exc)[:512]
+    for attempt in range(1 + max_retries):
+        attempt_dir = gen_dir / f"attempt_{attempt:02d}"
+        attempt_dir.mkdir(parents=True, exist_ok=True)
+        (attempt_dir / "prompt.md").write_text(current_prompt)
+
+        # ---- Build client per attempt (mock cursor advances) -------
+        try:
+            client, mock_cursor = _build_client(
+                cfg.client_kind,
+                model=model,
+                mock_response_paths=cfg.mock_response_paths,
+                mock_cursor=mock_cursor,
+            )
+        except SystemExit as exc:
+            logger.warning("client-build-failed attempt=%d err=%s", attempt, exc)
+            # If this is the first attempt, the run is genuinely
+            # misconfigured (e.g. empty mock queue) — surface
+            # llm_failed. If we're mid-retry, the mock queue merely
+            # ran out while trying to repair a prior failure —
+            # preserve the *original* stage failure so mock-driven
+            # tests see the real reason.
+            if attempt == 0:
+                summary.status = STATUS_LLM_FAILED
+                summary.reject_reason = f"client build: {exc}"
+                summary.final_attempt_status = STATUS_LLM_FAILED
+            summary.n_attempts = attempt + 1
+            summary.wall_seconds = time.monotonic() - t0
+            log.write("gen_end", generation=gen, status=summary.status,
+                      attempt=attempt, wall_seconds=summary.wall_seconds)
+            return summary, mock_cursor
+
+        summary.model = client.model
+
+        # ---- LLM call --------------------------------------------
+        try:
+            response = client.generate(current_prompt, max_tokens=4096)
+        except llm_client.LLMError as exc:
+            msg = llm_client.redact_secrets(str(exc))
+            logger.error("llm-failed attempt=%d err=%s", attempt, msg)
+            summary.status = STATUS_LLM_FAILED
+            summary.reject_reason = msg
+            summary.n_attempts = attempt + 1
+            summary.final_attempt_status = STATUS_LLM_FAILED
+            summary.wall_seconds = time.monotonic() - t0
+            log.write("gen_end", generation=gen, status=summary.status,
+                      attempt=attempt, wall_seconds=summary.wall_seconds,
+                      error=msg)
+            return summary, mock_cursor
+
+        (attempt_dir / "response.md").write_text(response.text)
+        summary.llm_input_tokens += response.prompt_tokens
+        summary.llm_output_tokens += response.completion_tokens
+        state.tokens_input += response.prompt_tokens
+        state.tokens_output += response.completion_tokens
+        log.write("llm_response", generation=gen, attempt=attempt,
+                  response_chars=len(response.text),
+                  prompt_tokens=response.prompt_tokens,
+                  completion_tokens=response.completion_tokens,
+                  stop_reason=response.metadata.get("stop_reason", ""))
+
+        # ---- Parse ------------------------------------------------
+        cpp = llm_client.extract_cpp_block(response.text)
+        if cpp is None:
+            logger.warning("no-cpp-block generation=%d attempt=%d", gen, attempt)
+            final_attempt_status = STATUS_PARSE_FAILED
+            # Record the current failure on the summary up-front so a
+            # subsequent client-build failure (mock exhaustion) keeps
+            # the real stage diagnosis.
+            summary.status = STATUS_PARSE_FAILED
+            summary.reject_reason = "no fenced cpp block"
+            if attempt < max_retries:
+                log.write("retry_attempt", generation=gen, attempt=attempt,
+                          stage="parse", reason="no fenced cpp block")
+                # On parse failure we don't have a candidate to show;
+                # the retry prompt just repeats the ask with the stage.
+                current_prompt = _compose_retry_prompt(
+                    base_prompt=prompt_text,
+                    last_candidate_cpp=(last_candidate_cpp
+                                        or "// (no candidate — parse failed)"),
+                    failure_stage="parse",
+                    diagnostic=("Your previous response contained no fenced "
+                                "```cpp``` block. Return exactly one complete "
+                                "translation unit inside a single ```cpp``` "
+                                "fence, with no prose outside."),
+                    attempt_index=attempt + 1,
+                    max_retries=max_retries,
+                )
+                continue
+            break
+
+        # Canonicalise for this attempt; also refresh the top-level
+        # file so AAR/champion promotion downstream sees the latest.
+        attempt_candidate = attempt_dir / "candidate.cpp"
+        attempt_candidate.write_text(cpp)
+        candidate_path = gen_dir / "candidate.cpp"
+        candidate_path.write_text(cpp)
+        summary.candidate_sha256 = _sha256_file(candidate_path)
+        last_candidate_cpp = cpp
+
+        # ---- Lint -------------------------------------------------
+        violations = lint_ai_tokens.scan_file(candidate_path)
+        if violations:
+            logger.warning("lint-failed generation=%d attempt=%d n=%d",
+                           gen, attempt, len(violations))
+            final_attempt_status = STATUS_LINT_FAILED
+            diag = "\n".join(
+                f"line {ln}: banned token {tok!r} ({r})"
+                for ln, tok, r in violations[:20]
+            )
+            summary.status = STATUS_LINT_FAILED
+            summary.reject_reason = f"{len(violations)} banned-token violations"
+            if attempt < max_retries:
+                log.write("retry_attempt", generation=gen, attempt=attempt,
+                          stage="lint", n_violations=len(violations))
+                current_prompt = _compose_retry_prompt(
+                    base_prompt=prompt_text,
+                    last_candidate_cpp=last_candidate_cpp,
+                    failure_stage="lint",
+                    diagnostic=diag,
+                    attempt_index=attempt + 1,
+                    max_retries=max_retries,
+                )
+                continue
+            break
+
+        # ---- Inject ----------------------------------------------
+        injected_path = gen_dir / "candidate.injected.cpp"
+        attempt_injected = attempt_dir / "candidate.injected.cpp"
+        try:
+            injected_text = inject_guards.inject(candidate_path.read_text())
+        except (inject_guards.InjectorError, ValueError) as exc:
+            logger.warning("inject-failed generation=%d attempt=%d err=%s",
+                           gen, attempt, exc)
+            final_attempt_status = STATUS_INJECT_FAILED
+            summary.status = STATUS_INJECT_FAILED
+            summary.reject_reason = str(exc)
+            if attempt < max_retries:
+                log.write("retry_attempt", generation=gen, attempt=attempt,
+                          stage="inject", error=str(exc)[:256])
+                current_prompt = _compose_retry_prompt(
+                    base_prompt=prompt_text,
+                    last_candidate_cpp=last_candidate_cpp,
+                    failure_stage="inject",
+                    diagnostic=str(exc),
+                    attempt_index=attempt + 1,
+                    max_retries=max_retries,
+                )
+                continue
+            break
+        injected_path.write_text(injected_text)
+        attempt_injected.write_text(injected_text)
+
+        # ---- Evaluate (compile + matches) ------------------------
+        if team_letter == "A":
+            ta_src, tb_src = injected_path, opponent_path
+        else:
+            ta_src, tb_src = opponent_path, injected_path
+
+        try:
+            result = fitness_mod.evaluate_fitness(
+                ta_src, tb_src,
+                n_matches=cfg.n_matches,
+                seed_base=seed_base,
+                workers=cfg.workers,
+            )
+        except fitness_mod.CompileError as exc:
+            logger.warning("compile-failed generation=%d attempt=%d",
+                           gen, attempt)
+            final_attempt_status = STATUS_COMPILE_FAILED
+            summary.status = STATUS_COMPILE_FAILED
+            summary.reject_reason = str(exc)[:512]
+            if attempt < max_retries:
+                log.write("retry_attempt", generation=gen, attempt=attempt,
+                          stage="compile", error=str(exc)[:256])
+                current_prompt = _compose_retry_prompt(
+                    base_prompt=prompt_text,
+                    last_candidate_cpp=last_candidate_cpp,
+                    failure_stage="compile",
+                    diagnostic=str(exc),
+                    attempt_index=attempt + 1,
+                    max_retries=max_retries,
+                )
+                continue
+            break
+        except Exception as exc:
+            # Evaluation errors (engine crash, timeout, etc.) are
+            # *not* retryable by the LLM — the candidate compiled but
+            # the runtime blew up. Treat as terminal for this gen.
+            logger.error("eval-failed generation=%d attempt=%d err=%s",
+                         gen, attempt, exc)
+            summary.status = STATUS_EVAL_FAILED
+            summary.reject_reason = f"{type(exc).__name__}: {exc}"[:512]
+            summary.n_attempts = attempt + 1
+            summary.final_attempt_status = STATUS_EVAL_FAILED
+            summary.wall_seconds = time.monotonic() - t0
+            log.write("gen_end", generation=gen, status=summary.status,
+                      attempt=attempt, wall_seconds=summary.wall_seconds,
+                      error=str(exc)[:512])
+            return summary, mock_cursor
+
+        # Success! Break out with ``result`` set; the accept-if-better
+        # block below handles the rest.
+        final_attempt_status = STATUS_ACCEPTED  # provisional; overwritten below
+        summary.n_attempts = attempt + 1
+        break
+    else:  # for/else — only reached if the loop iterator exhausts
+        # without ``break``, which cannot happen given our break
+        # placement, but the static guarantee makes mypy happier.
+        pass
+
+    # If the retry loop exited without producing a FitnessResult, the
+    # summary fields for reason/status have already been populated by
+    # the terminal ``break``. Emit the gen_end event and return.
+    if result is None:
+        summary.n_attempts = max_retries + 1
+        summary.final_attempt_status = final_attempt_status or summary.status
         summary.wall_seconds = time.monotonic() - t0
         log.write("gen_end", generation=gen, status=summary.status,
+                  n_attempts=summary.n_attempts,
                   wall_seconds=summary.wall_seconds,
-                  error=str(exc)[:512])
+                  reject_reason=summary.reject_reason)
         return summary, mock_cursor
-    except Exception as exc:
-        logger.error("eval-failed generation=%d err=%s", gen, exc)
-        summary.status = STATUS_EVAL_FAILED
-        summary.reject_reason = f"{type(exc).__name__}: {exc}"[:512]
-        summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds, error=str(exc)[:512])
-        return summary, mock_cursor
+
+    # Canonicalise the final (successful) response.md at the top level
+    # so ``gens/NNNN/response.md`` still points to "the" response.
+    final_attempt = summary.n_attempts - 1
+    final_response = gen_dir / f"attempt_{final_attempt:02d}" / "response.md"
+    if final_response.is_file():
+        shutil.copyfile(final_response, gen_dir / "response.md")
+
+    assert injected_path is not None  # for type-checkers
 
     # Always normalise the challenger's mean relative to team A: when the
     # evolving side is B, evaluate_fitness's "mean" is from A's
@@ -1127,10 +1341,11 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
             if g.status not in (STATUS_LLM_FAILED,)
             or g.reject_reason is None   # llm_failed with None reason = client_build
         )
-        # Simpler: cursor = history length, since every *attempted* gen
-        # advances the mock (including llm_failed, parse_failed,
-        # etc.). This matches _build_client's per-gen consumption.
-        mock_cursor = len(state.history)
+        # Cursor = total number of LLM calls already made across every
+        # gen in history. With the retry loop each gen consumes
+        # ``n_attempts`` responses; older checkpoints without the field
+        # default to 1 (single-shot behaviour).
+        mock_cursor = sum(max(1, int(g.n_attempts or 1)) for g in state.history)
 
         exit_code = EXIT_OK
         while state.generation < state.config.generations:
@@ -1275,6 +1490,12 @@ def _build_argparser() -> argparse.ArgumentParser:
                         help="root seed (default: derived from time)")
     parser.add_argument("--accept-margin", type=float, default=0.0)
     parser.add_argument("--max-compile-failures", type=int, default=5)
+    parser.add_argument(
+        "--max-compile-retries", type=int, default=10,
+        help="Within a single generation, retry the LLM this many times "
+             "on parse/lint/inject/compile failure, feeding the diagnostic "
+             "back into the prompt. 0 disables retries (single-shot).",
+    )
     parser.add_argument("--checkpoint-every", type=int, default=10)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--resume", default=None,
@@ -1315,8 +1536,8 @@ def _load_resume(run_dir: Path) -> LoopState:
     if not latest.is_file():
         raise SystemExit(f"resume: neither state.json nor checkpoints/latest.json at {run_dir}")
     payload = json.loads(latest.read_text())
-    cfg = LoopConfig(**payload["config"])
-    history = [GenSummary(**g) for g in payload.get("history", [])]
+    cfg = _loop_config_from_dict(payload["config"])
+    history = [_gen_summary_from_dict(g) for g in payload.get("history", [])]
     tokens = payload.get("tokens_total", {"input": 0, "output": 0})
     return LoopState(
         run_id=payload["run_id"],
@@ -1391,6 +1612,7 @@ def main(argv: list[str] | None = None) -> int:
         workers=workers,
         accept_margin=args.accept_margin,
         max_compile_failures=args.max_compile_failures,
+        max_compile_retries=args.max_compile_retries,
         checkpoint_every=args.checkpoint_every,
         seed_base_root=seed_base_root,
         seed_ai_path=str(seed_ai_path),

@@ -314,6 +314,57 @@ def test_track_a_resume(tmp_path: Path, mock_response_dir: Path):
     assert len(state2["history"]) >= len(state1["history"])
 
 
+def test_track_a_continues_past_exhausted_lineage(tmp_path: Path, monkeypatch):
+    """rc=30 from one lineage must not raise — the track records the
+    seed as exhausted and proceeds to the next seed.
+
+    Monkeypatches ``evolve.main`` so the first seed returns 30 (the
+    documented ``max_compile_failures`` exit code) and the second
+    returns 0. The track must still exit cleanly, surface
+    ``exhausted_seeds`` in the manifest, and thread ``exit_code``
+    through each lineage row.
+    """
+    out = tmp_path / "track_a_exhausted"
+    rc_by_seed = {1: 30, 2: 0}
+    calls: list[int] = []
+
+    def fake_main(argv):
+        # Extract --seed from argv.
+        seed = int(argv[argv.index("--seed") + 1])
+        calls.append(seed)
+        seed_dir = Path(argv[argv.index("--out-dir") + 1])
+        seed_dir.mkdir(parents=True, exist_ok=True)
+        # Write a minimal state.json so summarise_lineage() has data.
+        (seed_dir / "state.json").write_text(json.dumps({
+            "generation": 0,
+            "history": [],
+            "tokens_input": 0,
+            "tokens_output": 0,
+        }))
+        return rc_by_seed[seed]
+
+    monkeypatch.setattr(_common.evolve, "main", fake_main)
+
+    rc = track_a.main([
+        "--seeds", "1,2",
+        "--generations", "1",
+        "--n-matches", "1",
+        "--workers", "1",
+        "--client", "mock",
+        "--out-dir", str(out),
+    ])
+    # The track itself exits 0 even though seed 1's lineage was exhausted.
+    assert rc == 0
+    assert calls == [1, 2]
+
+    manifest = json.loads((out / "track_a_manifest.json").read_text())
+    assert manifest["track"] == "A"
+    assert manifest["exhausted_seeds"] == [1]
+    rows = {row["seed"]: row for row in manifest["lineages"]}
+    assert rows[1]["exit_code"] == 30
+    assert rows[2]["exit_code"] == 0
+
+
 @needs_cxx
 def test_track_b_chain_with_rr(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_b"

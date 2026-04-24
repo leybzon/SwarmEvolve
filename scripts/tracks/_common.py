@@ -92,6 +92,11 @@ def build_common_parser(prog: str, description: str) -> argparse.ArgumentParser:
     p.add_argument("--checkpoint-every", type=int, default=1,
                    help="evolve checkpoint cadence (generations)")
     p.add_argument("--max-compile-failures", type=int, default=5)
+    p.add_argument(
+        "--max-compile-retries", type=int, default=10,
+        help="Per-generation retry budget when the LLM's candidate "
+             "fails parse/lint/inject/compile. Forwarded to evolve.",
+    )
     p.add_argument("--accept-margin", type=float, default=0.0)
     p.add_argument("--max-tokens", type=int, default=0,
                    help="Hard cap on cumulative LLM tokens (input+output) "
@@ -117,6 +122,7 @@ def forward_common_argv(args: argparse.Namespace) -> list[str]:
         argv += ["--workers", str(args.workers)]
     argv += ["--checkpoint-every", str(args.checkpoint_every)]
     argv += ["--max-compile-failures", str(args.max_compile_failures)]
+    argv += ["--max-compile-retries", str(args.max_compile_retries)]
     argv += ["--accept-margin", str(args.accept_margin)]
     argv += ["--aar" if args.aar else "--no-aar"]
     argv += ["--journal" if args.journal else "--no-journal"]
@@ -261,6 +267,11 @@ class LineageSummary:
     champion_fitness_mean: float | None
     tokens_input: int
     tokens_output: int
+    # Exit code from ``evolve.main`` for this lineage. 0 == ran to
+    # completion, 30 == lineage exhausted (max_compile_failures hit),
+    # other non-zero values are hard failures. None means the caller
+    # did not record an exit code (e.g. loaded from an old manifest).
+    exit_code: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -273,11 +284,19 @@ class LineageSummary:
             "champion_fitness_mean": self.champion_fitness_mean,
             "tokens_input": self.tokens_input,
             "tokens_output": self.tokens_output,
+            "exit_code": self.exit_code,
         }
 
 
-def summarise_lineage(run_dir: Path, *, seed: int) -> LineageSummary:
-    """Build a :class:`LineageSummary` from a completed (or partial) run dir."""
+def summarise_lineage(
+    run_dir: Path, *, seed: int, exit_code: int | None = None,
+) -> LineageSummary:
+    """Build a :class:`LineageSummary` from a completed (or partial) run dir.
+
+    ``exit_code`` threads through the ``evolve.main`` return code so a
+    lineage that exited 30 (``max_compile_failures``) is flagged as
+    exhausted rather than silently merged with healthy lineages.
+    """
     st = read_state(run_dir) or {}
     history = st.get("history", [])
     accepted = sum(1 for h in history if h.get("status") == "accepted")
@@ -296,6 +315,7 @@ def summarise_lineage(run_dir: Path, *, seed: int) -> LineageSummary:
         champion_fitness_mean=(float(mean) if mean is not None else None),
         tokens_input=int(st.get("tokens_input", 0)),
         tokens_output=int(st.get("tokens_output", 0)),
+        exit_code=exit_code,
     )
 
 

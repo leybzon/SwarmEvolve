@@ -73,14 +73,24 @@ def _run_one_lineage(
     common_argv: list[str], opponent: Path, seed_ai: Path | None,
     as_team: str, generations: int,
 ) -> int:
-    """Run (or resume) a single lineage under ``seed_dir``."""
+    """Run (or resume) a single lineage under ``seed_dir``.
+
+    Returns the ``evolve.main`` exit code. rc=30
+    (``max_compile_failures`` hit) is treated as a soft failure: the
+    lineage is recorded as exhausted but the track continues with the
+    next seed. Any other non-zero rc is also surfaced (not raised) so
+    one unhealthy seed cannot take down the whole track.
+    """
     state_path = seed_dir / "state.json"
     if resume and state_path.is_file():
         _LOG.info("seed=%d: resuming %s", seed, seed_dir)
-        return invoke_evolve([
-            "--resume", str(seed_dir),
-            "--generations", str(generations),
-        ])
+        return invoke_evolve(
+            [
+                "--resume", str(seed_dir),
+                "--generations", str(generations),
+            ],
+            strict=False,
+        )
 
     # Fresh run for this seed.
     seed_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +105,7 @@ def _run_one_lineage(
         fresh_argv += ["--seed-ai", str(seed_ai)]
     fresh_argv += common_argv
     _LOG.info("seed=%d: starting fresh lineage %s", seed, seed_dir)
-    return invoke_evolve(fresh_argv)
+    return invoke_evolve(fresh_argv, strict=False)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
 
     lineages = []
     budget_exceeded = False
+    exhausted_seeds: list[int] = []
     for seed in seeds:
         seed_dir = track_root / f"seed{seed}"
         try:
@@ -140,13 +151,24 @@ def main(argv: list[str] | None = None) -> int:
             _LOG.error("%s", e)
             budget_exceeded = True
             break
-        _run_one_lineage(
+        rc = _run_one_lineage(
             seed=seed, seed_dir=seed_dir, resume=args.resume,
             common_argv=common_argv, opponent=opponent,
             seed_ai=seed_ai, as_team=args.as_team,
             generations=args.generations,
         )
-        lineages.append(summarise_lineage(seed_dir, seed=seed))
+        if rc != EXIT_OK:
+            # rc=30 is the documented exhausted-lineage signal from
+            # evolve.main; other non-zero codes are unexpected but we
+            # still continue with the remaining seeds so one bad
+            # lineage cannot poison the whole track.
+            exhausted_seeds.append(seed)
+            _LOG.warning(
+                "seed=%d: lineage ended with evolve rc=%d "
+                "(continuing with remaining seeds)",
+                seed, rc,
+            )
+        lineages.append(summarise_lineage(seed_dir, seed=seed, exit_code=rc))
 
     manifest_path = track_root / "track_a_manifest.json"
     write_manifest(
@@ -164,6 +186,9 @@ def main(argv: list[str] | None = None) -> int:
             "max_tokens": budget.max_tokens,
             "tokens_total": budget.total(track_root),
             "budget_exceeded": budget_exceeded,
+            # Soft-fault accounting: seeds whose lineages did not
+            # finish cleanly (typically evolve rc=30).
+            "exhausted_seeds": exhausted_seeds,
         },
     )
     _LOG.info("Track A manifest: %s (%d lineages)", manifest_path, len(lineages))

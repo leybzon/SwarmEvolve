@@ -124,6 +124,116 @@ def test_no_cpp_block_rejects_gen(tmp_path: Path, opponent_path: Path):
     assert state["champion_generation"] == -1
 
 
+def test_retry_disabled_with_zero_budget(tmp_path: Path, opponent_path: Path):
+    """--max-compile-retries 0 disables the retry loop: a single parse
+    failure is observed exactly once with n_attempts=1.
+
+    Regression guard for the retry-loop refactor: when the budget is 0
+    the generation must never make a second LLM call (mock cursor stays
+    at 1).
+    """
+    mr = tmp_path / "responses"
+    mr.mkdir()
+    (mr / "0.md").write_text("no fence here.\n")
+
+    out_dir = tmp_path / "run"
+    rc = evolve.main([
+        "--opponent", str(opponent_path),
+        "--client", "mock",
+        "--mock-response-dir", str(mr),
+        "--generations", "1",
+        "--n-matches", "1",
+        "--workers", "1",
+        "--checkpoint-every", "1",
+        "--max-compile-retries", "0",
+        "--out-dir", str(out_dir),
+        "--seed", "7",
+    ])
+    assert rc == 0
+    state = json.loads((out_dir / "state.json").read_text())
+    assert state["history"][0]["status"] == "parse_failed"
+    assert state["history"][0]["n_attempts"] == 1
+    assert state["config"]["max_compile_retries"] == 0
+
+
+@pytest.mark.skipif(CXX is None, reason="no C++ compiler available")
+def test_retry_succeeds_after_bad_first_response(
+    tmp_path: Path, opponent_path: Path,
+):
+    """First mock response has no fenced block (parse_failed); the retry
+    pulls a valid pursuit AI and the generation is reported with the
+    final attempt status preserved (n_attempts=2).
+
+    This is the happy path of the retry-on-compile-failure feature.
+    """
+    mr = tmp_path / "responses"
+    mr.mkdir()
+    (mr / "0.md").write_text("no fence here.\n")
+    (mr / "1.md").write_text(_fenced(_baseline_cpp("TeamA")))
+
+    out_dir = tmp_path / "run"
+    rc = evolve.main([
+        "--opponent", str(opponent_path),
+        "--client", "mock",
+        "--mock-response-dir", str(mr),
+        "--generations", "1",
+        "--n-matches", "1",
+        "--workers", "1",
+        "--checkpoint-every", "1",
+        "--max-compile-retries", "3",
+        "--out-dir", str(out_dir),
+        "--seed", "7",
+    ])
+    assert rc == 0
+    state = json.loads((out_dir / "state.json").read_text())
+    row = state["history"][0]
+    # n_attempts is 2: one bad response + one good retry.
+    assert row["n_attempts"] == 2
+    # The final attempt's status is the resolved status for the gen.
+    assert row["status"] in ("accepted", "rejected")
+    # Retry journal entries must have been written.
+    events = experiment_log.ExperimentLog.read(out_dir)
+    retry_events = [e for e in events if e["type"] == "retry_attempt"]
+    assert len(retry_events) >= 1
+    assert retry_events[0]["stage"] == "parse"
+    # The attempt_NN/ forensic directories should exist on disk.
+    gen_dir = out_dir / "gens" / "0000"
+    assert (gen_dir / "attempt_00").is_dir()
+    assert (gen_dir / "attempt_01").is_dir()
+
+
+def test_retry_exhausts_budget_then_reports_last_stage(
+    tmp_path: Path, opponent_path: Path,
+):
+    """When every attempt within the retry budget fails parse, the
+    generation is recorded as parse_failed with n_attempts = budget+1.
+    """
+    mr = tmp_path / "responses"
+    mr.mkdir()
+    for i in range(5):
+        (mr / f"{i:02d}.md").write_text(f"no fence in response {i}\n")
+
+    out_dir = tmp_path / "run"
+    rc = evolve.main([
+        "--opponent", str(opponent_path),
+        "--client", "mock",
+        "--mock-response-dir", str(mr),
+        "--generations", "1",
+        "--n-matches", "1",
+        "--workers", "1",
+        "--checkpoint-every", "1",
+        "--max-compile-retries", "3",
+        "--out-dir", str(out_dir),
+        "--seed", "7",
+    ])
+    assert rc == 0
+    state = json.loads((out_dir / "state.json").read_text())
+    row = state["history"][0]
+    # 1 first-try + 3 retries = 4 attempts, all parse_failed.
+    assert row["n_attempts"] == 4
+    assert row["status"] == "parse_failed"
+
+
 def test_compile_failure_cap(tmp_path: Path, opponent_path: Path):
     """5 parse_failed gens should trip the default cap and exit 30."""
     mr = tmp_path / "responses"

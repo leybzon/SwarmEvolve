@@ -216,6 +216,15 @@ def compile_matchup(
         # Apple clang does; g++ raises an "unknown pragma" warning which
         # -Werror promotes to a failure. Mirrors M8/M9 compile paths.
         "-Wno-unknown-pragmas",
+        # See scripts/fitness.py::_compile and
+        # docs/adr/0001-compile-flag-policy.md: style-only unused-*
+        # warnings are suppressed so the evolutionary loop can accept
+        # LLM-authored candidates that leave scratch bookkeeping.
+        "-Wno-unused-variable",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-but-set-variable",
+        "-Wno-unused-const-variable",
         f"-I{REPO_ROOT / 'src'}",
     ]
     if extra_flags:

@@ -86,6 +86,10 @@
           "description": "Cumulative LLM output tokens across the lineage's generations.",
           "type": "integer",
           "minimum": 0
+        },
+        "exit_code": {
+          "description": "Exit code from evolve.main for this lineage (0 == ran to completion, 30 == max_compile_failures exhausted). May be null when loaded from older manifests.",
+          "type": ["integer", "null"]
         }
       }
     }

@@ -67,6 +67,9 @@ def _build_bench_binary(
         "-Wpedantic",
         "-Werror",
         "-Wno-unknown-pragmas",
+        # Tolerate compiler-specific warning flags below (clang rejects
+        # -Wno-stringop-overflow as an unknown-warning-option under -Werror).
+        "-Wno-unknown-warning-option",
         # GCC 13+ emits a false-positive -Wstringop-overflow at -O2 when
         # MAX_DRONES_OVERRIDE is set and memset length is runtime-computed.
         "-Wno-stringop-overflow",
@@ -242,8 +245,15 @@ def _probe_openmp(cc: str) -> bool:
 
     with tempfile.TemporaryDirectory() as td:
         src = Path(td) / "probe.cpp"
+        # Pull in <cstring>, <cstdlib>, <cstdio> so the probe exercises the
+        # same libc / SDK headers that src/engine.cpp eventually touches.
+        # On macOS the Homebrew gcc chain can fail here with _Alignof parse
+        # errors in mach/_structs.h even though trivial <omp.h>-only probes
+        # succeed; detect that mismatch up front and skip gracefully.
         src.write_text(
-            "#include <omp.h>\nint main(){\n"
+            "#include <omp.h>\n"
+            "#include <cstring>\n#include <cstdlib>\n#include <cstdio>\n"
+            "int main(){\n"
             "int s=0;\n#pragma omp parallel for reduction(+:s)\n"
             "for(int i=0;i<8;++i) s+=i; return s>0?0:1; }\n"
         )

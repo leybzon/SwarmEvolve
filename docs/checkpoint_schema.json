@@ -63,6 +63,7 @@
         "workers",
         "accept_margin",
         "max_compile_failures",
+        "max_compile_retries",
         "checkpoint_every",
         "seed_base_root",
         "seed_ai_path",
@@ -82,6 +83,7 @@
         "workers": {"type": "integer", "minimum": 1},
         "accept_margin": {"type": "number"},
         "max_compile_failures": {"type": "integer", "minimum": 1},
+        "max_compile_retries": {"type": "integer", "minimum": 0},
         "checkpoint_every": {"type": "integer", "minimum": 1},
         "seed_base_root": {"type": "integer"},
         "seed_ai_path": {"type": "string"},
@@ -118,7 +120,9 @@
           "model",
           "candidate_sha256",
           "accepted",
-          "champion_source_path"
+          "champion_source_path",
+          "n_attempts",
+          "final_attempt_status"
         ],
         "properties": {
           "generation": {"type": "integer", "minimum": 0},
@@ -149,7 +153,20 @@
             ]
           },
           "accepted": {"type": "boolean"},
-          "champion_source_path": {"type": ["string", "null"]}
+          "champion_source_path": {"type": ["string", "null"]},
+          "n_attempts": {"type": "integer", "minimum": 1},
+          "final_attempt_status": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "enum": [
+                  "accepted", "rejected",
+                  "llm_failed", "parse_failed", "lint_failed",
+                  "inject_failed", "compile_failed", "eval_failed"
+                ]
+              }
+            ]
+          }
         }
       }
     },

@@ -157,11 +157,28 @@ def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) 
     _render(team_a_src, "TeamA", a_dir / "ai.cpp")
     _render(team_b_src, "TeamB", b_dir / "ai.cpp")
     binary = work_dir / "swarmevolve"
+    # Compile-flag policy (see docs/adr/0001-compile-flag-policy.md):
+    #   * Keep -Werror on everything except *style* warnings. Correctness
+    #     failures (shadowing, pedantic violations, sign-compare, ABI
+    #     mismatches, uninitialized reads) stay hard errors.
+    #   * Explicitly suppress unused-{variable,parameter,function,
+    #     but-set-variable,const-variable}: both SOTA LLMs we evaluated
+    #     (Claude Sonnet 4.5, Claude Opus 4.7) reliably scaffold
+    #     bookkeeping variables in their first draft; rejecting those as
+    #     compile failures rather than as suboptimal tactics made the
+    #     evolutionary loop unable to accept *any* candidate, which
+    #     defeats RQ2/RQ3 before they can even run. Rejecting unused
+    #     scaffolding at the compiler level is a style judgement, not a
+    #     correctness one — so we let it through here and rely on the
+    #     LLM-driven retry loop + prompt guidance instead.
     cmd = [
         compiler,
         "-std=c++17", "-O2",
         "-Wall", "-Wextra", "-Wshadow", "-Wpedantic", "-Werror",
         "-Wno-unknown-pragmas",
+        "-Wno-unused-variable", "-Wno-unused-parameter",
+        "-Wno-unused-function", "-Wno-unused-but-set-variable",
+        "-Wno-unused-const-variable",
         f"-I{REPO_ROOT / 'src'}",
         str(ENGINE_SRC),
         str(a_dir / "ai.cpp"),

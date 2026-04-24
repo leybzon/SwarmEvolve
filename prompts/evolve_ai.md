@@ -94,7 +94,14 @@ are `[0, arena_width] x [0, arena_height]`.
 # Style
 
 * C++17. Compile cleanly under
-  `-Wall -Wextra -Wshadow -Wpedantic -Werror`.
+  `-Wall -Wextra -Wshadow -Wpedantic -Werror`. The sandbox suppresses
+  `-Wunused-*` (so leftover scratch variables do not hard-fail the
+  build), but **do not rely on that** — if you declare a local, read
+  it. Dead bookkeeping is a sign of an unfinished refactor, not a
+  design.
+* Shadowing, uninitialized reads, signed/unsigned compares, and
+  pedantic violations **remain hard errors**. Write code that would
+  pass a careful code review, not just the compiler.
 * Keep it under ~250 lines. Comments welcome; cleverness optional.
 
 # After-Action Report (last generation)
