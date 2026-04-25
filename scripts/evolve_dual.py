@@ -242,6 +242,13 @@ def evolve_dual_llm(
     return 0
 
 
+def _slugify_tag(s: str) -> str:
+    """Slugify a tag: lowercase, alphanum+underscore only, max 50 chars."""
+    import re
+    slug = re.sub(r'[^a-z0-9_]', '', s.lower().replace(' ', '_').replace('-', '_'))
+    return slug[:50]  # More conservative limit
+
+
 def _write_stall_journal_entry(
     journal_path: Path,
     generation: int,
@@ -252,7 +259,7 @@ def _write_stall_journal_entry(
     """Write a stall entry when generation fails."""
     entry = {
         "generation": generation,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "parent_generation": generation - 1 if generation > 0 else None,
         "track": "A",
         "model": model,
@@ -299,7 +306,7 @@ def _write_journal_entry(
 
     entry = {
         "generation": generation,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "parent_generation": generation - 1 if generation > 0 else None,
         "track": "A",
         "model": model,
@@ -307,13 +314,13 @@ def _write_journal_entry(
         "status": "ok",
         "fitness": fitness_result.mean,
         "fitness_delta": None,  # TODO: compute from parent
-        "hypothesis_tested": tactic_spec.tactic_name,
-        "mechanism_expected": tactic_spec.mechanism,
-        "mechanism_observed": tactic_spec.why_this_counters_failure,
+        "hypothesis_tested": f"{tactic_spec.tactic_name}: {tactic_spec.why_this_counters_failure[:150]}",
+        "mechanism_expected": tactic_spec.mechanism[:400],  # Journal schema limit ~400
+        "mechanism_observed": tactic_spec.why_this_counters_failure[:400],
         "verdict": verdict,
         "outcome_summary": f"{'accepted' if accepted else 'rejected'}: mean={fitness_result.mean:.3f}",
         "advice_to_future_self": f"predicted metrics: {predicted_metrics}",
-        "tactic_tags": tactic_spec.key_metrics[:6] if tactic_spec.key_metrics else ["dual_llm"],
+        "tactic_tags": [_slugify_tag(m) for m in tactic_spec.key_metrics[:6]] if tactic_spec.key_metrics else ["dual_llm"],
         "aar_metrics_cited": aar_metrics or {},
         "validation": {"schema_valid": True, "metrics_match_aar": True, "rewrites": 0},
     }
