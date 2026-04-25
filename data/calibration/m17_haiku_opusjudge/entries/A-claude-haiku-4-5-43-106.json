@@ -1,0 +1,36 @@
+{
+  "aar_metrics_cited": {
+    "cooldown_utilization_us": 0.9587,
+    "focus_fire_redundancy": 0.0,
+    "mean_pairwise_distance_us": 269.9175,
+    "outcome": "TEAM_A_WIN",
+    "shots_fired_us": 10,
+    "shots_hit_us": 10,
+    "ticks": 106
+  },
+  "advice_to_future_self": "carry forward",
+  "fitness": 1.0,
+  "fitness_delta": 1.0,
+  "generation": 106,
+  "hypothesis_tested": "accept-if-better candidate; measure combat metrics and compare to prior champion",
+  "mechanism_expected": "mean score improves over champion",
+  "mechanism_observed": "mean=+1.000 ci=[+1.000,+1.000]",
+  "model": "claude-haiku-4-5",
+  "outcome_summary": "accepted: a=10 b=0 draws=0 invalid=0",
+  "parent_generation": 105,
+  "schema_version": 1,
+  "seed": 43,
+  "status": "ok",
+  "tactic_tags": [
+    "accept_if_better",
+    "loose_formation"
+  ],
+  "timestamp_utc": "2026-04-24T15:05:48Z",
+  "track": "A",
+  "validation": {
+    "metrics_match_aar": true,
+    "rewrites": 0,
+    "schema_valid": true
+  },
+  "verdict": "confirmed"
+}

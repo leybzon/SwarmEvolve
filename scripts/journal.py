@@ -150,6 +150,93 @@ def canonicalise_entry(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Reasoning depth validation (M21 enhancement)
+# ---------------------------------------------------------------------------
+
+# Banned phrases that indicate low-quality reflection
+BANNED_PHRASES = [
+    "try a different mechanism",
+    "try different",
+    "different approach",
+    "improve targeting",
+    "improve formation",
+    "improve coordination",
+    "better tactics",
+    "more effective",
+]
+
+# Generic-only tags that should not be the only tags present
+GENERIC_TAGS = {"accept_if_better", "status_quo", "no_change"}
+
+
+def _validate_reasoning_depth(entry: dict[str, Any]) -> list[str]:
+    """Validate reasoning depth heuristics (M21 enhancement).
+
+    Returns list of error messages (empty if all checks pass).
+    """
+    errors: list[str] = []
+
+    # Check 1: hypothesis_tested must be >= 10 words
+    hypothesis = entry.get("hypothesis_tested", "")
+    if isinstance(hypothesis, str):
+        word_count = len(hypothesis.split())
+        if word_count < 10:
+            errors.append(f"hypothesis_tested too short: {word_count} words (need >=10)")
+
+    # Check 2: mechanism_observed must cite at least 1 metric
+    mechanism = entry.get("mechanism_observed", "")
+    cited_metrics = entry.get("aar_metrics_cited", {})
+    if isinstance(mechanism, str) and cited_metrics:
+        # Check if any metric key appears in mechanism
+        has_metric_citation = any(
+            key.replace("_", " ") in mechanism.lower() or key in mechanism
+            for key in cited_metrics.keys()
+        )
+        if not has_metric_citation:
+            errors.append("mechanism_observed does not cite any AAR metric")
+
+    # Check 3: advice_to_future_self cannot match banned phrases
+    advice = entry.get("advice_to_future_self", "")
+    if isinstance(advice, str):
+        advice_lower = advice.lower()
+
+        # Special case: "carry forward" allowed only if win rate >= 0.8
+        if "carry forward" in advice_lower:
+            outcome_summary = entry.get("outcome_summary", "")
+            # Parse outcome_summary like "accepted: a=8 b=1 draws=1 invalid=0"
+            if "a=" in outcome_summary:
+                import re
+                match = re.search(r'a=(\d+)\s+b=(\d+)\s+draws=(\d+)', outcome_summary)
+                if match:
+                    wins = int(match.group(1))
+                    losses = int(match.group(2))
+                    total = wins + losses + int(match.group(3))
+                    win_rate = wins / total if total > 0 else 0.0
+                    if win_rate < 0.8:
+                        errors.append(
+                            f"'carry forward' not allowed with win_rate={win_rate:.2f} < 0.8"
+                        )
+
+        # Check other banned phrases
+        for phrase in BANNED_PHRASES:
+            if phrase in advice_lower:
+                errors.append(f"banned phrase in advice: '{phrase}'")
+                break  # Only report first match
+
+    # Check 4: tactic_tags must have >= 2 tags, at least one non-generic
+    tags = entry.get("tactic_tags", [])
+    if isinstance(tags, list):
+        if len(tags) < 2:
+            errors.append(f"tactic_tags must have >=2 tags, got {len(tags)}")
+        else:
+            non_generic = [t for t in tags if t not in GENERIC_TAGS]
+            if not non_generic:
+                errors.append(f"tactic_tags must have >=1 non-generic tag (got only {tags})")
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
 # Metric grounding
 # ---------------------------------------------------------------------------
 
@@ -174,12 +261,18 @@ def _metric_matches(cited: Any, truth: Any) -> bool:
 def validate_against_aar(
     entry: dict[str, Any],
     aar: dict[str, Any] | None,
+    *,
+    strict_reflection: bool = False,
 ) -> ValidationResult:
     """Validate a *canonicalised* entry against schema + AAR.
 
     ``aar`` is the structured-metrics dict from M15b's
     ``compute_metrics``. Passing ``aar=None`` skips the grounding
     check — used for stall generations that had no match to analyse.
+
+    If ``strict_reflection=True``, also validates reasoning depth
+    heuristics (M21 enhancement): hypothesis length, metric citations,
+    banned phrases, tactic tag quality.
     """
     errors: list[str] = []
 
@@ -200,6 +293,13 @@ def validate_against_aar(
                 errors.append(
                     f"aar: '{key}' cited={value!r} vs aar={aar[key]!r}"
                 )
+
+    # M21: Optional reasoning depth validation
+    if strict_reflection:
+        depth_errs = _validate_reasoning_depth(entry)
+        if depth_errs:
+            errors.extend(f"reasoning: {e}" for e in depth_errs)
+
     # Stall entries must have null fitness + delta (schema enforces)
     return ValidationResult(
         ok=not errors,
