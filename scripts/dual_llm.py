@@ -67,9 +67,18 @@ def render_planner_prompt(
     opponent_source: str,
     aar_markdown: str,
     prior_lessons: str,
+    champion_fitness: float | None = None,
+    last_generation: int | None = None,
+    last_hypothesis: str | None = None,
+    last_fitness: float | None = None,
+    use_v2_prompt: bool = True,
 ) -> str:
     """Render the planner prompt template with context."""
-    template_path = PROMPTS / "planner_analyze_aar.md"
+    if use_v2_prompt:
+        template_path = PROMPTS / "planner_analyze_aar_v2.md"
+    else:
+        template_path = PROMPTS / "planner_analyze_aar.md"
+
     if not template_path.exists():
         raise FileNotFoundError(f"Planner template not found: {template_path}")
 
@@ -82,6 +91,10 @@ def render_planner_prompt(
         "{OPPONENT_SOURCE}": opponent_source,
         "{AAR}": aar_markdown,
         "{PRIOR_LESSONS}": prior_lessons,
+        "{CHAMPION_FITNESS}": f"{champion_fitness:.3f}" if champion_fitness is not None else "N/A (first generation)",
+        "{LAST_GENERATION}": str(last_generation) if last_generation is not None else "N/A",
+        "{LAST_HYPOTHESIS}": last_hypothesis if last_hypothesis else "N/A (first generation)",
+        "{LAST_FITNESS}": f"{last_fitness:.3f}" if last_fitness is not None else "N/A",
     }
 
     result = template
@@ -278,6 +291,10 @@ def dual_llm_generate(
     opponent_source: str,
     aar_markdown: str,
     prior_lessons: str,
+    champion_fitness: float | None = None,
+    last_generation: int | None = None,
+    last_hypothesis: str | None = None,
+    last_fitness: float | None = None,
     planner_max_retries: int = 2,
     planner_max_tokens: int = 4096,
     coder_max_tokens: int = 4096,
@@ -310,6 +327,11 @@ def dual_llm_generate(
         opponent_source=opponent_source,
         aar_markdown=aar_markdown,
         prior_lessons=prior_lessons,
+        champion_fitness=champion_fitness,
+        last_generation=last_generation,
+        last_hypothesis=last_hypothesis,
+        last_fitness=last_fitness,
+        use_v2_prompt=True,
     )
 
     spec, planner_resp, planner_retries = call_planner(

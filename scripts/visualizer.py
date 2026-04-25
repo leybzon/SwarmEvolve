@@ -72,6 +72,7 @@ class RenderConfig:
     disable_range: float = 50.0  # engine default per SPECIFICATION §1.3
     draw_range_ring: bool = True
     max_cooldown: int = 10       # engine default; used to normalize CD bar
+    intro_text: str | None = None  # optional intro text shown for 1 second
 
 
 def _world_to_px(x: float, y: float, cfg: RenderConfig) -> tuple[int, int]:
@@ -134,11 +135,85 @@ def _draw_drone(frame: np.ndarray, drone: dict[str, Any], color: tuple[int, int,
 
 def _draw_hud(frame: np.ndarray, tick: int, a_alive: int, b_alive: int,
               outcome: str | None, cfg: RenderConfig) -> None:
-    text = f"tick={tick}  A={a_alive}  B={b_alive}"
-    if outcome:
-        text += f"  {outcome}"
-    cv2.putText(frame, text, (8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+    """Draw heads-up display with tick counter and alive counts."""
+    # Top-left: Step counter (more prominent)
+    step_text = f"Step {tick}"
+    cv2.putText(frame, step_text, (8, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+                COLOR_HUD, 2, lineType=cv2.LINE_AA)
+
+    # Below step: Team status
+    status_text = f"Team A: {a_alive}  Team B: {b_alive}"
+    cv2.putText(frame, status_text, (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                 COLOR_HUD, 1, lineType=cv2.LINE_AA)
+
+    # Show outcome if present (used in final frames)
+    if outcome:
+        cv2.putText(frame, outcome, (8, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                    COLOR_HUD, 1, lineType=cv2.LINE_AA)
+
+
+def _draw_intro_frame(cfg: RenderConfig) -> np.ndarray:
+    """Create intro frame with optional metadata text."""
+    frame = np.full((cfg.height, cfg.width, 3), COLOR_BG, dtype=np.uint8)
+
+    if cfg.intro_text:
+        # Center the intro text
+        lines = cfg.intro_text.split('\n')
+        y_start = cfg.height // 2 - len(lines) * 20
+
+        for i, line in enumerate(lines):
+            # Calculate text size to center it
+            (text_width, text_height), _ = cv2.getTextSize(
+                line, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
+            )
+            x = (cfg.width - text_width) // 2
+            y = y_start + i * 40
+
+            cv2.putText(frame, line, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        COLOR_HUD, 2, lineType=cv2.LINE_AA)
+
+    return frame
+
+
+def _draw_outcome_frame(final_tick: int, outcome: str, a_alive: int, b_alive: int,
+                        cfg: RenderConfig) -> np.ndarray:
+    """Create outcome frame showing match result."""
+    frame = np.full((cfg.height, cfg.width, 3), COLOR_BG, dtype=np.uint8)
+    _draw_grid(frame, cfg)
+
+    # Determine winner and color
+    if "TEAM_A_WIN" in outcome or (a_alive > b_alive):
+        winner_text = "TEAM A WINS!"
+        winner_color = COLOR_A
+    elif "TEAM_B_WIN" in outcome or (b_alive > a_alive):
+        winner_text = "TEAM B WINS!"
+        winner_color = COLOR_B
+    else:
+        winner_text = "DRAW"
+        winner_color = COLOR_HUD
+
+    # Large centered winner text
+    (text_width, text_height), _ = cv2.getTextSize(
+        winner_text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3
+    )
+    x = (cfg.width - text_width) // 2
+    y = cfg.height // 2
+
+    cv2.putText(frame, winner_text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
+                winner_color, 3, lineType=cv2.LINE_AA)
+
+    # Final stats below winner text
+    stats_text = f"Final Step: {final_tick}  |  Team A: {a_alive}  Team B: {b_alive}"
+    (stats_width, _), _ = cv2.getTextSize(
+        stats_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1
+    )
+    stats_x = (cfg.width - stats_width) // 2
+    stats_y = y + 50
+
+    cv2.putText(frame, stats_text, (stats_x, stats_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                COLOR_HUD, 1, lineType=cv2.LINE_AA)
+
+    return frame
 
 
 def _render_frame(line: dict[str, Any], cfg: RenderConfig) -> np.ndarray:
@@ -179,6 +254,9 @@ def _iter_trace(path: Path) -> Iterable[dict[str, Any]]:
 def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = None) -> int:
     """Render ``trace_path`` into ``out_path`` (MP4). Returns frame count written.
 
+    Renders intro frame (1 sec if intro_text provided), all trace frames, and
+    outcome frame (2 sec hold at end showing winner and final step).
+
     Raises:
         FileNotFoundError: if ``trace_path`` does not exist.
         ValueError: on malformed trace lines.
@@ -198,10 +276,39 @@ def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = No
 
     n_frames = 0
     try:
+        # Optional intro frame (1 second)
+        if cfg.intro_text:
+            intro_frame = _draw_intro_frame(cfg)
+            for _ in range(cfg.fps):  # 1 second at cfg.fps
+                writer.write(intro_frame)
+                n_frames += 1
+
+        # Render all trace frames and track final state
+        final_tick = 0
+        final_outcome = "DRAW"
+        final_a_alive = 0
+        final_b_alive = 0
+
         for line in _iter_trace(trace_path):
             frame = _render_frame(line, cfg)
             writer.write(frame)
             n_frames += 1
+
+            # Track final state for outcome frame
+            final_tick = int(line["tick"])
+            final_outcome = line.get("outcome", "DRAW")
+            team_a = line["team_a"]
+            team_b = line["team_b"]
+            final_a_alive = sum(1 for d in team_a if d["alive"])
+            final_b_alive = sum(1 for d in team_b if d["alive"])
+
+        # Outcome frame (2 seconds hold)
+        outcome_frame = _draw_outcome_frame(final_tick, final_outcome,
+                                           final_a_alive, final_b_alive, cfg)
+        for _ in range(cfg.fps * 2):  # 2 seconds at cfg.fps
+            writer.write(outcome_frame)
+            n_frames += 1
+
     finally:
         writer.release()
 
@@ -241,6 +348,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="disable_range for the range ring (default 50.0)")
     parser.add_argument("--no-range-ring", action="store_true",
                         help="skip drawing the faint disable_range ring")
+    parser.add_argument("--intro-text", type=str, default=None,
+                        help="optional text shown for 1 second at start (use \\n for newlines)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -248,6 +357,11 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO if args.verbose else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+
+    # Process intro text to handle literal \n escape sequences
+    intro_text = None
+    if args.intro_text:
+        intro_text = args.intro_text.replace('\\n', '\n')
 
     cfg = RenderConfig(
         fps=args.fps,
@@ -257,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
         arena_h=args.arena[1],
         disable_range=args.disable_range,
         draw_range_ring=not args.no_range_ring,
+        intro_text=intro_text,
     )
 
     try:

@@ -80,8 +80,18 @@ nvc++ -std=c++17 -O3 -acc=gpu -gpu=managed -o swarmevolve src/engine.cpp src/a/*
 ./swarmevolve --record trace.jsonl        # record to trace.jsonl
 ./swarmevolve --record trace.jsonl --seed 42
 
-# Generate visualization
+# Generate visualization (basic)
 python3 scripts/visualizer.py trace.jsonl output.mp4
+
+# With optional intro text (shown for 1 second)
+python3 scripts/visualizer.py trace.jsonl output.mp4 \
+    --intro-text "Generation 33 Champion\nvs pursuit_v1"
+
+# Video includes:
+#   - Optional intro (1 sec if --intro-text provided)
+#   - Step counter throughout simulation
+#   - Team alive counts
+#   - Winner and final step display (2 sec hold at end)
 ```
 
 ### Evolve & Tournament

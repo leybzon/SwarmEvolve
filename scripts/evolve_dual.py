@@ -48,6 +48,8 @@ def evolve_dual_llm(
     seed: int,
     out_dir: Path,
     strict_reflection: bool = False,
+    init_champion: Path | None = None,
+    acceptance_mode: str = "absolute",
 ) -> int:
     """Run evolutionary loop with dual-LLM architecture.
 
@@ -61,6 +63,8 @@ def evolve_dual_llm(
         seed: Base seed for RNG
         out_dir: Output directory for run artifacts
         strict_reflection: Enable enhanced journal validation
+        init_champion: Optional path to initial champion C++ source (default: stationary_v1)
+        acceptance_mode: "absolute" (>0.0) or "relative" (>champion)
 
     Returns:
         Exit code (0 = success)
@@ -76,9 +80,17 @@ def evolve_dual_llm(
     opponent_source = opponent_path.read_text(encoding="utf-8")
     opponent_name = opponent_path.stem
 
-    # Initialize with stationary baseline
-    baseline_path = REPO_ROOT / "src" / "baselines" / "stationary_v1.cpp"
-    current_champion = baseline_path.read_text(encoding="utf-8")
+    # Initialize champion
+    if init_champion:
+        if not init_champion.exists():
+            _LOG.error("init-champion file not found: %s", init_champion)
+            return 1
+        current_champion = init_champion.read_text(encoding="utf-8")
+        _LOG.info("init-champion loaded from %s", init_champion)
+    else:
+        baseline_path = REPO_ROOT / "src" / "baselines" / "stationary_v1.cpp"
+        current_champion = baseline_path.read_text(encoding="utf-8")
+        _LOG.info("init-champion using stationary baseline")
 
     _LOG.info("evolve-dual-start generations=%d planner=%s coder=%s",
               generations, planner_model, coder_model)
@@ -115,6 +127,14 @@ def evolve_dual_llm(
                 except Exception as e:
                     _LOG.warning("aar-failed gen=%d err=%s", gen - 1, e)
 
+        # Get context for iteration-aware prompting
+        champion_fitness = _get_champion_fitness(journal_path) if gen > 0 else None
+        last_entry = None
+        if journal_path.exists() and gen > 0:
+            entries = journal_mod.read_entries(journal_path)
+            if entries:
+                last_entry = entries[-1]
+
         # Dual-LLM generation
         try:
             result = dual_llm.dual_llm_generate(
@@ -126,6 +146,10 @@ def evolve_dual_llm(
                 opponent_source=opponent_source,
                 aar_markdown=aar_markdown,
                 prior_lessons=prior_lessons,
+                champion_fitness=champion_fitness,
+                last_generation=gen - 1 if gen > 0 else None,
+                last_hypothesis=last_entry.get('hypothesis_tested') if last_entry else None,
+                last_fitness=last_entry.get('fitness') if last_entry else None,
             )
         except dual_llm.DualLLMError as e:
             _LOG.error("dual-llm-failed gen=%d err=%s", gen, e)
@@ -210,8 +234,18 @@ def evolve_dual_llm(
             )
             continue
 
-        # Accept if better (simple threshold for M21 testing)
-        accepted = fitness_result.mean > 0.0  # Simplistic: accept if positive mean
+        # Accept candidate based on acceptance mode
+        if acceptance_mode == "relative":
+            champion_fitness = _get_champion_fitness(journal_path)
+            # Accept if better than current champion (with small epsilon for noise)
+            accepted = fitness_result.mean > (champion_fitness - 0.05)
+            _LOG.info("acceptance-check mode=relative champion=%.3f candidate=%.3f accepted=%s",
+                     champion_fitness, fitness_result.mean, accepted)
+        else:
+            # M22 behavior: absolute threshold
+            accepted = fitness_result.mean > 0.0
+            _LOG.info("acceptance-check mode=absolute candidate=%.3f accepted=%s",
+                     fitness_result.mean, accepted)
 
         if accepted:
             current_champion = result.cpp_code
@@ -240,6 +274,25 @@ def evolve_dual_llm(
 
     _LOG.info("evolve-dual-complete generations=%d", generations)
     return 0
+
+
+def _get_champion_fitness(journal_path: Path) -> float:
+    """Get fitness of most recent accepted champion from journal.
+
+    Returns:
+        Fitness of last accepted entry, or -1.0 if no champion exists yet.
+    """
+    if not journal_path.exists():
+        return -1.0
+
+    entries = journal_mod.read_entries(journal_path)
+    accepted_entries = [e for e in entries if e.get('verdict') == 'confirmed']
+
+    if not accepted_entries:
+        return -1.0
+
+    # Return fitness of most recent accepted entry
+    return accepted_entries[-1]['fitness']
 
 
 def _slugify_tag(s: str) -> str:
@@ -365,6 +418,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Output directory")
     parser.add_argument("--strict-reflection", action="store_true",
                         help="Enable enhanced journal validation")
+    parser.add_argument("--init-champion", type=Path, default=None,
+                        help="Path to initial champion C++ file (default: stationary_v1)")
+    parser.add_argument("--acceptance-mode", choices=["absolute", "relative"], default="absolute",
+                        help="Acceptance criterion: absolute (>0.0) vs relative (>champion)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable debug logging")
 
@@ -385,6 +442,8 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
         out_dir=args.out_dir,
         strict_reflection=args.strict_reflection,
+        init_champion=args.init_champion,
+        acceptance_mode=args.acceptance_mode,
     )
 
 
