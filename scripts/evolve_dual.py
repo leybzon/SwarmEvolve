@@ -101,81 +101,133 @@ def evolve_dual_llm(
 
         _LOG.info("generation gen=%d", gen)
 
-        # Recall prior lessons from journal
-        prior_lessons = "(none)"
-        if journal_path.exists():
-            entries = journal_mod.read_entries(journal_path)
-            recalled = journal_mod.recall(journal_path, recency_k=3, max_entries=5)
-            if recalled:
-                prior_lessons = journal_mod.render_for_prompt(recalled, max_tokens=1500)
-
-        # Get AAR from previous generation (if exists)
-        aar_markdown = "(none - first generation)"
+        # Initialize variables that may be set conditionally
         aar_metrics = None
-        if gen > 0:
-            prev_gen_dir = out_dir / f"gen_{gen-1:04d}"
-            prev_trace = prev_gen_dir / "trace_sample.jsonl"
-            if prev_trace.exists():
-                try:
-                    aar_report = telemetry_aar.render_aar(
-                        prev_trace,
-                        perspective=as_team,
-                        fmt="both",
-                    )
-                    aar_markdown = aar_report.markdown
-                    aar_metrics = aar_report.structured
-                except Exception as e:
-                    _LOG.warning("aar-failed gen=%d err=%s", gen - 1, e)
 
-        # Get context for iteration-aware prompting
-        champion_fitness = _get_champion_fitness(journal_path) if gen > 0 else None
-        last_entry = None
-        if journal_path.exists() and gen > 0:
-            entries = journal_mod.read_entries(journal_path)
-            if entries:
-                last_entry = entries[-1]
+        # Special handling for gen 0 with init-champion: skip LLM, just evaluate
+        skip_llm = (gen == 0 and init_champion)
 
-        # Dual-LLM generation
-        try:
-            result = dual_llm.dual_llm_generate(
-                planner_client=planner_client,
-                coder_client=coder_client,
-                team_letter=as_team,
-                namespace=namespace,
-                opponent_name=opponent_name,
-                opponent_source=opponent_source,
-                aar_markdown=aar_markdown,
-                prior_lessons=prior_lessons,
-                champion_fitness=champion_fitness,
-                last_generation=gen - 1 if gen > 0 else None,
-                last_hypothesis=last_entry.get('hypothesis_tested') if last_entry else None,
-                last_fitness=last_entry.get('fitness') if last_entry else None,
+        if skip_llm:
+            _LOG.info("gen-0-init-champion: using provided champion directly (no LLM call)")
+            candidate_path = gen_dir / "candidate.cpp"
+            candidate_path.write_text(current_champion)
+
+            # Create minimal metadata files for consistency
+            (gen_dir / "planner_response.md").write_text(
+                "# Gen 0: Init Champion Evaluation\n\n"
+                f"Using provided init-champion from: {init_champion}\n\n"
+                "No planner call - directly evaluating champion code.\n"
             )
-        except dual_llm.DualLLMError as e:
-            _LOG.error("dual-llm-failed gen=%d err=%s", gen, e)
-            # Write stall entry to journal
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                generation=gen,
-                reason=str(e),
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
+            (gen_dir / "coder_response.md").write_text(
+                "# Gen 0: Init Champion Evaluation\n\n"
+                "No coder call - using champion code as-is.\n"
             )
-            continue
 
-        # Save tactic spec
-        tactic_spec_path = gen_dir / "tactic_spec.json"
-        tactic_spec_path.write_text(
-            json.dumps(result.tactic_spec.to_dict(), indent=2) + "\n"
-        )
+            # Create minimal tactic spec for journal
+            import tactic_spec as tspec
+            minimal_tactic_spec = tspec.TacticSpec(
+                key_metrics=[],
+                why_we_failed="N/A - evaluating provided init-champion",
+                what_enemy_exploited="N/A",
+                constraints_violated="N/A",
+                tactic_name=f"Init Champion from {init_champion.stem}",
+                mechanism="Evaluating provided champion code directly (no LLM generation)",
+                why_this_counters_failure="N/A - baseline evaluation",
+                expected_changes=[],
+                message_protocol="Inherited from init-champion",
+                memory_layout="Inherited from init-champion",
+                special_cases="None"
+            )
+            (gen_dir / "tactic_spec.json").write_text(
+                json.dumps(minimal_tactic_spec.to_dict(), indent=2) + "\n"
+            )
 
-        # Save responses
-        (gen_dir / "planner_response.md").write_text(result.planner_response.text)
-        (gen_dir / "coder_response.md").write_text(result.coder_response.text)
+            # Create mock result for consistency with normal path
+            from types import SimpleNamespace
+            result = SimpleNamespace(
+                cpp_code=current_champion,
+                tactic_spec=minimal_tactic_spec,
+                total_prompt_tokens=0,
+                total_completion_tokens=0
+            )
 
-        # Save candidate
-        candidate_path = gen_dir / "candidate.cpp"
-        candidate_path.write_text(result.cpp_code)
+        else:
+            # Normal path: Dual-LLM generation
+            # Recall prior lessons from journal
+            prior_lessons = "(none)"
+            if journal_path.exists():
+                entries = journal_mod.read_entries(journal_path)
+                recalled = journal_mod.recall(journal_path, recency_k=3, max_entries=5)
+                if recalled:
+                    prior_lessons = journal_mod.render_for_prompt(recalled, max_tokens=1500)
+
+            # Get AAR from previous generation (if exists)
+            aar_markdown = "(none - first generation)"
+            aar_metrics = None
+            if gen > 0:
+                prev_gen_dir = out_dir / f"gen_{gen-1:04d}"
+                prev_trace = prev_gen_dir / "trace_sample.jsonl"
+                if prev_trace.exists():
+                    try:
+                        aar_report = telemetry_aar.render_aar(
+                            prev_trace,
+                            perspective=as_team,
+                            fmt="both",
+                        )
+                        aar_markdown = aar_report.markdown
+                        aar_metrics = aar_report.structured
+                    except Exception as e:
+                        _LOG.warning("aar-failed gen=%d err=%s", gen - 1, e)
+
+            # Get context for iteration-aware prompting
+            champion_fitness = _get_champion_fitness(journal_path) if gen > 0 else None
+            last_entry = None
+            if journal_path.exists() and gen > 0:
+                entries = journal_mod.read_entries(journal_path)
+                if entries:
+                    last_entry = entries[-1]
+
+            # Dual-LLM generation
+            try:
+                result = dual_llm.dual_llm_generate(
+                    planner_client=planner_client,
+                    coder_client=coder_client,
+                    team_letter=as_team,
+                    namespace=namespace,
+                    opponent_name=opponent_name,
+                    opponent_source=opponent_source,
+                    aar_markdown=aar_markdown,
+                    prior_lessons=prior_lessons,
+                    champion_fitness=champion_fitness,
+                    last_generation=gen - 1 if gen > 0 else None,
+                    last_hypothesis=last_entry.get('hypothesis_tested') if last_entry else None,
+                    last_fitness=last_entry.get('fitness') if last_entry else None,
+                )
+            except dual_llm.DualLLMError as e:
+                _LOG.error("dual-llm-failed gen=%d err=%s", gen, e)
+                # Write stall entry to journal
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    generation=gen,
+                    reason=str(e),
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
+
+            # Save tactic spec
+            tactic_spec_path = gen_dir / "tactic_spec.json"
+            tactic_spec_path.write_text(
+                json.dumps(result.tactic_spec.to_dict(), indent=2) + "\n"
+            )
+
+            # Save responses
+            (gen_dir / "planner_response.md").write_text(result.planner_response.text)
+            (gen_dir / "coder_response.md").write_text(result.coder_response.text)
+
+            # Save candidate
+            candidate_path = gen_dir / "candidate.cpp"
+            candidate_path.write_text(result.cpp_code)
 
         # Lint
         violations = lint_ai_tokens.scan_file(candidate_path)
