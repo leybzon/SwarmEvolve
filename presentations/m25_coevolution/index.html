@@ -188,6 +188,92 @@
         .fragment.fade-in-then-semi-out.visible:not(.current-fragment) {
             opacity: 0.3;
         }
+
+        .tactic-showcase {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .tactic-card {
+            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(234, 67, 53, 0.1));
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tactic-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--team-a-color), var(--team-b-color));
+        }
+
+        .tactic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .tactic-round {
+            background: rgba(52, 168, 83, 0.3);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .code-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .code-box {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid;
+        }
+
+        .code-box.before { border-color: #888; }
+        .code-box.after { border-color: var(--neutral-color); }
+
+        .code-label {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .diagram-container {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .diagram-container img {
+            max-height: 450px;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        section[data-background-image] h2,
+        section[data-background-image] h3 {
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -331,8 +417,8 @@ while(searching) {
             <section>
                 <h2>The Red Queen Effect</h2>
                 <h3>Reversing an Insurmountable Gap</h3>
-                <div class="fitness-chart">
-                    <img src="fig3_red_queen_effect.png" alt="Red Queen Effect" style="max-width: 80%; max-height: 400px;">
+                <div class="diagram-container">
+                    <img src="fig3_red_queen_effect.png" alt="Red Queen Effect">
                 </div>
                 <ul class="checkmarks">
                     <li><strong>Hypothesis Confirmed:</strong> Team B evolved from -0.8 (losing badly) to +0.9 (winning decisively)</li>
@@ -350,9 +436,11 @@ while(searching) {
             <section>
                 <h2>The Tactical Staircase</h2>
                 <h3>Punctuated Equilibrium in Action</h3>
-                <div style="display: flex; gap: 2rem;">
-                    <div style="flex: 1;">
-                        <img src="fig4_strategy_timeline.png" alt="Strategy Timeline" style="max-width: 100%;">
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <div style="flex: 1.2;">
+                        <div class="diagram-container" style="margin: 0;">
+                            <img src="fig4_strategy_timeline.png" alt="Strategy Timeline" style="max-height: 400px;">
+                        </div>
                     </div>
                     <div style="flex: 1;">
                         <h4>6 Tactical Phases</h4>
@@ -372,6 +460,143 @@ while(searching) {
                 <aside class="notes">
                     Evolution wasn't smooth. It was a staircase. Long plateaus punctuated by massive breakthroughs.
                     The Formation Spread discovery at Round 31 was the pivotal moment - it created spatial coverage that Team A's kiting couldn't counter.
+                </aside>
+            </section>
+
+            <!-- NEW Slide 7b: Evolved Tactics - Code Comparison -->
+            <section>
+                <h2>Evolved Tactics: The Code</h2>
+                <h3>From Pursuit to Formation Control</h3>
+
+                <div class="code-comparison">
+                    <div class="code-box before">
+                        <div class="code-label">Round 1: Direct Pursuit (66 LOC, -0.8 fitness)</div>
+                        <pre style="font-size: 0.55rem; margin: 0;"><code class="language-cpp">// Find nearest enemy
+float min_dist = 1e9f;
+int target = -1;
+for (int i = 0; i < num_enemies; i++) {
+    if (!enemies[i].alive) continue;
+    float d = distance(my_pos, enemies[i].pos);
+    if (d < min_dist) {
+        min_dist = d;
+        target = i;
+    }
+}
+
+// Chase directly toward target
+if (target >= 0) {
+    out_action->vx = enemies[target].pos.x - my_pos.x;
+    out_action->vy = enemies[target].pos.y - my_pos.y;
+    // Fire if in range and ready
+    if (min_dist < disable_range && my_cooldown == 0) {
+        out_action->target_id = target;
+    }
+}</code></pre>
+                    </div>
+
+                    <div class="code-box after">
+                        <div class="code-label">Round 31: Formation Spread (187 LOC, +0.9 fitness)</div>
+                        <pre style="font-size: 0.55rem; margin: 0;"><code class="language-cpp">// Maintain 80-unit minimum spacing from allies
+const float min_spacing = 80.0f;
+float repulse_x = 0.0f, repulse_y = 0.0f;
+
+for (int i = 0; i < num_allies; i++) {
+    if (i == my_id || !allies[i].alive) continue;
+    float d = distance(my_pos, allies[i].pos);
+    if (d < min_spacing && d > 1e-6f) {
+        float push_x = my_pos.x - allies[i].pos.x;
+        float push_y = my_pos.y - allies[i].pos.y;
+        normalize(push_x, push_y);
+        float strength = (min_spacing - d) / min_spacing;
+        repulse_x += push_x * strength;
+        repulse_y += push_y * strength;
+    }
+}
+
+// Predict enemy retreat vector after they fire
+if (target_cooldown > 0 && target_cooldown < 8) {
+    pred_x = enemy_x + retreat_vx * target_cooldown;
+    pred_y = enemy_y + retreat_vy * target_cooldown;
+}</code></pre>
+                    </div>
+                </div>
+
+                <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center;">
+                    <span class="highlight">Key Innovation:</span> 80-unit spacing creates zone coverage (60% of arena).
+                    Predictive intercept counters kiting. <strong>LLM-discovered, not human-programmed.</strong>
+                </p>
+
+                <aside class="notes">
+                    This is the actual code that evolved. Round 1 is simple pursuit - chase nearest enemy, fire when in range.
+                    Round 31 discovered spacing repulsion forces and predictive targeting based on cooldown inference.
+                    Notice the complexity growth - from simple distance checks to multi-agent coordination math.
+                </aside>
+            </section>
+
+            <!-- NEW Slide 7c: Tactical Evolution Visualization -->
+            <section>
+                <h2>Tactical Evolution in Action</h2>
+                <h3>4 Key Tactical Innovations</h3>
+
+                <div class="tactic-showcase">
+                    <div class="tactic-card fragment">
+                        <div class="tactic-header">
+                            <h4 style="margin: 0; font-size: 1.1rem;">📡 Message Coordination</h4>
+                            <span class="tactic-round">Round 3</span>
+                        </div>
+                        <p style="font-size: 0.8rem;">Broadcasts target via 4-float radio to prevent redundant focus-fire</p>
+                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
+<pre style="font-size: 0.5rem; margin: 0;">message_out[0] = my_target_id;
+message_out[1] = target_distance;</pre>
+                        </div>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: -0.8 → -0.4 (+0.4 gain)</p>
+                    </div>
+
+                    <div class="tactic-card fragment">
+                        <div class="tactic-header">
+                            <h4 style="margin: 0; font-size: 1.1rem;">🎯 Predictive Intercept</h4>
+                            <span class="tactic-round">Round 13</span>
+                        </div>
+                        <p style="font-size: 0.8rem;">Infers enemy cooldown from observation, predicts retreat vectors</p>
+                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
+<pre style="font-size: 0.5rem; margin: 0;">if (target_cooldown > 0) {
+    pred_pos = enemy_pos + retreat_vec * cd;
+}</pre>
+                        </div>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: -0.2 → 0.0 (+0.2 gain, parity!)</p>
+                    </div>
+
+                    <div class="tactic-card fragment">
+                        <div class="tactic-header">
+                            <h4 style="margin: 0; font-size: 1.1rem;">📐 Formation Spread</h4>
+                            <span class="tactic-round">Round 31</span>
+                        </div>
+                        <p style="font-size: 0.8rem;">80-unit spacing via repulsion forces creates zone coverage</p>
+                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
+<pre style="font-size: 0.5rem; margin: 0;">const float min_spacing = 80.0f;
+strength = (min_spacing - d) / min_spacing;</pre>
+                        </div>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--neutral-color);"><strong>Fitness: 0.0 → +0.9 (+0.9 BREAKTHROUGH!)</strong></p>
+                    </div>
+
+                    <div class="tactic-card fragment">
+                        <div class="tactic-header">
+                            <h4 style="margin: 0; font-size: 1.1rem;">🕸️ Zone Control</h4>
+                            <span class="tactic-round">Round 41</span>
+                        </div>
+                        <p style="font-size: 0.8rem;">Coordinated baiting + crossfire using formation center calculations</p>
+                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
+<pre style="font-size: 0.5rem; margin: 0;">formation_center = compute_centroid(allies);
+bait_vector = enemy_pos - formation_center;</pre>
+                        </div>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: +0.9 sustained (final champion)</p>
+                    </div>
+                </div>
+
+                <aside class="notes">
+                    These four cards show the major tactical innovations. Each one builds on the previous.
+                    Notice the code complexity increasing - from simple message passing to multi-agent formation math.
+                    Round 31's Formation Spread was the game-changer - the +0.9 fitness jump in a single round.
                 </aside>
             </section>
 
@@ -403,13 +628,15 @@ while(searching) {
                 </aside>
             </section>
 
-            <!-- Slide 9: Complexity & Fragility -->
+            <!-- Slide 10: Complexity & Fragility -->
             <section>
                 <h2>Complexity & Fragility</h2>
                 <h3>The Cost of Intelligence</h3>
                 <div style="display: flex; gap: 2rem; align-items: center;">
                     <div style="flex: 1.2;">
-                        <img src="fig5_code_complexity.png" alt="Code Complexity vs Fitness" style="max-width: 100%;">
+                        <div class="diagram-container" style="margin: 0;">
+                            <img src="fig5_code_complexity.png" alt="Code Complexity vs Fitness" style="max-height: 420px;">
+                        </div>
                     </div>
                     <div style="flex: 1;">
                         <div class="stat-grid">
