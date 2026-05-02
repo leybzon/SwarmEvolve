@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwarmEvolve: LLM-Guided Co-Evolution for Drone Swarm Combat</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/monokai.css">
+    <style>
+        :root {
+            --team-a-color: #4285f4; /* Blue for Team A */
+            --team-b-color: #ea4335; /* Red for Team B */
+            --neutral-color: #34a853; /* Green for neutral */
+            --background-dark: #1a1a1a;
+            --text-light: #e0e0e0;
+        }
+
+        .reveal {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .reveal h1, .reveal h2, .reveal h3 {
+            text-transform: none;
+            font-weight: 700;
+        }
+
+        .reveal .slides section {
+            text-align: left;
+        }
+
+        .reveal .slides section.center {
+            text-align: center;
+        }
+
+        .team-a { color: var(--team-a-color); }
+        .team-b { color: var(--team-b-color); }
+        .highlight { color: var(--neutral-color); font-weight: bold; }
+
+        .three-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .column {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .column h3 {
+            margin-top: 0;
+            font-size: 1.3rem;
+            border-bottom: 3px solid;
+            padding-bottom: 0.5rem;
+        }
+
+        .column.traditional h3 { border-color: #888; }
+        .column.vibe h3 { border-color: #f4b400; }
+        .column.evolution h3 { border-color: var(--neutral-color); }
+
+        .vs-graphic {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+
+        .team-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 8px;
+            width: 40%;
+            border: 3px solid;
+        }
+
+        .team-box.team-a { border-color: var(--team-a-color); }
+        .team-box.team-b { border-color: var(--team-b-color); }
+
+        .vs-text {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .metric {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+
+        .code-snippet {
+            background: #272822;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--neutral-color);
+        }
+
+        .comparison-table {
+            width: 100%;
+            margin: 1rem 0;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.8rem;
+            font-weight: bold;
+        }
+
+        .comparison-table td {
+            padding: 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--neutral-color);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--neutral-color);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 0.5rem;
+        }
+
+        .reveal video {
+            max-width: 90%;
+            max-height: 500px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+
+        .reveal img {
+            border: none;
+            box-shadow: none;
+            background: none;
+        }
+
+        .fitness-chart {
+            margin: 2rem auto;
+            text-align: center;
+        }
+
+        ul.checkmarks li::marker {
+            content: "✓ ";
+            color: var(--neutral-color);
+            font-weight: bold;
+        }
+
+        .small-text {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .qr-code {
+            width: 200px;
+            height: 200px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem auto;
+        }
+
+        .fragment.fade-in-then-semi-out.visible:not(.current-fragment) {
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Slide 1: The Hook -->
+            <section class="center">
+                <h2>How Do We Program the Swarm?</h2>
+                <div class="three-column">
+                    <div class="column traditional">
+                        <h3>Traditional Code</h3>
+                        <p>Human engineers hand-write C++ logic.</p>
+                        <p><strong>Pros:</strong> Reliable, deterministic</p>
+                        <p><strong>Cons:</strong> Incredibly slow. Struggles with emergent multi-agent edge cases.</p>
+                    </div>
+                    <div class="column vibe">
+                        <h3>"Vibe Coding"</h3>
+                        <p>One-shot LLM prompts.</p>
+                        <p><strong>Pros:</strong> Fast prototyping</p>
+                        <p><strong>Cons:</strong> Deeply brittle. AI hallucinates logic, ignores constraints, crashes.</p>
+                    </div>
+                    <div class="column evolution">
+                        <h3>Evolution</h3>
+                        <p>LLMs write code, then survival of the fittest in GPU-accelerated combat.</p>
+                        <p><strong>Pros:</strong> Discovers emergent tactics, adapts to opponents</p>
+                        <p><strong>Cons:</strong> Requires evolutionary infrastructure</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    When looking at a massive drone swarm, how do we write the control logic?
+                    Historically, we hand-coded it. Recently, we've tried 'vibe coding' with AI.
+                    Both have severe limits. Today, I'll show you a third path: Code creation through evolution.
+                </aside>
+            </section>
+
+            <!-- Slide 2: Title -->
+            <section class="center">
+                <h1>Starting and Restarting Evolution</h1>
+                <h3>Building SwarmEvolve & The M25 Co-Evolution Experiment</h3>
+                <p style="margin-top: 3rem;">
+                    <span class="highlight">LLM-generated C++</span> ×
+                    <span class="highlight">GPU-accelerated combat</span> ×
+                    <span class="highlight">$10 budget</span>
+                </p>
+                <p class="small-text" style="margin-top: 2rem;">
+                    Yevgeniy Leybzon | DroneEvolution | May 2026
+                </p>
+            </section>
+
+            <!-- Slide 3: The Deterministic Crucible -->
+            <section>
+                <h2>The Deterministic Crucible</h2>
+                <h3>Constraining the AI Mind</h3>
+                <ul>
+                    <li><strong>Strict Physics:</strong> 2D arena (1000×1000), instantaneous movement, synchronous combat resolution</li>
+                    <li><strong>High Stakes:</strong> Firing incurs 8-tick cooldown. <span class="highlight">Mutual destruction</span> if both fire simultaneously</li>
+                    <li><strong>Information Asymmetry:</strong> Drones see enemy positions, but <strong>not</strong> enemy cooldowns</li>
+                    <li><strong>Hardware Constraints:</strong> Only 16 floats of persistent memory + 4-float radio broadcast per tick (GPU compatibility)</li>
+                </ul>
+                <div class="code-snippet">
+<pre>struct AllyState {
+    float x, y;           // Position
+    int cooldown;         // Visible to teammates
+    bool alive;
+};
+
+struct EnemyState {
+    float x, y;           // Position visible
+    bool alive;
+    // cooldown HIDDEN - must be inferred!
+};</pre>
+                </div>
+                <aside class="notes">
+                    To evolve on GPUs, we need deterministic physics and strict memory limits.
+                    The cooldown asymmetry creates a fog-of-war that forces tactical innovation.
+                </aside>
+            </section>
+
+            <!-- Slide 4: Starting & Restarting Evolution -->
+            <section>
+                <h2>Starting & Restarting Evolution</h2>
+                <h3>Guardrails for Artificial Genetics</h3>
+                <ul>
+                    <li class="fragment"><strong>The Barrier:</strong> Untrusted AI code hallucinates infinite loops (<code>while(true)</code>) that hang GPU simulations</li>
+                    <li class="fragment"><strong>AST Injection:</strong> Python orchestrator injects loop guards directly into C++ AST before compilation
+                        <div class="code-snippet">
+<pre>// LLM writes:
+while(searching) { ... }
+
+// Orchestrator injects:
+int _guard = 0;
+while(searching) {
+    if(++_guard > 1000) break;
+    ...
+}</pre>
+                        </div>
+                    </li>
+                    <li class="fragment"><strong>Restarting:</strong> When code crashes, we isolate the error, log stack trace, and feed it back to LLM for retry</li>
+                    <li class="fragment"><strong>Mass Scale:</strong> Evaluates 10-100 matches in parallel (up to 2,000 drones simultaneously)</li>
+                </ul>
+                <aside class="notes">
+                    The biggest challenge was making untrusted AI code safe for GPU execution.
+                    We use AST injection to add safety bounds, and automatic restart loops when mutations fail.
+                </aside>
+            </section>
+
+            <!-- Slide 5: The Co-Evolution Challenge -->
+            <section>
+                <h2>The Co-Evolution Challenge (M25)</h2>
+                <h3>David vs. Goliath</h3>
+                <div class="vs-graphic">
+                    <div class="team-box team-a">
+                        <h4 class="team-a">Team A: Goliath</h4>
+                        <p><strong>The Champion</strong></p>
+                        <p class="metric">204 LOC</p>
+                        <p class="metric team-a">+1.0 fitness</p>
+                        <p>Perfect 30/30 win rate</p>
+                        <p class="small-text">M22 Gen 33 champion<br>100 generations of evolution<br>Claim-Arbitrated Targeting + Kiting</p>
+                    </div>
+                    <div class="vs-text">VS</div>
+                    <div class="team-box team-b">
+                        <h4 class="team-b">Team B: David</h4>
+                        <p><strong>The Baseline</strong></p>
+                        <p class="metric">66 LOC</p>
+                        <p class="metric team-b">-0.8 fitness</p>
+                        <p>Losing 8/10 matches</p>
+                        <p class="small-text">pursuit_v1 baseline<br>Direct nearest-enemy pursuit<br>No coordination, no tactics</p>
+                    </div>
+                </div>
+                <p style="text-align: center; margin-top: 2rem;">
+                    <strong>The Hypothesis:</strong> Can an adaptive LLM guide a weak team to overthrow 100 generations of evolution in just 100 rounds of co-evolution?
+                </p>
+                <aside class="notes">
+                    This isn't a fair fight. Team A is the unbeaten champion from M22. Team B is the dumbest possible baseline.
+                    But co-evolution creates adaptive pressure. Can Team B evolve fast enough to flip the script?
+                </aside>
+            </section>
+
+            <!-- Slide 6: The Red Queen Effect -->
+            <section>
+                <h2>The Red Queen Effect</h2>
+                <h3>Reversing an Insurmountable Gap</h3>
+                <div class="fitness-chart">
+                    <img src="fig3_red_queen_effect.png" alt="Red Queen Effect" style="max-width: 80%; max-height: 400px;">
+                </div>
+                <ul class="checkmarks">
+                    <li><strong>Hypothesis Confirmed:</strong> Team B evolved from -0.8 (losing badly) to +0.9 (winning decisively)</li>
+                    <li><strong>Total Fitness Swing:</strong> 3.7 points over 100 rounds (+1.8 Team A advantage → -1.9 Team B advantage)</li>
+                    <li><strong>Red Queen Effect:</strong> "It takes all the running you can do to keep in the same place." Team A's static perfection became a fatal weakness.</li>
+                </ul>
+                <aside class="notes">
+                    This graph shows competitive advantage over time. Blue is Team A's lead, Red is Team B's lead.
+                    Notice the crossover at Round 31 - that's when Team B discovered Formation Spread.
+                    Team A started perfect but couldn't adapt. Team B started terrible but kept evolving.
+                </aside>
+            </section>
+
+            <!-- Slide 7: The Tactical Staircase -->
+            <section>
+                <h2>The Tactical Staircase</h2>
+                <h3>Punctuated Equilibrium in Action</h3>
+                <div style="display: flex; gap: 2rem;">
+                    <div style="flex: 1;">
+                        <img src="fig4_strategy_timeline.png" alt="Strategy Timeline" style="max-width: 100%;">
+                    </div>
+                    <div style="flex: 1;">
+                        <h4>6 Tactical Phases</h4>
+                        <ol style="font-size: 0.85rem;">
+                            <li class="fragment"><strong>Pursuit (R1):</strong> Basic chase, -0.8 fitness</li>
+                            <li class="fragment"><strong>Coordination (R3):</strong> 4-float messaging to avoid redundant targeting → -0.4 fitness</li>
+                            <li class="fragment"><strong>Kiting (R7):</strong> Retreat after firing → -0.2 fitness</li>
+                            <li class="fragment"><strong>Prediction (R13):</strong> Infer enemy retreat vectors, intercept → 0.0 fitness <span class="highlight">(parity!)</span></li>
+                            <li class="fragment"><strong>Formation (R31):</strong> 80-unit spacing + zone coverage → <span class="team-b">+0.9 fitness</span> <span class="highlight">(BREAKTHROUGH!)</span></li>
+                            <li class="fragment"><strong>Zone Control (R41):</strong> Coordinated baiting + crossfire → +0.9 sustained</li>
+                        </ol>
+                        <p class="fragment small-text" style="margin-top: 1rem; color: var(--neutral-color);">
+                            <strong>Power Law:</strong> Most improvements were ±0.1-0.2. Formation Spread caused a +1.1 jump in one round.
+                        </p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Evolution wasn't smooth. It was a staircase. Long plateaus punctuated by massive breakthroughs.
+                    The Formation Spread discovery at Round 31 was the pivotal moment - it created spatial coverage that Team A's kiting couldn't counter.
+                </aside>
+            </section>
+
+            <!-- Slide 8: Learning Speed Comparison -->
+            <section>
+                <h2>Co-Evolution Accelerates Learning</h2>
+                <h3>Strong Opponents Make You Stronger, Faster</h3>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <div class="stat-number team-a">20 rounds</div>
+                        <div class="stat-label">M22 Solo Evolution: Time to reach parity vs pursuit_v1</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number team-b">13 rounds</div>
+                        <div class="stat-label">M25 Co-Evolution: Time to reach parity vs M22 champion</div>
+                    </div>
+                </div>
+                <p style="margin-top: 2rem; text-align: center;">
+                    <span class="highlight" style="font-size: 1.5rem;">35% faster learning</span> when facing a strong, adaptive opponent
+                </p>
+                <ul style="margin-top: 2rem;">
+                    <li><strong>M22 (solo):</strong> Evolved against static baseline pursuit_v1</li>
+                    <li><strong>M25 (co-evolution):</strong> Both teams evolve, creating adaptive pressure</li>
+                    <li><strong>Insight:</strong> Adaptive opponents force innovation faster than static benchmarks</li>
+                </ul>
+                <aside class="notes">
+                    This is a key finding. When you face a strong opponent who also adapts, you're forced to innovate faster.
+                    Team B reached competitive parity 35% faster than M22 did against a weaker baseline.
+                </aside>
+            </section>
+
+            <!-- Slide 9: Complexity & Fragility -->
+            <section>
+                <h2>Complexity & Fragility</h2>
+                <h3>The Cost of Intelligence</h3>
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <div style="flex: 1.2;">
+                        <img src="fig5_code_complexity.png" alt="Code Complexity vs Fitness" style="max-width: 100%;">
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <div class="stat-number team-b">3.2×</div>
+                                <div class="stat-label">Code growth (66 → 210 LOC)</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-number team-a">47 failures</div>
+                                <div class="stat-label">Team A rejected mutations</div>
+                            </div>
+                        </div>
+                        <ul style="font-size: 0.85rem; margin-top: 1rem;">
+                            <li><strong>Capability requires complexity:</strong> Each major tactic cost ~30-40 lines of code</li>
+                            <li><strong>Team A's fragility:</strong> 204-line champion was a "local optimum trap" - every mutation broke critical logic</li>
+                            <li><strong>Over-optimization risk:</strong> Early perfection creates evolutionary dead-ends</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    There's a brutal tradeoff. To win, Team B needed to write 3x more code. But Team A's complexity made it fragile.
+                    Every time the LLM tried to improve Team A, it broke something critical and lost -1.0 fitness.
+                    This is why evolution sometimes favors scrappy underdogs over over-optimized champions.
+                </aside>
+            </section>
+
+            <!-- Slide 10: Democratizing AI Game Theory -->
+            <section>
+                <h2>Democratizing AI Game Theory</h2>
+                <h3>High-End Dynamics on a $10 Budget</h3>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>AlphaStar / OpenAI Five</th>
+                            <th>SwarmEvolve (M25)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Method</strong></td>
+                            <td>Deep Reinforcement Learning</td>
+                            <td>LLM-Guided Evolution</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Compute</strong></td>
+                            <td>$1M+, hundreds of GPUs, weeks/months</td>
+                            <td class="highlight">$10 API credits, 1.5 hours, single CPU/GPU</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tactics Discovered</strong></td>
+                            <td>Punctuated equilibrium, spatial control, coordination</td>
+                            <td>✓ Same emergent behaviors</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Interpretability</strong></td>
+                            <td>Black-box neural networks</td>
+                            <td class="highlight">Human-readable C++ + LLM strategy journal</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reproducibility</strong></td>
+                            <td>Expensive to replicate</td>
+                            <td class="highlight">Single command: <code>python3 scripts/evolve_coevolve.py</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <aside class="notes">
+                    This is the game-changer. AlphaStar and OpenAI Five proved that AI can discover sophisticated tactics through RL.
+                    But they cost millions of dollars. SwarmEvolve discovered similar dynamics for the price of a lunch.
+                    And unlike neural networks, every decision is human-readable C++ code.
+                </aside>
+            </section>
+
+            <!-- Slide 11: Video Demo -->
+            <section class="center">
+                <h2>Watching the Swarm Learn</h2>
+                <h3>Round 41: Zone Control in Action</h3>
+                <video controls src="m25_round41_41.mp4" style="max-width: 70%;"></video>
+                <ul style="text-align: left; margin-top: 1rem; font-size: 0.85rem;">
+                    <li>Notice <span class="team-b">Team B</span> spreading 80-unit spacing to cover 60% of arena</li>
+                    <li>Notice <span class="team-a">Team A</span> falling back on predictable 8-tick retreat kiting</li>
+                    <li>Notice <span class="team-b">Team B</span> executing coordinated predictive intercepts and crossfire</li>
+                    <li>Result: DRAW (0-0) after 234 ticks of intense tactical play</li>
+                </ul>
+                <p class="small-text" style="margin-top: 1rem;">
+                    Because the engine is deterministic, we can trace every decision. This is LLM-generated code, not human-written.
+                </p>
+                <aside class="notes">
+                    This is the final evolved form. Watch how Team B spreads out to create overlapping zones of control.
+                    Team A tries to kite away after firing, but Team B predicts the retreat vectors and intercepts.
+                    No human prompted this behavior. It was entirely discovered through 100 rounds of evolution.
+                </aside>
+            </section>
+
+            <!-- Slide 12: Conclusion & Future Work -->
+            <section>
+                <h2>Conclusion & Future Work</h2>
+                <h3>Let the Swarm Evolve</h3>
+                <div style="display: flex; gap: 2rem;">
+                    <div style="flex: 1;">
+                        <h4>Core Findings</h4>
+                        <ul class="checkmarks" style="font-size: 0.9rem;">
+                            <li>LLM-guided co-evolution is practical, cost-effective, and interpretable</li>
+                            <li>Underdogs <strong>can</strong> overcome 100-generation champions through adaptive pressure</li>
+                            <li>Power law innovation: Most improvements small, rare breakthroughs transformative</li>
+                            <li>Strong opponents accelerate learning by 35%</li>
+                            <li>Over-optimized champions become fragile evolutionary dead-ends</li>
+                        </ul>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4>Future Work</h4>
+                        <ul style="font-size: 0.9rem;">
+                            <li>Multi-opponent training portfolios (prevent fragility)</li>
+                            <li>Adaptive match count scaling</li>
+                            <li>Cross-domain tactical transfer</li>
+                            <li>Real-time human-in-the-loop evolution</li>
+                        </ul>
+                        <h4 style="margin-top: 1.5rem;">Status</h4>
+                        <p style="font-size: 0.9rem;">
+                            ✓ Open Source<br>
+                            ✓ Cross-platform (macOS ARM / Linux NVIDIA GPU)<br>
+                            ✓ Single-command reproduction
+                        </p>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 2rem;">
+                    <p style="font-size: 0.85rem; color: #aaa;">
+                        <strong>Reproduce M25:</strong><br>
+                        <code style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 4px;">
+                            python3 scripts/evolve_coevolve.py --rounds 100
+                        </code>
+                    </p>
+                </div>
+                <aside class="notes">
+                    In conclusion: We've shown that you don't need millions of dollars to discover emergent AI tactics.
+                    LLM-guided evolution is accessible, interpretable, and discovers similar dynamics to Deep RL.
+                    The code is open source, and you can reproduce M25 with a single Python command.
+                    Thank you!
+                </aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            controls: true,
+            progress: true,
+            center: false,
+            transition: 'slide',
+            transitionSpeed: 'default',
+            backgroundTransition: 'fade',
+            slideNumber: 'c/t',
+            showNotes: false,
+            plugins: [ RevealNotes, RevealHighlight ],
+            width: 1280,
+            height: 720,
+            margin: 0.04,
+        });
+    </script>
+</body>
+</html>
