@@ -456,6 +456,29 @@
             transform: scale(1.02);
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
         }
+
+        /* Ensure diagrams fit in viewport */
+        .diagram-container {
+            max-height: 75vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .diagram-container img {
+            max-height: 75vh;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .diagram-container video {
+            max-height: 75vh;
+            width: auto;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
@@ -1263,10 +1286,54 @@ python3 scripts/evolve_coevolve.py \
             margin: 0.02,
             minScale: 0.2,
             maxScale: 2.0
+
+
+            // Video modal functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const videoModal = document.getElementById('videoModal');
+                const modalVideo = document.getElementById('modalVideo');
+
+                // Make all videos in diagram-container clickable for modal popup
+                document.querySelectorAll('.diagram-container video, video[controls]').forEach(video => {
+                    // Add click-to-expand functionality
+                    video.style.cursor = 'pointer';
+                    video.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        videoModal.style.display = 'block';
+                        modalVideo.src = this.querySelector('source').src;
+                        modalVideo.play();
+                    });
+                });
+
+                // Close video modal on click
+                videoModal.addEventListener('click', function(e) {
+                    if (e.target !== modalVideo) {
+                        videoModal.style.display = 'none';
+                        modalVideo.pause();
+                        modalVideo.src = '';
+                    }
+                });
+
+                // Close video modal on ESC key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && videoModal.style.display === 'block') {
+                        videoModal.style.display = 'none';
+                        modalVideo.pause();
+                        modalVideo.src = '';
+                    }
+                });
+            });
         });
     </script>
 
     <!-- Image Modal -->
+    <!-- Video Modal -->
+    <div id="videoModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); cursor: pointer;">
+        <span style="position: absolute; top: 20px; right: 40px; color: white; font-size: 40px; font-weight: bold; cursor: pointer;">&times;</span>
+        <video id="modalVideo" controls style="margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+        </video>
+    </div>
+    
     <div id="imageModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.95); cursor: pointer;">
         <img id="modalImage" style="margin: auto; display: block; max-width: 95%; max-height: 95%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 8px; box-shadow: 0 0 50px rgba(255, 255, 255, 0.3);">
         <div style="position: absolute; top: 20px; right: 40px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer;">&times;</div>
@@ -1298,6 +1365,43 @@ python3 scripts/evolve_coevolve.py \
                 if (e.key === 'Escape' && modal.style.display === 'block') {
                     modal.style.display = 'none';
                 }
+            });
+
+
+            // Video modal functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const videoModal = document.getElementById('videoModal');
+                const modalVideo = document.getElementById('modalVideo');
+
+                // Make all videos in diagram-container clickable for modal popup
+                document.querySelectorAll('.diagram-container video, video[controls]').forEach(video => {
+                    // Add click-to-expand functionality
+                    video.style.cursor = 'pointer';
+                    video.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        videoModal.style.display = 'block';
+                        modalVideo.src = this.querySelector('source').src;
+                        modalVideo.play();
+                    });
+                });
+
+                // Close video modal on click
+                videoModal.addEventListener('click', function(e) {
+                    if (e.target !== modalVideo) {
+                        videoModal.style.display = 'none';
+                        modalVideo.pause();
+                        modalVideo.src = '';
+                    }
+                });
+
+                // Close video modal on ESC key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && videoModal.style.display === 'block') {
+                        videoModal.style.display = 'none';
+                        modalVideo.pause();
+                        modalVideo.src = '';
+                    }
+                });
             });
         });
     </script>
