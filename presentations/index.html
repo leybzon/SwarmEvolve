@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwarmEvolve Presentations</title>
+    <style>
+        :root {
+            --bg-dark: #0a1929;
+            --bg-darker: #020617;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --accent-green: #22c55e;
+            --accent-blue: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+        }
+
+        .presentations {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(34, 197, 94, 0.3);
+            border-color: var(--accent-green);
+        }
+
+        .card h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .card p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .card a {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: var(--accent-green);
+            color: var(--bg-dark);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: all 0.3s;
+        }
+
+        .card a:hover {
+            background: var(--accent-blue);
+            transform: scale(1.05);
+        }
+
+        .meta {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--accent-green);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SwarmEvolve Presentations</h1>
+        <p class="subtitle">Evolutionary Code Development through LLM-guided Co-evolution</p>
+
+        <div class="presentations">
+            <div class="card">
+                <h2>M25: Code Evolution in the Wild</h2>
+                <div class="meta">
+                    <span>📅 May 2026</span>
+                    <span>⏱️ 15 minutes</span>
+                    <span>🎯 General Tech Audience</span>
+                </div>
+                <p>
+                    <strong>From Intelligent Design to Natural Selection</strong><br><br>
+                    Explore how a simple baseline drone swarm defeated a 100-generation champion through co-evolutionary pressure.
+                    Discover the Red Queen Effect, punctuated equilibrium, and emergent tactical innovations that emerged from
+                    LLM-guided evolution. Features 17 data visualizations, interactive full-screen graphs, and a compelling
+                    David vs Goliath narrative.
+                </p>
+                <p style="font-size: 0.9rem; font-style: italic;">
+                    <strong>Key Topics:</strong> Co-evolution dynamics, fitness reversal, Formation Spread breakthrough,
+                    Team A local optimum trap, learning acceleration (35% faster), interpretable AI
+                </p>
+                <a href="m25_coevolution/index.html">View Presentation →</a>
+            </div>
+
+            <!-- Future presentations will be added here -->
+        </div>
+
+        <footer>
+            <p>
+                <strong>SwarmEvolve</strong> - Evolutionary Software Development Testbed<br>
+                <a href="https://github.com/leybzon/SwarmEvolve" target="_blank">GitHub Repository</a> |
+                <a href="https://github.com/leybzon/SwarmEvolve/blob/main/LICENSE" target="_blank">MIT License</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
