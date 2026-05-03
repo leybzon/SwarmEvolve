@@ -3,276 +3,400 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SwarmEvolve: LLM-Guided Co-Evolution for Drone Swarm Combat</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/monokai.css">
+    <title>Code Evolution in the Wild</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/theme/black.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --team-a-color: #4285f4; /* Blue for Team A */
-            --team-b-color: #ea4335; /* Red for Team B */
-            --neutral-color: #34a853; /* Green for neutral */
-            --background-dark: #1a1a1a;
-            --text-light: #e0e0e0;
+            --bg-dark: #0a1929;
+            --bg-darker: #020617;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --accent-green: #22c55e;
+            --accent-magenta: #ec4899;
+            --accent-gold: #f59e0b;
         }
 
         .reveal {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
+            color: var(--text-primary);
         }
 
-        .reveal h1, .reveal h2, .reveal h3 {
+        .reveal h1, .reveal h2 {
+            font-family: 'Fraunces', serif;
+            font-weight: 700;
+            color: var(--text-primary);
             text-transform: none;
+        }
+
+        .reveal h1 { font-size: 3.5rem; }
+        .reveal h2 { font-size: 2.5rem; margin-bottom: 1.5rem; }
+        .reveal h3 {
+            font-size: 1.8rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin-bottom: 2rem;
+        }
+
+        .reveal p, .reveal li {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .reveal code {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+        }
+
+        .reveal pre code {
+            padding: 1em;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            max-height: 600px;
+        }
+
+        /* Three-column path layout */
+        .three-paths {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .path {
+            padding: 2rem 1.5rem;
+            border-radius: 12px;
+            border: 2px solid;
+            position: relative;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .path-traditional {
+            border-color: var(--accent-blue);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);
+        }
+
+        .path-vibe {
+            border-color: var(--accent-magenta);
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), transparent);
+            animation: glitch 3s infinite;
+        }
+
+        .path-evolution {
+            border-color: var(--accent-green);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), transparent);
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
+        }
+
+        .path h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
             font-weight: 700;
         }
 
-        .reveal .slides section {
-            text-align: left;
+        .path-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            opacity: 0.6;
+            margin-bottom: 0.5rem;
         }
 
-        .reveal .slides section.center {
-            text-align: center;
+        .path-metric {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
         }
 
-        .team-a { color: var(--team-a-color); }
-        .team-b { color: var(--team-b-color); }
-        .highlight { color: var(--neutral-color); font-weight: bold; }
+        .path-traditional .path-metric { color: var(--accent-blue); }
+        .path-vibe .path-metric { color: var(--accent-magenta); }
+        .path-evolution .path-metric { color: var(--accent-green); }
 
-        .three-column {
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            margin-left: 0.5rem;
+        }
+
+        /* VS screen */
+        .vs-container {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 2rem;
+            align-items: center;
+            margin: 2rem 0;
+        }
+
+        .fighter {
+            padding: 2rem;
+            border-radius: 12px;
+            border: 3px solid;
+        }
+
+        .fighter-a {
+            border-color: var(--accent-blue);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), transparent);
+        }
+
+        .fighter-b {
+            border-color: var(--accent-red);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), transparent);
+        }
+
+        .vs-badge {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            font-family: 'Fraunces', serif;
+            font-style: italic;
+        }
+
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.8rem 0;
+            font-size: 0.95rem;
+        }
+
+        .stat-label { color: var(--text-secondary); }
+        .stat-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        /* Tactic cards */
+        .tactic-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .tactic-card {
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 2px solid;
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.3s;
+        }
+
+        .tactic-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .tactic-card h4 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tactic-icon {
+            font-size: 1.5rem;
+        }
+
+        .tactic-fitness {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin: 0.5rem 0;
+        }
+
+        .tactic-bio {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Code comparison */
+        .code-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .code-panel {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem 1rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .code-panel-a .code-header { color: var(--accent-blue); }
+        .code-panel-b .code-header { color: var(--accent-red); }
+
+        .highlight-line {
+            background: rgba(34, 197, 94, 0.2);
+            border-left: 4px solid var(--accent-green);
+            padding-left: 0.5rem;
+        }
+
+        /* Benefits grid */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 2rem;
             margin-top: 2rem;
         }
 
-        .column {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 1.5rem;
-            border-radius: 8px;
+        .benefit-card {
+            padding: 2rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
             border: 2px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .column h3 {
-            margin-top: 0;
-            font-size: 1.3rem;
-            border-bottom: 3px solid;
-            padding-bottom: 0.5rem;
-        }
-
-        .column.traditional h3 { border-color: #888; }
-        .column.vibe h3 { border-color: #f4b400; }
-        .column.evolution h3 { border-color: var(--neutral-color); }
-
-        .vs-graphic {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            margin: 2rem 0;
-            font-size: 0.9rem;
-        }
-
-        .team-box {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 1.5rem;
-            border-radius: 8px;
-            width: 40%;
-            border: 3px solid;
-        }
-
-        .team-box.team-a { border-color: var(--team-a-color); }
-        .team-box.team-b { border-color: var(--team-b-color); }
-
-        .vs-text {
-            font-size: 3rem;
-            font-weight: bold;
-            color: #fff;
-        }
-
-        .metric {
-            font-size: 2rem;
-            font-weight: bold;
-            margin: 0.5rem 0;
-        }
-
-        .code-snippet {
-            background: #272822;
-            padding: 1rem;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.7rem;
-            margin: 1rem 0;
-            border-left: 4px solid var(--neutral-color);
-        }
-
-        .comparison-table {
-            width: 100%;
-            margin: 1rem 0;
-            border-collapse: collapse;
-        }
-
-        .comparison-table th {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 0.8rem;
-            font-weight: bold;
-        }
-
-        .comparison-table td {
-            padding: 0.8rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .stat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin: 1.5rem 0;
-        }
-
-        .stat-box {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--neutral-color);
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--neutral-color);
-        }
-
-        .stat-label {
-            font-size: 0.9rem;
-            color: #aaa;
-            margin-top: 0.5rem;
-        }
-
-        .reveal video {
-            max-width: 90%;
-            max-height: 500px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-        }
-
-        .reveal img {
-            border: none;
-            box-shadow: none;
-            background: none;
-        }
-
-        .fitness-chart {
-            margin: 2rem auto;
             text-align: center;
         }
 
-        ul.checkmarks li::marker {
-            content: "✓ ";
-            color: var(--neutral-color);
-            font-weight: bold;
-        }
-
-        .small-text {
-            font-size: 0.8rem;
-            color: #aaa;
-        }
-
-        .qr-code {
-            width: 200px;
-            height: 200px;
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem auto;
-        }
-
-        .fragment.fade-in-then-semi-out.visible:not(.current-fragment) {
-            opacity: 0.3;
-        }
-
-        .tactic-showcase {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-top: 1rem;
-        }
-
-        .tactic-card {
-            background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(234, 67, 53, 0.1));
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            padding: 1.5rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tactic-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--team-a-color), var(--team-b-color));
-        }
-
-        .tactic-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .benefit-icon {
+            font-size: 3rem;
             margin-bottom: 1rem;
         }
 
-        .tactic-round {
-            background: rgba(52, 168, 83, 0.3);
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
+        .benefit-card h4 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--accent-green);
         }
 
-        .code-comparison {
+        /* Paradigm comparison */
+        .paradigm-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-top: 1rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 2rem;
         }
 
-        .code-box {
-            background: #1e1e1e;
+        .paradigm {
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .paradigm h4 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .paradigm-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        /* Image placeholder */
+        .img-placeholder {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
             border-radius: 8px;
-            padding: 1rem;
-            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 2rem;
+            min-height: 300px;
         }
 
-        .code-box.before { border-color: #888; }
-        .code-box.after { border-color: var(--neutral-color); }
-
-        .code-label {
-            font-size: 0.7rem;
-            color: #aaa;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-
-        .diagram-container {
-            text-align: center;
-            margin: 2rem 0;
-        }
-
-        .diagram-container img {
-            max-height: 450px;
+        .diagram-container img,
+        .diagram-container video {
+            max-width: 100%;
+            max-height: 500px;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
-        section[data-background-image] h2,
-        section[data-background-image] h3 {
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
-            background: rgba(0, 0, 0, 0.6);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+        /* Footer */
+        .slide-footer {
+            position: absolute;
+            bottom: 1rem;
+            left: 2rem;
+            right: 2rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 0.5rem;
+        }
+
+        /* Quote styling */
+        .big-quote {
+            font-family: 'Fraunces', serif;
+            font-size: 2rem;
+            font-style: italic;
+            color: var(--accent-gold);
+            margin: 2rem 0;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .quote-attribution {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-style: normal;
+            margin-top: 1rem;
+        }
+
+        /* Emphasis text */
+        .emphasis {
+            font-family: 'Fraunces', serif;
+            font-size: 1.8rem;
+            font-style: italic;
+            color: var(--accent-green);
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        /* Warning badge */
+        .warning-badge {
             display: inline-block;
+            background: rgba(236, 72, 153, 0.2);
+            border: 2px solid var(--accent-magenta);
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-left: 0.5rem;
         }
     </style>
 </head>
@@ -280,525 +404,755 @@
     <div class="reveal">
         <div class="slides">
 
-            <!-- Slide 1: The Hook -->
-            <section class="center">
-                <h2>How Do We Program the Swarm?</h2>
-                <div class="three-column">
-                    <div class="column traditional">
-                        <h3>Traditional Code</h3>
-                        <p>Human engineers hand-write C++ logic.</p>
-                        <p><strong>Pros:</strong> Reliable, deterministic</p>
-                        <p><strong>Cons:</strong> Incredibly slow. Struggles with emergent multi-agent edge cases.</p>
-                    </div>
-                    <div class="column vibe">
-                        <h3>"Vibe Coding"</h3>
-                        <p>One-shot LLM prompts.</p>
-                        <p><strong>Pros:</strong> Fast prototyping</p>
-                        <p><strong>Cons:</strong> Deeply brittle. AI hallucinates logic, ignores constraints, crashes.</p>
-                    </div>
-                    <div class="column evolution">
-                        <h3>Evolution</h3>
-                        <p>LLMs write code, then survival of the fittest in GPU-accelerated combat.</p>
-                        <p><strong>Pros:</strong> Discovers emergent tactics, adapts to opponents</p>
-                        <p><strong>Cons:</strong> Requires evolutionary infrastructure</p>
-                    </div>
-                </div>
-                <aside class="notes">
-                    When looking at a massive drone swarm, how do we write the control logic?
-                    Historically, we hand-coded it. Recently, we've tried 'vibe coding' with AI.
-                    Both have severe limits. Today, I'll show you a third path: Code creation through evolution.
-                </aside>
-            </section>
-
-            <!-- Slide 2: Title -->
-            <section class="center">
-                <h1>Starting and Restarting Evolution</h1>
-                <h3>Building SwarmEvolve & The M25 Co-Evolution Experiment</h3>
-                <p style="margin-top: 3rem;">
-                    <span class="highlight">LLM-generated C++</span> ×
-                    <span class="highlight">GPU-accelerated combat</span> ×
-                    <span class="highlight">$10 budget</span>
-                </p>
-                <p class="small-text" style="margin-top: 2rem;">
-                    Yevgeniy Leybzon | DroneEvolution | May 2026
-                </p>
-            </section>
-
-            <!-- Slide 3: The Deterministic Crucible -->
+            <!-- SLIDE 1: Cold Open - Three Paths -->
             <section>
-                <h2>The Deterministic Crucible</h2>
-                <h3>Constraining the AI Mind</h3>
-                <ul>
-                    <li><strong>Strict Physics:</strong> 2D arena (1000×1000), instantaneous movement, synchronous combat resolution</li>
-                    <li><strong>High Stakes:</strong> Firing incurs 8-tick cooldown. <span class="highlight">Mutual destruction</span> if both fire simultaneously</li>
-                    <li><strong>Information Asymmetry:</strong> Drones see enemy positions, but <strong>not</strong> enemy cooldowns</li>
-                    <li><strong>Hardware Constraints:</strong> Only 16 floats of persistent memory + 4-float radio broadcast per tick (GPU compatibility)</li>
-                </ul>
-                <div class="code-snippet">
-<pre>struct AllyState {
-    float x, y;           // Position
-    int cooldown;         // Visible to teammates
-    bool alive;
-};
-
-struct EnemyState {
-    float x, y;           // Position visible
-    bool alive;
-    // cooldown HIDDEN - must be inferred!
-};</pre>
-                </div>
-                <aside class="notes">
-                    To evolve on GPUs, we need deterministic physics and strict memory limits.
-                    The cooldown asymmetry creates a fog-of-war that forces tactical innovation.
-                </aside>
-            </section>
-
-            <!-- Slide 4: Starting & Restarting Evolution -->
-            <section>
-                <h2>Starting & Restarting Evolution</h2>
-                <h3>Guardrails for Artificial Genetics</h3>
-                <ul>
-                    <li class="fragment"><strong>The Barrier:</strong> Untrusted AI code hallucinates infinite loops (<code>while(true)</code>) that hang GPU simulations</li>
-                    <li class="fragment"><strong>AST Injection:</strong> Python orchestrator injects loop guards directly into C++ AST before compilation
-                        <div class="code-snippet">
-<pre>// LLM writes:
-while(searching) { ... }
-
-// Orchestrator injects:
-int _guard = 0;
-while(searching) {
-    if(++_guard > 1000) break;
-    ...
-}</pre>
+                <h1>How Do We Create Software?</h1>
+                <div class="three-paths">
+                    <div class="path path-traditional">
+                        <div>
+                            <div class="path-label">Path 1: Traditional</div>
+                            <h3>Hand-Coding</h3>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Human writes every line.<br>
+                                Slow, predictable, brittle.
+                            </p>
+                            <div class="path-metric">Days → Weeks</div>
                         </div>
-                    </li>
-                    <li class="fragment"><strong>Restarting:</strong> When code crashes, we isolate the error, log stack trace, and feed it back to LLM for retry</li>
-                    <li class="fragment"><strong>Mass Scale:</strong> Evaluates 10-100 matches in parallel (up to 2,000 drones simultaneously)</li>
-                </ul>
-                <aside class="notes">
-                    The biggest challenge was making untrusted AI code safe for GPU execution.
-                    We use AST injection to add safety bounds, and automatic restart loops when mutations fail.
-                </aside>
-            </section>
-
-            <!-- Slide 5: The Co-Evolution Challenge -->
-            <section>
-                <h2>The Co-Evolution Challenge (M25)</h2>
-                <h3>David vs. Goliath</h3>
-                <div class="vs-graphic">
-                    <div class="team-box team-a">
-                        <h4 class="team-a">Team A: Goliath</h4>
-                        <p><strong>The Champion</strong></p>
-                        <p class="metric">204 LOC</p>
-                        <p class="metric team-a">+1.0 fitness</p>
-                        <p>Perfect 30/30 win rate</p>
-                        <p class="small-text">M22 Gen 33 champion<br>100 generations of evolution<br>Claim-Arbitrated Targeting + Kiting</p>
-                    </div>
-                    <div class="vs-text">VS</div>
-                    <div class="team-box team-b">
-                        <h4 class="team-b">Team B: David</h4>
-                        <p><strong>The Baseline</strong></p>
-                        <p class="metric">66 LOC</p>
-                        <p class="metric team-b">-0.8 fitness</p>
-                        <p>Losing 8/10 matches</p>
-                        <p class="small-text">pursuit_v1 baseline<br>Direct nearest-enemy pursuit<br>No coordination, no tactics</p>
-                    </div>
-                </div>
-                <p style="text-align: center; margin-top: 2rem;">
-                    <strong>The Hypothesis:</strong> Can an adaptive LLM guide a weak team to overthrow 100 generations of evolution in just 100 rounds of co-evolution?
-                </p>
-                <aside class="notes">
-                    This isn't a fair fight. Team A is the unbeaten champion from M22. Team B is the dumbest possible baseline.
-                    But co-evolution creates adaptive pressure. Can Team B evolve fast enough to flip the script?
-                </aside>
-            </section>
-
-            <!-- Slide 6: The Red Queen Effect -->
-            <section>
-                <h2>The Red Queen Effect</h2>
-                <h3>Reversing an Insurmountable Gap</h3>
-                <div class="diagram-container">
-                    <img src="fig3_red_queen_effect.png" alt="Red Queen Effect">
-                </div>
-                <ul class="checkmarks">
-                    <li><strong>Hypothesis Confirmed:</strong> Team B evolved from -0.8 (losing badly) to +0.9 (winning decisively)</li>
-                    <li><strong>Total Fitness Swing:</strong> 3.7 points over 100 rounds (+1.8 Team A advantage → -1.9 Team B advantage)</li>
-                    <li><strong>Red Queen Effect:</strong> "It takes all the running you can do to keep in the same place." Team A's static perfection became a fatal weakness.</li>
-                </ul>
-                <aside class="notes">
-                    This graph shows competitive advantage over time. Blue is Team A's lead, Red is Team B's lead.
-                    Notice the crossover at Round 31 - that's when Team B discovered Formation Spread.
-                    Team A started perfect but couldn't adapt. Team B started terrible but kept evolving.
-                </aside>
-            </section>
-
-            <!-- Slide 7: The Tactical Staircase -->
-            <section>
-                <h2>The Tactical Staircase</h2>
-                <h3>Punctuated Equilibrium in Action</h3>
-                <div style="display: flex; gap: 2rem; align-items: center;">
-                    <div style="flex: 1.2;">
-                        <div class="diagram-container" style="margin: 0;">
-                            <img src="fig4_strategy_timeline.png" alt="Strategy Timeline" style="max-height: 400px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                            ✓ Full control<br>
+                            ✗ Doesn't scale to complexity
                         </div>
                     </div>
-                    <div style="flex: 1;">
-                        <h4>6 Tactical Phases</h4>
-                        <ol style="font-size: 0.85rem;">
-                            <li class="fragment"><strong>Pursuit (R1):</strong> Basic chase, -0.8 fitness</li>
-                            <li class="fragment"><strong>Coordination (R3):</strong> 4-float messaging to avoid redundant targeting → -0.4 fitness</li>
-                            <li class="fragment"><strong>Kiting (R7):</strong> Retreat after firing → -0.2 fitness</li>
-                            <li class="fragment"><strong>Prediction (R13):</strong> Infer enemy retreat vectors, intercept → 0.0 fitness <span class="highlight">(parity!)</span></li>
-                            <li class="fragment"><strong>Formation (R31):</strong> 80-unit spacing + zone coverage → <span class="team-b">+0.9 fitness</span> <span class="highlight">(BREAKTHROUGH!)</span></li>
-                            <li class="fragment"><strong>Zone Control (R41):</strong> Coordinated baiting + crossfire → +0.9 sustained</li>
-                        </ol>
-                        <p class="fragment small-text" style="margin-top: 1rem; color: var(--neutral-color);">
-                            <strong>Power Law:</strong> Most improvements were ±0.1-0.2. Formation Spread caused a +1.1 jump in one round.
+
+                    <div class="path path-vibe">
+                        <div>
+                            <div class="path-label">Path 2: AI-Assisted</div>
+                            <h3>"Vibe Coding"<span class="warning-badge">⚠</span></h3>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                LLM generates code.<br>
+                                Fast, unreliable, hallucinates.
+                            </p>
+                            <div class="path-metric">Minutes</div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                            ✓ Rapid prototyping<br>
+                            ✗ No performance guarantees
+                        </div>
+                    </div>
+
+                    <div class="path path-evolution">
+                        <div>
+                            <div class="path-label">Path 3: Evolutionary</div>
+                            <h3>Code Competes to Survive<span class="pulse-dot"></span></h3>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Mutation, selection, iteration.<br>
+                                Emergent, adaptive, provable.
+                            </p>
+                            <div class="path-metric">Hours</div>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                            ✓ Discovers novel strategies<br>
+                            ✓ Human-readable output
+                        </div>
+                    </div>
+                </div>
+                <p style="margin-top: 2rem; font-family: 'Fraunces', serif; font-size: 1.3rem; font-style: italic;">
+                    Two are dead ends. We'll focus on the third.
+                </p>
+            </section>
+
+            <!-- SLIDE 2: What Is Code Evolution? -->
+            <section>
+                <h2>What Is Code Evolution?</h2>
+                <h3>Natural Selection for Algorithms</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin-top: 2rem;">
+                    <div>
+                        <div class="img-placeholder" style="min-height: 400px;">
+                            [Darwin's finches sketches]<br>
+                            Beak shapes adapted to food sources
+                        </div>
+                        <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
+                            <strong>Natural Selection</strong><br>
+                            Fitness = Survival &amp; Reproduction
+                        </p>
+                    </div>
+
+                    <div>
+                        <div class="img-placeholder" style="min-height: 400px;">
+                            [Code snippets morphing animation]<br>
+                            Function signatures → Tactics
+                        </div>
+                        <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
+                            <strong>Algorithmic Selection</strong><br>
+                            Fitness = Performance in Arena
                         </p>
                     </div>
                 </div>
-                <aside class="notes">
-                    Evolution wasn't smooth. It was a staircase. Long plateaus punctuated by massive breakthroughs.
-                    The Formation Spread discovery at Round 31 was the pivotal moment - it created spatial coverage that Team A's kiting couldn't counter.
-                </aside>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 3rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🧬</div>
+                        <h4 style="color: var(--accent-green);">Mutation</h4>
+                        <p style="font-size: 0.9rem;">LLM proposes changes</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚔️</div>
+                        <h4 style="color: var(--accent-green);">Selection</h4>
+                        <p style="font-size: 0.9rem;">Performance determines survival</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔄</div>
+                        <h4 style="color: var(--accent-green);">Iteration</h4>
+                        <p style="font-size: 0.9rem;">Winners breed next generation</p>
+                    </div>
+                </div>
             </section>
 
-            <!-- NEW Slide 7b: Evolved Tactics - Code Comparison -->
+            <!-- SLIDE 3: The Arena + Meet the Fighters (COMBINED) -->
             <section>
-                <h2>Evolved Tactics: The Code</h2>
-                <h3>From Pursuit to Formation Control</h3>
+                <h2>The Experiment: Combat Arena</h2>
+                <h3>Co-evolutionary Arms Race</h3>
 
-                <div class="code-comparison">
-                    <div class="code-box before">
-                        <div class="code-label">Round 1: Direct Pursuit (66 LOC, -0.8 fitness)</div>
-                        <pre style="font-size: 0.55rem; margin: 0;"><code class="language-cpp">// Find nearest enemy
-float min_dist = 1e9f;
-int target = -1;
+                <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <div class="diagram-container">
+                        <div class="img-placeholder" style="min-height: 400px;">
+                            [Top-down arena diagram]<br>
+                            2 teams × 25 drones<br>
+                            Trajectory lines, combat zones
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <video controls loop style="width: 100%; max-height: 200px;">
+                                <source src="videos/m25_r1_baseline.mp4" type="video/mp4">
+                            </video>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
+                                Early-game chaos (Round 1)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 1rem;">Rules</h4>
+                        <ul style="font-size: 0.95rem; line-height: 1.8;">
+                            <li><strong>Objective:</strong> Destroy all opponents</li>
+                            <li><strong>Constraints:</strong> Range limits, cooldowns, partial vision</li>
+                            <li><strong>AI:</strong> C++ functions (no neural nets)</li>
+                            <li><strong>Evolution:</strong> 100 rounds, alternating teams</li>
+                        </ul>
+
+                        <div class="vs-container" style="margin-top: 2rem;">
+                            <div class="fighter fighter-a">
+                                <h4 style="color: var(--accent-blue); margin-bottom: 1rem;">Team A</h4>
+                                <div class="stat-line">
+                                    <span class="stat-label">Evolution:</span>
+                                    <span class="stat-value">100 gen</span>
+                                </div>
+                                <div class="stat-line">
+                                    <span class="stat-label">Code:</span>
+                                    <span class="stat-value">204 LOC</span>
+                                </div>
+                                <div class="stat-line">
+                                    <span class="stat-label">Fitness:</span>
+                                    <span class="stat-value" style="color: var(--accent-blue);">+1.0</span>
+                                </div>
+                            </div>
+
+                            <div class="vs-badge">VS</div>
+
+                            <div class="fighter fighter-b">
+                                <h4 style="color: var(--accent-red); margin-bottom: 1rem;">Team B</h4>
+                                <div class="stat-line">
+                                    <span class="stat-label">Evolution:</span>
+                                    <span class="stat-value">Baseline</span>
+                                </div>
+                                <div class="stat-line">
+                                    <span class="stat-label">Code:</span>
+                                    <span class="stat-value">66 LOC</span>
+                                </div>
+                                <div class="stat-line">
+                                    <span class="stat-label">Fitness:</span>
+                                    <span class="stat-value" style="color: var(--accent-red);">-0.8</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="emphasis" style="font-size: 1.3rem; margin-top: 1.5rem;">
+                            Team B shouldn't win.<br>
+                            Evolution doesn't care about "should."
+                        </p>
+                    </div>
+                </div>
+
+                <div class="slide-footer">
+                    This isn't a toy problem — it's a proxy for any competitive optimization task
+                </div>
+            </section>
+
+            <!-- SLIDE 4: Fitness Reversal + Staircase (COMBINED) -->
+            <section>
+                <h2>Punctuated Equilibrium</h2>
+                <h3>The Fitness Reversal</h3>
+
+                <div class="diagram-container" style="margin: 1.5rem 0;">
+                    <img src="figures/fitness_timeline.png" alt="Fitness over time showing Team A blue line starting high, Team B red line starting low then crossing over at Round 31">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">The Jump</h4>
+                        <p style="font-size: 1rem; line-height: 1.6;">
+                            <strong>95 rounds. 1.5 hours. $10 in API credits.</strong><br><br>
+                            Round 13: Parity (0.0 fitness)<br>
+                            Round 31: <span style="color: var(--accent-green); font-size: 1.3rem; font-weight: 700;">Breakthrough</span> (+0.9)<br>
+                            Round 41: Refined dominance
+                        </p>
+                    </div>
+
+                    <div>
+                        <div class="diagram-container">
+                            <img src="figures/tactical_staircase.png" alt="Staircase graph showing 6 tactical phases with vertical jumps">
+                        </div>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 1rem;">
+                            <strong>Stephen Jay Gould's punctuated equilibrium:</strong> Long stasis → Sudden explosion. This is how evolution actually works.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SLIDE 5: Emergent Strategies + Timeline -->
+            <section>
+                <h2>Emergent Strategies</h2>
+                <h3>Six Tactical Phases — Discovered, Not Programmed</h3>
+
+                <div style="margin: 1.5rem 0;">
+                    <div class="img-placeholder" style="min-height: 150px;">
+                        [Horizontal timeline with vertical jumps]<br>
+                        R1 (-0.8) → R3 (-0.4) → R13 (0.0) → R31 (+0.9) → R41 (+0.9)<br>
+                        Labels: Baseline | Coordination | Prediction | <strong>Formation Spread</strong> | Zone Control
+                    </div>
+                </div>
+
+                <div class="tactic-grid">
+                    <div class="tactic-card" style="border-color: var(--accent-blue);">
+                        <h4><span class="tactic-icon">📡</span> Message Coordination</h4>
+                        <div class="tactic-fitness">+0.3</div>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;">
+                            Broadcast target priorities, synchronize attacks
+                        </p>
+                        <div class="tactic-bio">Bio analog: Ant pheromone trails</div>
+                    </div>
+
+                    <div class="tactic-card" style="border-color: var(--accent-magenta);">
+                        <h4><span class="tactic-icon">🎯</span> Predictive Intercept</h4>
+                        <div class="tactic-fitness">+0.4</div>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;">
+                            Aim where enemy will be, not where they are
+                        </p>
+                        <div class="tactic-bio">Bio analog: Predator anticipation (cheetah hunting)</div>
+                    </div>
+
+                    <div class="tactic-card" style="border-color: var(--accent-green); box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);">
+                        <h4><span class="tactic-icon">📐</span> Formation Spread</h4>
+                        <div class="tactic-fitness">+0.9</div>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;">
+                            80-unit min spacing → 60% arena coverage
+                        </p>
+                        <div class="tactic-bio">Bio analog: Wolf pack territorial spacing</div>
+                    </div>
+
+                    <div class="tactic-card" style="border-color: var(--accent-gold);">
+                        <h4><span class="tactic-icon">🕸️</span> Zone Control</h4>
+                        <div class="tactic-fitness">+0.1</div>
+                        <p style="font-size: 0.9rem; margin: 0.5rem 0;">
+                            Maintain coverage, deny enemy movement
+                        </p>
+                        <div class="tactic-bio">Bio analog: Territorial marking (big cats)</div>
+                    </div>
+                </div>
+
+                <p style="margin-top: 2rem; font-size: 1rem; text-align: center; color: var(--text-secondary);">
+                    These tactics have names because we <em>observed</em> them. The LLM didn't plan "zone control."<br>
+                    It tried <strong>47 mutations</strong>. <strong>8 survived</strong>. This one won.
+                </p>
+            </section>
+
+            <!-- SLIDE 6: Code Archaeology -->
+            <section>
+                <h2>Code Archaeology</h2>
+                <h3>What Changed Between Round 1 and Round 31?</h3>
+
+                <div class="code-split">
+                    <div class="code-panel code-panel-a">
+                        <div class="code-header">Round 1: Baseline (66 LOC)</div>
+                        <pre><code class="language-cpp">// Simple pursuit
 for (int i = 0; i < num_enemies; i++) {
     if (!enemies[i].alive) continue;
-    float d = distance(my_pos, enemies[i].pos);
-    if (d < min_dist) {
-        min_dist = d;
-        target = i;
+
+    float dx = enemies[i].x - my_x;
+    float dy = enemies[i].y - my_y;
+    float dist = sqrtf(dx*dx + dy*dy);
+
+    if (dist < closest_dist) {
+        closest_dist = dist;
+        target_id = i;
+        move_x = dx;
+        move_y = dy;
     }
 }
 
-// Chase directly toward target
-if (target >= 0) {
-    out_action->vx = enemies[target].pos.x - my_pos.x;
-    out_action->vy = enemies[target].pos.y - my_pos.y;
-    // Fire if in range and ready
-    if (min_dist < disable_range && my_cooldown == 0) {
-        out_action->target_id = target;
-    }
+// Normalize and move
+float mag = sqrtf(move_x*move_x + move_y*move_y);
+if (mag > 0.01f) {
+    move_x /= mag;
+    move_y /= mag;
 }</code></pre>
                     </div>
 
-                    <div class="code-box after">
-                        <div class="code-label">Round 31: Formation Spread (187 LOC, +0.9 fitness)</div>
-                        <pre style="font-size: 0.55rem; margin: 0;"><code class="language-cpp">// Maintain 80-unit minimum spacing from allies
-const float min_spacing = 80.0f;
-float repulse_x = 0.0f, repulse_y = 0.0f;
+                    <div class="code-panel code-panel-b">
+                        <div class="code-header">Round 31: Breakthrough (187 LOC)</div>
+                        <pre><code class="language-cpp">// Formation Spread with repulsion
+float repulse_x = 0.0f;
+float repulse_y = 0.0f;
 
 for (int i = 0; i < num_allies; i++) {
     if (i == my_id || !allies[i].alive) continue;
-    float d = distance(my_pos, allies[i].pos);
-    if (d < min_spacing && d > 1e-6f) {
-        float push_x = my_pos.x - allies[i].pos.x;
-        float push_y = my_pos.y - allies[i].pos.y;
-        normalize(push_x, push_y);
-        float strength = (min_spacing - d) / min_spacing;
+
+    float dx = my_x - allies[i].x;
+    float dy = my_y - allies[i].y;
+    float dist = sqrtf(dx*dx + dy*dy);
+
+    <span class="highlight-line">const float min_spacing = 80.0f; // THIS LINE</span>
+
+    if (dist < min_spacing && dist > 0.01f) {
+        float push_x = dx / dist;
+        float push_y = dy / dist;
+        float strength = (min_spacing - dist) / min_spacing;
         repulse_x += push_x * strength;
         repulse_y += push_y * strength;
     }
 }
 
-// Predict enemy retreat vector after they fire
-if (target_cooldown > 0 && target_cooldown < 8) {
-    pred_x = enemy_x + retreat_vx * target_cooldown;
-    pred_y = enemy_y + retreat_vy * target_cooldown;
-}</code></pre>
+// Combine pursuit + repulsion
+move_x = 0.6f * pursuit_x + 0.4f * repulse_x;
+move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                     </div>
                 </div>
 
-                <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center;">
-                    <span class="highlight">Key Innovation:</span> 80-unit spacing creates zone coverage (60% of arena).
-                    Predictive intercept counters kiting. <strong>LLM-discovered, not human-programmed.</strong>
+                <p class="emphasis" style="margin-top: 1.5rem;">
+                    One constant. 80-unit spacing. Emergent zone coverage.<br>
+                    The swarm didn't know it was inventing a strategy. It just... worked.
                 </p>
 
-                <aside class="notes">
-                    This is the actual code that evolved. Round 1 is simple pursuit - chase nearest enemy, fire when in range.
-                    Round 31 discovered spacing repulsion forces and predictive targeting based on cooldown inference.
-                    Notice the complexity growth - from simple distance checks to multi-agent coordination math.
-                </aside>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+                    <div class="diagram-container">
+                        <img src="figures/code_growth.png" alt="Code complexity over time: 66 LOC to 210 LOC">
+                    </div>
+                    <div class="diagram-container">
+                        <div class="img-placeholder" style="min-height: 250px;">
+                            [Scatter plot: LOC vs Fitness]<br>
+                            Gray dots = Team A's 47 failed mutations<br>
+                            Red line = Team B's growth path
+                        </div>
+                    </div>
+                </div>
             </section>
 
-            <!-- NEW Slide 7c: Tactical Evolution Visualization -->
+            <!-- SLIDE 7: When Evolution Stalls + How We Fixed It -->
             <section>
-                <h2>Tactical Evolution in Action</h2>
-                <h3>4 Key Tactical Innovations</h3>
+                <h2>When Evolution Stalls</h2>
+                <h3>Lessons From Failed Experiments</h3>
 
-                <div class="tactic-showcase">
-                    <div class="tactic-card fragment">
-                        <div class="tactic-header">
-                            <h4 style="margin: 0; font-size: 1.1rem;">📡 Message Coordination</h4>
-                            <span class="tactic-round">Round 3</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 2rem;">
+                    <div>
+                        <h4 style="color: var(--accent-red); margin-bottom: 1.5rem;">❌ Why Earlier Experiments Failed</h4>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h5 style="margin-bottom: 0.8rem;">🏝️ Small Arena</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Convergent tactics, no exploration space<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Island dwarfism</em>
+                            </p>
                         </div>
-                        <p style="font-size: 0.8rem;">Broadcasts target via 4-float radio to prevent redundant focus-fire</p>
-                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
-<pre style="font-size: 0.5rem; margin: 0;">message_out[0] = my_target_id;
-message_out[1] = target_distance;</pre>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h5 style="margin-bottom: 0.8rem;">🎯 Fixed Opponent</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Overfitting, no pressure to adapt<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Coelacanth (400M years unchanged)</em>
+                            </p>
                         </div>
-                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: -0.8 → -0.4 (+0.4 gain)</p>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.5rem; border-radius: 8px;">
+                            <h5 style="margin-bottom: 0.8rem;">🧬 Single Lineage</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                No genetic diversity, local optimum trap<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Cheetah genetic bottleneck</em>
+                            </p>
+                        </div>
                     </div>
 
-                    <div class="tactic-card fragment">
-                        <div class="tactic-header">
-                            <h4 style="margin: 0; font-size: 1.1rem;">🎯 Predictive Intercept</h4>
-                            <span class="tactic-round">Round 13</span>
-                        </div>
-                        <p style="font-size: 0.8rem;">Infers enemy cooldown from observation, predicts retreat vectors</p>
-                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
-<pre style="font-size: 0.5rem; margin: 0;">if (target_cooldown > 0) {
-    pred_pos = enemy_pos + retreat_vec * cd;
-}</pre>
-                        </div>
-                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: -0.2 → 0.0 (+0.2 gain, parity!)</p>
-                    </div>
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 1.5rem;">✅ Our Solution: Co-Evolution</h4>
 
-                    <div class="tactic-card fragment">
-                        <div class="tactic-header">
-                            <h4 style="margin: 0; font-size: 1.1rem;">📐 Formation Spread</h4>
-                            <span class="tactic-round">Round 31</span>
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h5 style="margin-bottom: 0.8rem;">🌍 Bigger Arena</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                1000×1000 units, exploration space for novel tactics<br>
+                                <strong>Result:</strong> Formation Spread emerges
+                            </p>
                         </div>
-                        <p style="font-size: 0.8rem;">80-unit spacing via repulsion forces creates zone coverage</p>
-                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
-<pre style="font-size: 0.5rem; margin: 0;">const float min_spacing = 80.0f;
-strength = (min_spacing - d) / min_spacing;</pre>
-                        </div>
-                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--neutral-color);"><strong>Fitness: 0.0 → +0.9 (+0.9 BREAKTHROUGH!)</strong></p>
-                    </div>
 
-                    <div class="tactic-card fragment">
-                        <div class="tactic-header">
-                            <h4 style="margin: 0; font-size: 1.1rem;">🕸️ Zone Control</h4>
-                            <span class="tactic-round">Round 41</span>
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <h5 style="margin-bottom: 0.8rem;">🔄 Alternating Pressure</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Team A evolves → Team B responds → repeat<br>
+                                <strong>Result:</strong> Shifting fitness landscape (Red Queen)
+                            </p>
                         </div>
-                        <p style="font-size: 0.8rem;">Coordinated baiting + crossfire using formation center calculations</p>
-                        <div class="code-snippet" style="padding: 0.5rem; margin-top: 0.5rem;">
-<pre style="font-size: 0.5rem; margin: 0;">formation_center = compute_centroid(allies);
-bait_vector = enemy_pos - formation_center;</pre>
+
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.5rem; border-radius: 8px;">
+                            <h5 style="margin-bottom: 0.8rem;">⚔️ Dynamic Opponent</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Opponent improves, can't overfit<br>
+                                <strong>Result:</strong> 35% faster learning vs isolated evolution
+                            </p>
                         </div>
-                        <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #aaa;">Fitness: +0.9 sustained (final champion)</p>
+
+                        <div class="diagram-container" style="margin-top: 1.5rem;">
+                            <img src="figures/learning_speed_comparison.png" alt="Learning speed: co-evolution 35% faster">
+                        </div>
                     </div>
                 </div>
 
-                <aside class="notes">
-                    These four cards show the major tactical innovations. Each one builds on the previous.
-                    Notice the code complexity increasing - from simple message passing to multi-agent formation math.
-                    Round 31's Formation Spread was the game-changer - the +0.9 fitness jump in a single round.
-                </aside>
-            </section>
-
-            <!-- Slide 8: Learning Speed Comparison -->
-            <section>
-                <h2>Co-Evolution Accelerates Learning</h2>
-                <h3>Strong Opponents Make You Stronger, Faster</h3>
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        <div class="stat-number team-a">20 rounds</div>
-                        <div class="stat-label">M22 Solo Evolution: Time to reach parity vs pursuit_v1</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-number team-b">13 rounds</div>
-                        <div class="stat-label">M25 Co-Evolution: Time to reach parity vs M22 champion</div>
-                    </div>
-                </div>
-                <p style="margin-top: 2rem; text-align: center;">
-                    <span class="highlight" style="font-size: 1.5rem;">35% faster learning</span> when facing a strong, adaptive opponent
+                <p style="margin-top: 2rem; text-align: center; font-size: 1.1rem;">
+                    <strong>Key insight:</strong> Evolution needs enemies that fight back.
                 </p>
-                <ul style="margin-top: 2rem;">
-                    <li><strong>M22 (solo):</strong> Evolved against static baseline pursuit_v1</li>
-                    <li><strong>M25 (co-evolution):</strong> Both teams evolve, creating adaptive pressure</li>
-                    <li><strong>Insight:</strong> Adaptive opponents force innovation faster than static benchmarks</li>
-                </ul>
-                <aside class="notes">
-                    This is a key finding. When you face a strong opponent who also adapts, you're forced to innovate faster.
-                    Team B reached competitive parity 35% faster than M22 did against a weaker baseline.
-                </aside>
             </section>
 
-            <!-- Slide 10: Complexity & Fragility -->
+            <!-- SLIDE 8: The Red Queen's Race + Team A Stagnation -->
             <section>
-                <h2>Complexity & Fragility</h2>
-                <h3>The Cost of Intelligence</h3>
-                <div style="display: flex; gap: 2rem; align-items: center;">
-                    <div style="flex: 1.2;">
-                        <div class="diagram-container" style="margin: 0;">
-                            <img src="fig5_code_complexity.png" alt="Code Complexity vs Fitness" style="max-height: 420px;">
-                        </div>
-                    </div>
-                    <div style="flex: 1;">
-                        <div class="stat-grid">
-                            <div class="stat-box">
-                                <div class="stat-number team-b">3.2×</div>
-                                <div class="stat-label">Code growth (66 → 210 LOC)</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-number team-a">47 failures</div>
-                                <div class="stat-label">Team A rejected mutations</div>
-                            </div>
-                        </div>
-                        <ul style="font-size: 0.85rem; margin-top: 1rem;">
-                            <li><strong>Capability requires complexity:</strong> Each major tactic cost ~30-40 lines of code</li>
-                            <li><strong>Team A's fragility:</strong> 204-line champion was a "local optimum trap" - every mutation broke critical logic</li>
-                            <li><strong>Over-optimization risk:</strong> Early perfection creates evolutionary dead-ends</li>
-                        </ul>
-                    </div>
+                <h2>The Red Queen's Race</h2>
+                <h3>Why Team A Failed to Adapt</h3>
+
+                <div class="big-quote">
+                    "It takes all the running you can do, to keep in the same place."
+                    <div class="quote-attribution">— Lewis Carroll, <em>Through the Looking-Glass</em></div>
                 </div>
-                <aside class="notes">
-                    There's a brutal tradeoff. To win, Team B needed to write 3x more code. But Team A's complexity made it fragile.
-                    Every time the LLM tried to improve Team A, it broke something critical and lost -1.0 fitness.
-                    This is why evolution sometimes favors scrappy underdogs over over-optimized champions.
-                </aside>
-            </section>
 
-            <!-- Slide 10: Democratizing AI Game Theory -->
-            <section>
-                <h2>Democratizing AI Game Theory</h2>
-                <h3>High-End Dynamics on a $10 Budget</h3>
-                <table class="comparison-table">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>AlphaStar / OpenAI Five</th>
-                            <th>SwarmEvolve (M25)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Method</strong></td>
-                            <td>Deep Reinforcement Learning</td>
-                            <td>LLM-Guided Evolution</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Compute</strong></td>
-                            <td>$1M+, hundreds of GPUs, weeks/months</td>
-                            <td class="highlight">$10 API credits, 1.5 hours, single CPU/GPU</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Tactics Discovered</strong></td>
-                            <td>Punctuated equilibrium, spatial control, coordination</td>
-                            <td>✓ Same emergent behaviors</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Interpretability</strong></td>
-                            <td>Black-box neural networks</td>
-                            <td class="highlight">Human-readable C++ + LLM strategy journal</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Reproducibility</strong></td>
-                            <td>Expensive to replicate</td>
-                            <td class="highlight">Single command: <code>python3 scripts/evolve_coevolve.py</code></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <aside class="notes">
-                    This is the game-changer. AlphaStar and OpenAI Five proved that AI can discover sophisticated tactics through RL.
-                    But they cost millions of dollars. SwarmEvolve discovered similar dynamics for the price of a lunch.
-                    And unlike neural networks, every decision is human-readable C++ code.
-                </aside>
-            </section>
-
-            <!-- Slide 11: Video Demo -->
-            <section class="center">
-                <h2>Watching the Swarm Learn</h2>
-                <h3>Round 41: Zone Control in Action</h3>
-                <video controls src="m25_round41_41.mp4" style="max-width: 70%;"></video>
-                <ul style="text-align: left; margin-top: 1rem; font-size: 0.85rem;">
-                    <li>Notice <span class="team-b">Team B</span> spreading 80-unit spacing to cover 60% of arena</li>
-                    <li>Notice <span class="team-a">Team A</span> falling back on predictable 8-tick retreat kiting</li>
-                    <li>Notice <span class="team-b">Team B</span> executing coordinated predictive intercepts and crossfire</li>
-                    <li>Result: DRAW (0-0) after 234 ticks of intense tactical play</li>
-                </ul>
-                <p class="small-text" style="margin-top: 1rem;">
-                    Because the engine is deterministic, we can trace every decision. This is LLM-generated code, not human-written.
-                </p>
-                <aside class="notes">
-                    This is the final evolved form. Watch how Team B spreads out to create overlapping zones of control.
-                    Team A tries to kite away after firing, but Team B predicts the retreat vectors and intercepts.
-                    No human prompted this behavior. It was entirely discovered through 100 rounds of evolution.
-                </aside>
-            </section>
-
-            <!-- Slide 12: Conclusion & Future Work -->
-            <section>
-                <h2>Conclusion & Future Work</h2>
-                <h3>Let the Swarm Evolve</h3>
-                <div style="display: flex; gap: 2rem;">
-                    <div style="flex: 1;">
-                        <h4>Core Findings</h4>
-                        <ul class="checkmarks" style="font-size: 0.9rem;">
-                            <li>LLM-guided co-evolution is practical, cost-effective, and interpretable</li>
-                            <li>Underdogs <strong>can</strong> overcome 100-generation champions through adaptive pressure</li>
-                            <li>Power law innovation: Most improvements small, rare breakthroughs transformative</li>
-                            <li>Strong opponents accelerate learning by 35%</li>
-                            <li>Over-optimized champions become fragile evolutionary dead-ends</li>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+                    <div>
+                        <h4 style="color: var(--accent-red); margin-bottom: 1rem;">Team A: Trapped in Local Optimum</h4>
+                        <div class="diagram-container">
+                            <img src="figures/team_a_stagnation.png" alt="Team A's 47 rejected mutations">
+                        </div>
+                        <ul style="margin-top: 1rem; font-size: 0.95rem; line-height: 1.7;">
+                            <li><strong>47 mutation attempts</strong></li>
+                            <li><strong>0 acceptances</strong></li>
+                            <li>Every change broke critical logic</li>
+                            <li>Over-specialized for pursuit_v1</li>
                         </ul>
+                        <p style="margin-top: 1rem; font-style: italic; color: var(--text-secondary);">
+                            Bio analog: Panda's thumb (over-adapted to bamboo, can't switch food sources)
+                        </p>
                     </div>
-                    <div style="flex: 1;">
-                        <h4>Future Work</h4>
-                        <ul style="font-size: 0.9rem;">
-                            <li>Multi-opponent training portfolios (prevent fragility)</li>
-                            <li>Adaptive match count scaling</li>
-                            <li>Cross-domain tactical transfer</li>
-                            <li>Real-time human-in-the-loop evolution</li>
+
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">Team B: Adaptive Success</h4>
+                        <div class="diagram-container">
+                            <img src="figures/team_b_acceptance_rate.png" alt="Team B's 8 acceptances in 95 rounds">
+                        </div>
+                        <ul style="margin-top: 1rem; font-size: 0.95rem; line-height: 1.7;">
+                            <li><strong>95 rounds total</strong></li>
+                            <li><strong>8 acceptances</strong> (8.4% rate)</li>
+                            <li>Started simple, stayed flexible</li>
+                            <li>Each innovation built on previous</li>
                         </ul>
-                        <h4 style="margin-top: 1.5rem;">Status</h4>
-                        <p style="font-size: 0.9rem;">
-                            ✓ Open Source<br>
-                            ✓ Cross-platform (macOS ARM / Linux NVIDIA GPU)<br>
-                            ✓ Single-command reproduction
+                        <p style="margin-top: 1rem; font-style: italic; color: var(--text-secondary);">
+                            Bio analog: Darwin's finches (beak plasticity enables adaptive radiation)
                         </p>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 2rem;">
-                    <p style="font-size: 0.85rem; color: #aaa;">
-                        <strong>Reproduce M25:</strong><br>
-                        <code style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 4px;">
-                            python3 scripts/evolve_coevolve.py --rounds 100
-                        </code>
+
+                <div class="img-placeholder" style="margin-top: 2rem; min-height: 200px;">
+                    [Predator-prey oscillation graph overlaid on Team A/B fitness]<br>
+                    Lynx population peaks → Hare population crashes → Lynx crashes → Hare recovers
+                </div>
+
+                <p class="emphasis" style="margin-top: 1.5rem;">
+                    Team A ran as fast as it could... and still lost ground.
+                </p>
+            </section>
+
+            <!-- SLIDE 9: Cost of Intelligence + What Evolution Unlocks -->
+            <section>
+                <h2>What Evolution Unlocks</h2>
+                <h3>Democratizing AI Research</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <div>
+                        <h4 style="margin-bottom: 1rem;">Cost Comparison</h4>
+                        <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid rgba(255,255,255,0.2);">
+                                    <th style="text-align: left; padding: 0.8rem;">Approach</th>
+                                    <th style="text-align: right; padding: 0.8rem;">Cost</th>
+                                    <th style="text-align: right; padding: 0.8rem;">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 0.8rem;">AlphaStar (DeepMind)</td>
+                                    <td style="text-align: right; color: var(--accent-red); font-weight: 700;">$1M</td>
+                                    <td style="text-align: right;">Weeks</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 0.8rem;">OpenAI Five</td>
+                                    <td style="text-align: right; color: var(--accent-red); font-weight: 700;">$500K+</td>
+                                    <td style="text-align: right;">Months</td>
+                                </tr>
+                                <tr style="background: rgba(34, 197, 94, 0.1);">
+                                    <td style="padding: 0.8rem;"><strong>SwarmEvolve M25</strong></td>
+                                    <td style="text-align: right; color: var(--accent-green); font-weight: 700; font-size: 1.2rem;">$10</td>
+                                    <td style="text-align: right; font-weight: 700;">90 min</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 1rem;">Interpretability</h4>
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h5 style="color: var(--accent-red); margin-bottom: 0.5rem;">❌ AlphaStar</h5>
+                            <p style="font-size: 0.85rem; line-height: 1.5;">
+                                100B+ parameters<br>
+                                Black box neural network<br>
+                                "It works, but we don't know why"
+                            </p>
+                        </div>
+                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.5rem; border-radius: 8px;">
+                            <h5 style="color: var(--accent-green); margin-bottom: 0.5rem;">✅ SwarmEvolve</h5>
+                            <p style="font-size: 0.85rem; line-height: 1.5;">
+                                210 lines of C++<br>
+                                Human-readable logic<br>
+                                "Read the code, understand the tactic"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="benefits-grid">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🔬</div>
+                        <h4>Interpretability</h4>
+                        <p style="font-size: 0.9rem;">
+                            Read the code. Debug the logic. No 100B-parameter mystery.
+                        </p>
+                    </div>
+
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⚡</div>
+                        <h4>Speed</h4>
+                        <p style="font-size: 0.9rem;">
+                            90 minutes vs weeks. Iterate in real-time, experiment rapidly.
+                        </p>
+                    </div>
+
+                    <div class="benefit-card">
+                        <div class="benefit-icon">💰</div>
+                        <h4>Democratization</h4>
+                        <p style="font-size: 0.9rem;">
+                            $10 budget. Consumer GPU. Open source. Anyone can compete.
+                        </p>
+                    </div>
+                </div>
+
+                <p style="margin-top: 2rem; text-align: center; font-size: 1rem; color: var(--text-secondary);">
+                    This isn't about drones. It's about making AI research <strong>accessible</strong>.
+                </p>
+            </section>
+
+            <!-- SLIDE 10: Evolutionary Paradigms -->
+            <section>
+                <h2>Evolutionary Paradigms in Software</h2>
+                <h3>Biology Was Wrong — But Code Doesn't Care</h3>
+
+                <div class="paradigm-grid">
+                    <div class="paradigm">
+                        <h4 style="color: var(--accent-green);">Darwinian</h4>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem;">
+                            Random mutation + natural selection
+                        </p>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-green);">✅</span>
+                            <span style="font-size: 0.85rem;">Biologically correct</span>
+                        </div>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-green);">✅</span>
+                            <span style="font-size: 0.85rem;">What we used (M25)</span>
+                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                            <strong style="font-size: 0.9rem;">Example:</strong>
+                            <p style="font-size: 0.8rem; margin-top: 0.5rem; line-height: 1.4;">
+                                LLM proposes random code changes → Fitness test → Accept if better
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="paradigm">
+                        <h4 style="color: var(--accent-magenta);">Lamarckian</h4>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem;">
+                            Acquired traits are inherited (learning passes to offspring)
+                        </p>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-red);">❌</span>
+                            <span style="font-size: 0.85rem;">Biologically wrong</span>
+                        </div>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-green);">✅</span>
+                            <span style="font-size: 0.85rem;">Works in code!</span>
+                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                            <strong style="font-size: 0.9rem;">Example:</strong>
+                            <p style="font-size: 0.8rem; margin-top: 0.5rem; line-height: 1.4;">
+                                LLM reflection loop: "I failed because X" → Next mutation avoids X → Learned behavior inherited
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="paradigm">
+                        <h4 style="color: var(--accent-gold);">Orthogenesis</h4>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem;">
+                            Evolution has direction (mutations are guided, not random)
+                        </p>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-red);">❌</span>
+                            <span style="font-size: 0.85rem;">Biologically wrong</span>
+                        </div>
+                        <div class="paradigm-status">
+                            <span style="color: var(--accent-green);">✅</span>
+                            <span style="font-size: 0.85rem;">Works in code!</span>
+                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                            <strong style="font-size: 0.9rem;">Example:</strong>
+                            <p style="font-size: 0.8rem; margin-top: 0.5rem; line-height: 1.4;">
+                                Constrained mutation space: "Only mutate formation logic, preserve message protocol"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="margin-top: 2rem;">
+                    Biology rejected Lamarck and Orthogenesis.<br>
+                    But in code, we <em>can</em> inherit learned behaviors. We <em>can</em> guide mutation.<br>
+                    <strong>Evolution is a tool, not a dogma.</strong>
+                </p>
+            </section>
+
+            <!-- SLIDE 11: The Future -->
+            <section>
+                <h2>The Future of Evolutionary Code</h2>
+                <h3>Speculative Extrapolation</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+                    <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(59,130,246,0.3);">
+                        <h4 style="color: var(--accent-blue); margin-bottom: 1rem;">🌐 Co-Evolving Microservices</h4>
+                        <p style="font-size: 0.9rem; line-height: 1.5;">
+                            Frontend and backend evolve together, optimizing for latency, throughput, cost. APIs compete for efficiency.
+                        </p>
+                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
+                            [Diagram: API A ↔ API B fitness graph]
+                        </div>
+                    </div>
+
+                    <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(34,197,94,0.3);">
+                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">🛡️ Immune System Software</h4>
+                        <p style="font-size: 0.9rem; line-height: 1.5;">
+                            Code that adapts to attacks in real-time. Firewall rules evolve against adversarial traffic patterns.
+                        </p>
+                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
+                            [Diagram: Attack pattern → Detection evolves]
+                        </div>
+                    </div>
+
+                    <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(236,72,153,0.3);">
+                        <h4 style="color: var(--accent-magenta); margin-bottom: 1rem;">🔧 Evolutionary Debugging</h4>
+                        <p style="font-size: 0.9rem; line-height: 1.5;">
+                            Mutate code until tests pass. Fitness = % tests green. Let evolution fix bugs while you sleep.
+                        </p>
+                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
+                            [Diagram: Test suite → Mutations → Green build]
+                        </div>
+                    </div>
+
+                    <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(245,158,11,0.3);">
+                        <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">🤝 Symbiotic Codebases</h4>
+                        <p style="font-size: 0.9rem; line-height: 1.5;">
+                            Modules co-evolve for mutual benefit. Database queries optimize alongside indexing strategies.
+                        </p>
+                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
+                            [Diagram: Query optimizer ↔ Index builder]
+                        </div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="margin-top: 2rem; font-size: 2rem;">
+                    What if all software was <em>alive</em>?
+                </p>
+            </section>
+
+            <!-- SLIDE 12: Closing - Evolution vs Engineering -->
+            <section>
+                <h2>Evolution vs. Engineering</h2>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin: 2rem 0;">
+                    <div class="img-placeholder" style="min-height: 400px;">
+                        [Darwin's finches sketch]<br>
+                        Natural Selection
+                    </div>
+
+                    <div class="img-placeholder" style="min-height: 400px;">
+                        [CAD blueprint / circuit diagram]<br>
+                        Intelligent Design
+                    </div>
+                </div>
+
+                <div class="big-quote" style="font-size: 2.2rem; margin: 2rem 0;">
+                    Engineering optimizes for the problem you <em>know</em>.<br>
+                    Evolution optimizes for the problem you <em>don't</em>.
+                </div>
+
+                <p class="emphasis" style="font-size: 2rem; color: var(--accent-red); margin-top: 2rem;">
+                    Code that can't evolve...<br>
+                    is already extinct.
+                </p>
+
+                <div style="margin-top: 3rem; padding: 2rem; background: rgba(34,197,94,0.1); border-radius: 12px; border: 2px solid var(--accent-green);">
+                    <h4 style="color: var(--accent-green); margin-bottom: 1rem;">Try It Yourself</h4>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 6px; font-size: 0.9rem;"><code>python3 scripts/evolve_coevolve.py --rounds 100</code></pre>
+                    <p style="font-size: 0.9rem; margin-top: 1rem; text-align: center;">
+                        <strong>GitHub:</strong> github.com/leybzon/SwarmEvolve<br>
+                        <strong>Cost:</strong> $10 API credits | <strong>Time:</strong> 90 minutes | <strong>GPU:</strong> Consumer-grade
                     </p>
                 </div>
-                <aside class="notes">
-                    In conclusion: We've shown that you don't need millions of dollars to discover emergent AI tactics.
-                    LLM-guided evolution is accessible, interpretable, and discovers similar dynamics to Deep RL.
-                    The code is open source, and you can reproduce M25 with a single Python command.
-                    Thank you!
-                </aside>
             </section>
 
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/notes/notes.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/highlight.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/plugin/highlight/highlight.min.js"></script>
     <script>
         Reveal.initialize({
             hash: true,
-            controls: true,
-            progress: true,
-            center: false,
             transition: 'slide',
             transitionSpeed: 'default',
             backgroundTransition: 'fade',
-            slideNumber: 'c/t',
-            showNotes: false,
-            plugins: [ RevealNotes, RevealHighlight ],
-            width: 1280,
-            height: 720,
+            plugins: [ RevealHighlight ],
+            width: 1920,
+            height: 1080,
             margin: 0.04,
+            minScale: 0.2,
+            maxScale: 2.0
         });
     </script>
 </body>

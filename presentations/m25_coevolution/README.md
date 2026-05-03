@@ -1,6 +1,6 @@
-# SwarmEvolve M25 Co-Evolution Presentation
+# Code Evolution in the Wild
 
-**A 15-minute technical presentation showcasing LLM-guided co-evolution for drone swarm combat.**
+**A 15-30 minute presentation on evolutionary code paradigms, using SwarmEvolve M25 co-evolution as a case study.**
 
 ## Quick Start
 
@@ -27,111 +27,142 @@ python3 -m http.server 8000
 - **F**: Fullscreen mode
 - **?**: Show keyboard shortcuts help
 
-## Slide Structure (12 slides, ~15 minutes)
+## Slide Structure (14 slides, 15-30 minutes)
 
-1. **The Hook** (1 min) - Three approaches to programming swarms
-2. **Title Slide** (30 sec) - Introduction
-3. **The Deterministic Crucible** (1.5 min) - Architecture constraints
-4. **Starting & Restarting Evolution** (2 min) - Safety guardrails and AST injection
-5. **The Co-Evolution Challenge** (1.5 min) - Team A vs Team B setup
-6. **The Red Queen Effect** (1.5 min) - Fitness reversal results
-7. **The Tactical Staircase** (2 min) - 6 phases of evolution
-8. **Learning Speed Comparison** (1 min) - Co-evolution accelerates learning by 35%
-9. **Complexity & Fragility** (1.5 min) - Code growth and champion fragility
-10. **Democratizing AI Game Theory** (1.5 min) - $10 vs $1M comparison
-11. **Video Demo** (1.5 min) - Round 41 zone control in action
-12. **Conclusion & Future Work** (1 min) - Key findings and next steps
+### Act 1: Setup (Slides 0-3, ~6 min)
+0. **Title Slide** (30 sec) - Gene Leybzon, May 2026
+1. **Three Paradigms** (2 min) - Hand-coding vs Vibe Coding vs Evolution
+2. **What Is Code Evolution?** (2 min) - Definitions, Darwin's finches analogy
+3. **The Arena** (1.5 min) - Game rules, Team A vs Team B setup, fitness/LOC explained
 
-**Total:** ~15 minutes + 5 minutes Q&A buffer
+### Act 2: The Experiment (Slides 4-6, ~8 min)
+4. **Punctuated Equilibrium** (2 min) - Fitness reversal graph + staircase
+5. **Emergent Strategies** (3 min) - 6 tactical phases with biological analogs
+6. **Code Archaeology** (3 min) - Round 1 vs Round 31 code comparison
 
-## Speaker Notes
+### Act 3: Lessons (Slides 7-9, ~7 min)
+7. **When Evolution Stalls** (3 min) - Failed experiments vs co-evolution solution
+8. **The Red Queen's Race** (2 min) - Team A trapped, Team B adaptive
+9. **What Evolution Unlocks** (2 min) - Interpretability, speed, accessibility
 
-Press **S** to enter speaker notes mode. Each slide has detailed presenter notes to guide your delivery.
+### Act 4: Philosophy & Future (Slides 10-12, ~6 min)
+10. **Evolutionary Paradigms** (3 min) - Darwinian, Lamarckian, Orthogenesis in code
+11. **The Future** (2 min) - Speculative applications (microservices, immune systems, debugging, symbiosis)
+12. **Evolution vs Engineering** (1 min) - "Code that can't evolve is extinct"
+
+### Closing (Slide 13, ~2 min)
+13. **Credits & Next Steps** (2 min) - Darwin/Mendel/Linnaeus, tools, GitHub links, reproduction command
+
+**Total:** ~29 minutes + Q&A buffer
+
+## Key Concepts Explained
+
+This presentation **explains technical terms** for semi-technical audiences:
+
+- **Fitness**: Quantitative performance measure (wins - losses) / total, range -1.0 to +1.0
+- **LOC (Lines of Code)**: Measure of code complexity
+- **Punctuated Equilibrium**: Gould's theory of evolution in bursts, not gradual change
+- **Local Optimum**: A fitness peak that's high locally but not the global maximum
+- **Co-evolution**: Alternating evolution where opponents drive each other's adaptation
+
+## Design Decisions
+
+### De-emphasized Cost
+- Removed "$10" emphasis per your feedback
+- Focus shifted to **interpretability, speed, accessibility**
+- Cost mentioned only in context of democratization
+
+### Added Definitions
+- Green definition boxes explain: Evolution, Fitness, LOC, Punctuated Equilibrium, Local Optimum
+- Biological analogs provided for all tactics and stall mechanisms
+
+### Illustration Suggestions
+Each placeholder includes specific suggestions:
+- Title slide: Phylogenetic tree with code branches
+- Slide 1: Three-panel (person at desk | glitchy AI | petri dish)
+- Slide 2: Darwin's finches + code phylogeny tree
+- Slide 3: Arena diagram with trajectories and ranges
+- Slide 6: LOC vs Fitness scatter plot with failed mutations
+- Slide 8: Predator-prey oscillation (Lotka-Volterra) + Team A/B fitness
+- Slide 9: Neural net black box vs readable code
+- Slide 10: Darwin/Lamarck/de Vries portraits with bio/code checkmarks
+- Slide 11: Future applications diagrams (4 quadrants)
+- Slide 12: Finches vs CAD blueprint
+
+### Credits Slide
+Honors intellectual foundations:
+- **Charles Darwin** (1809-1882) - Natural selection
+- **Gregor Mendel** (1822-1884) - Genetics
+- **Carl Linnaeus** (1707-1778) - Taxonomy
+- **Stephen Jay Gould** (1941-2002) - Punctuated equilibrium
+- **Leigh Van Valen** (1935-2010) - Red Queen hypothesis
+
+Plus tools: Claude Code, Claude Sonnet 4, Claude Haiku 4.5, OpenACC, C++17
 
 ## Assets Included
 
-- **8 PNG figures** (3.1 MB total):
-  - `fig1_arms_race_timeline.png`
-  - `fig2_champion_staircase.png`
-  - `fig3_red_queen_effect.png`
-  - `fig4_strategy_timeline.png`
-  - `fig5_code_complexity.png`
-  - `fig6_strategy_progression.png`
-  - `fig7_counter_tactic_network.png`
-  - `fig8_emergent_behaviors.png`
+- **8 PNG figures** from M25 experiment:
+  - `fitness_timeline.png` - Hero graph (Blue → Red crossover)
+  - `tactical_staircase.png` - 6 phases, staircase pattern
+  - `code_growth.png` - 66 LOC → 210 LOC
+  - `learning_speed_comparison.png` - Co-evolution 35% faster
+  - `team_a_stagnation.png` - 47 rejected mutations
+  - `team_b_acceptance_rate.png` - 8 acceptances in 95 rounds
+  - `fitness_distribution.png` (if used)
+  - `complexity_fragility.png` (if used)
 
-- **4 MP4 videos** (3.2 MB total):
-  - `m25_round01_1.mp4` - Round 1 baseline (Team B losing)
-  - `m25_round13_13.mp4` - Round 13 parity
-  - `m25_round31_31.mp4` - Round 31 breakthrough
-  - `m25_round41_41.mp4` - Round 41 final champion
+- **4 MP4 videos**:
+  - `m25_r1_baseline.mp4` - Round 1 (Team B losing)
+  - `m25_r13_parity.mp4` (if used)
+  - `m25_r31_breakthrough.mp4` (if used)
+  - `m25_r41_final.mp4` (if used)
 
 ## Technical Details
 
-- **Framework:** reveal.js 5.0.4 (loaded from CDN)
-- **Total file size:** ~6.5 MB (presentation + assets)
-- **Browser compatibility:** All modern browsers (Chrome, Firefox, Safari, Edge)
-- **Offline capable:** Yes (after first load, CDN assets are cached)
-- **Print to PDF:** Use Chrome's print function with "Save as PDF"
-
-## Customization
-
-### Change Theme
-Edit line 10 in `index.html`:
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
-```
-Available themes: `black`, `white`, `league`, `beige`, `sky`, `night`, `serif`, `simple`, `solarized`
-
-### Adjust Timing
-Modify slide-specific timing in the `<section>` tags or add auto-slide timing:
-```javascript
-Reveal.initialize({
-    autoSlide: 5000, // Auto-advance every 5 seconds
-    // ... other config
-});
-```
-
-### Color Scheme
-Team A (blue): `#4285f4`
-Team B (red): `#ea4335`
-Highlight (green): `#34a853`
-
-Edit CSS variables in `<style>` section to customize colors.
+- **Framework:** reveal.js 5.0.4 (CDN)
+- **Fonts:** Fraunces (serif, headings) + JetBrains Mono (code)
+- **Color scheme:**
+  - Team A Blue: `#3b82f6`
+  - Team B Red: `#ef4444`
+  - Breakthrough Green: `#22c55e`
+  - Highlight Gold: `#f59e0b`
+  - Warning Magenta: `#ec4899`
+- **Browser compatibility:** All modern browsers
+- **Offline capable:** After first load (CDN cached)
 
 ## Presenting Tips
 
-1. **Start with the video in Slide 11** - Show the final result first to hook the audience, then go back to Slide 1 to explain how we got there
-2. **Use fragments sparingly** - Slides 4 and 7 have fragments (step-through animations). Press Space to reveal them sequentially.
-3. **Emphasize the $10 cost** - This is the killer value proposition in Slide 10
-4. **Let the video play fully** - Slide 11's video is 234 ticks (~10 seconds). Let it run without narration, then explain what happened.
-5. **Practice the 15-minute timing** - Use speaker notes mode (S) to rehearse with notes visible
+1. **Know your audience** - This version assumes semi-technical (software trends focus, not deep ML)
+2. **Emphasize emergence** - "We didn't program Formation Spread. Evolution discovered it."
+3. **Use biological analogs** - They make abstract concepts visceral (wolf packs, cheetah hunting, ant pheromones)
+4. **Pause on the breakthrough** - Slide 4's fitness reversal is the "wow" moment
+5. **Don't skip definitions** - Even tech audiences may not know "punctuated equilibrium" or "local optimum"
+6. **Leverage paradigms slide** - Slide 10 shows Lamarck/Orthogenesis work in code despite being wrong in biology (mind-blowing for many)
 
-## Troubleshooting
+## Customization
 
-**Videos not playing?**
-- Ensure you're viewing via `http://` (not `file://`) - use Python's HTTP server
-- Check browser console for errors
-- MP4 codec may not be supported on older browsers
+### Adjust Timing
+For 15-minute version: Skip slides 7, 10, 11 (focus on core narrative)
+For 30-minute version: Expand slides 5, 6, 7 with code walkthroughs
 
-**Images not loading?**
-- Verify all PNG/MP4 files are in the same directory as `index.html`
-- Check file permissions
-
-**Presentation looks wrong?**
-- Clear browser cache
-- Ensure reveal.js CDN is accessible (requires internet on first load)
-- Try a different browser
+### Change Theme
+Edit line 8-9 in `index.html`:
+```html
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/theme/black.min.css">
+```
+Available themes: `black`, `white`, `league`, `night`, `serif`
 
 ## Reproduction
 
-To regenerate the M25 experiment data and videos:
+To regenerate the M25 experiment data:
 
 ```bash
 # From repository root
-cd /Users/yevgeniy.leybzon/Documents/DroneEvolution
+python3 scripts/evolve_coevolve.py --rounds 100
+```
 
-# Run M25 experiment (95 rounds, ~1.5 hours)
+Full command with parameters:
+```bash
 python3 scripts/evolve_coevolve.py \
   --init-champion-a data/runs/m22_rq1_100gen/gen_0033/candidate.cpp \
   --init-champion-b src/baselines/pursuit_v1.cpp \
@@ -144,20 +175,29 @@ python3 scripts/evolve_coevolve.py \
   --acceptance-mode relative \
   --strict-reflection \
   -v
-
-# Generate visualizations
-python3 scripts/visualize_coevolve.py data/runs/m25_coevolve_100r/journal.jsonl
-python3 scripts/visualize_strategy_evolution.py data/runs/m25_coevolve_100r/journal.jsonl
-python3 scripts/visualize_tactic_relationships.py data/runs/m25_coevolve_100r/journal.jsonl
-
-# Generate videos
-python3 scripts/generate_m25_videos.py
 ```
 
-## License
+## Links
 
-This presentation is part of the SwarmEvolve project. See repository root for license details.
+- **GitHub Repository:** https://github.com/leybzon/SwarmEvolve
+- **This Presentation:** https://github.com/leybzon/SwarmEvolve/tree/main/presentations/m25_coevolution
+- **License:** MIT (open source)
+
+## Troubleshooting
+
+**Videos not playing?**
+- Serve via HTTP (not file://): `python3 -m http.server 8000`
+- Check browser console for codec errors
+- MP4 may not work on older browsers
+
+**Images not loading?**
+- Verify PNG files are in `figures/` subdirectory
+- Check file permissions
+
+**Fonts look wrong?**
+- Requires internet on first load (Google Fonts CDN)
+- Check browser console for 403 errors
 
 ---
 
-**Questions or feedback?** Open an issue on the GitHub repository.
+**Questions or feedback?** Open an issue on the GitHub repository or contact Gene Leybzon.
