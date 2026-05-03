@@ -1286,43 +1286,6 @@ python3 scripts/evolve_coevolve.py \
             margin: 0.02,
             minScale: 0.2,
             maxScale: 2.0
-
-
-            // Video modal functionality
-            document.addEventListener('DOMContentLoaded', function() {
-                const videoModal = document.getElementById('videoModal');
-                const modalVideo = document.getElementById('modalVideo');
-
-                // Make all videos in diagram-container clickable for modal popup
-                document.querySelectorAll('.diagram-container video, video[controls]').forEach(video => {
-                    // Add click-to-expand functionality
-                    video.style.cursor = 'pointer';
-                    video.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        videoModal.style.display = 'block';
-                        modalVideo.src = this.querySelector('source').src;
-                        modalVideo.play();
-                    });
-                });
-
-                // Close video modal on click
-                videoModal.addEventListener('click', function(e) {
-                    if (e.target !== modalVideo) {
-                        videoModal.style.display = 'none';
-                        modalVideo.pause();
-                        modalVideo.src = '';
-                    }
-                });
-
-                // Close video modal on ESC key
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape' && videoModal.style.display === 'block') {
-                        videoModal.style.display = 'none';
-                        modalVideo.pause();
-                        modalVideo.src = '';
-                    }
-                });
-            });
         });
     </script>
 
@@ -1340,8 +1303,9 @@ python3 scripts/evolve_coevolve.py \
     </div>
 
     <script>
-        // Image modal functionality
+        // Image and Video modal functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // Image modal
             const modal = document.getElementById('imageModal');
             const modalImg = document.getElementById('modalImage');
 
@@ -1355,53 +1319,47 @@ python3 scripts/evolve_coevolve.py \
                 });
             });
 
-            // Close modal on click
+            // Close image modal on click
             modal.addEventListener('click', function() {
                 modal.style.display = 'none';
             });
 
-            // Close modal on ESC key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && modal.style.display === 'block') {
-                    modal.style.display = 'none';
+            // Video modal
+            const videoModal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+
+            // Make all videos clickable for modal popup
+            document.querySelectorAll('.diagram-container video, video[controls]').forEach(video => {
+                video.style.cursor = 'pointer';
+                video.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    videoModal.style.display = 'block';
+                    modalVideo.src = this.querySelector('source').src;
+                    modalVideo.play();
+                });
+            });
+
+            // Close video modal on click
+            videoModal.addEventListener('click', function(e) {
+                if (e.target !== modalVideo) {
+                    videoModal.style.display = 'none';
+                    modalVideo.pause();
+                    modalVideo.src = '';
                 }
             });
 
-
-            // Video modal functionality
-            document.addEventListener('DOMContentLoaded', function() {
-                const videoModal = document.getElementById('videoModal');
-                const modalVideo = document.getElementById('modalVideo');
-
-                // Make all videos in diagram-container clickable for modal popup
-                document.querySelectorAll('.diagram-container video, video[controls]').forEach(video => {
-                    // Add click-to-expand functionality
-                    video.style.cursor = 'pointer';
-                    video.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        videoModal.style.display = 'block';
-                        modalVideo.src = this.querySelector('source').src;
-                        modalVideo.play();
-                    });
-                });
-
-                // Close video modal on click
-                videoModal.addEventListener('click', function(e) {
-                    if (e.target !== modalVideo) {
+            // Close modals on ESC key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (modal.style.display === 'block') {
+                        modal.style.display = 'none';
+                    }
+                    if (videoModal.style.display === 'block') {
                         videoModal.style.display = 'none';
                         modalVideo.pause();
                         modalVideo.src = '';
                     }
-                });
-
-                // Close video modal on ESC key
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape' && videoModal.style.display === 'block') {
-                        videoModal.style.display = 'none';
-                        modalVideo.pause();
-                        modalVideo.src = '';
-                    }
-                });
+                }
             });
         });
     </script>
