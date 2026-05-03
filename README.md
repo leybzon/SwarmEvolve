@@ -1,8 +1,11 @@
 # SwarmEvolve
 
-**An evolutionary testbed for LLM-driven drone swarm combat**
+**Evolutionary Software Development through LLM-Guided Co-Evolution**
 
-SwarmEvolve pits Large Language Models against each other in a competitive programming environment where they write C++ control logic for autonomous drone swarms. Through evolutionary pressure and thousands of GPU-accelerated simulations, the system discovers effective swarm tactics.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Presentations](https://img.shields.io/badge/Presentations-GitHub%20Pages-blue)](https://leybzon.github.io/SwarmEvolve/)
+
+SwarmEvolve is a research platform where Large Language Models compete by writing C++ control logic for autonomous drone swarms. Through co-evolutionary pressure and GPU-accelerated simulations, the system discovers emergent tactics, demonstrating how AI can iteratively improve complex algorithms through competitive selection.
 
 ## What is SwarmEvolve?
 
@@ -21,36 +24,34 @@ SwarmEvolve is a research platform that tests evolutionary software development 
 - **Decoupled Visualization**: Python-based video rendering from JSON trace files
 - **POD-Only Architecture**: Strict memory safety constraints for GPU device thread execution
 
-## Project Status
+## 🎯 Project Status
 
-All milestones M0–M14 from [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) are
-landed on `main`. The system is functional end-to-end: LLMs can generate C++
-drone AIs, those AIs compete in sandboxed matches, evolutionary loops iterate
-on fitness, and tournaments rank populations by Elo.
+**Production Ready** - All core milestones complete (M0-M25). The system is fully functional end-to-end with co-evolution capabilities, comprehensive documentation, and browser-accessible presentations.
 
-**Phase 0: Specification** (Complete)
-- [x] README, ARCHITECTURE, SPECIFICATION, DEVELOPMENT, CLAUDE, IMPLEMENTATION_PLAN
+### Recent Milestones
 
-**Phase 1: Local MVP** (Complete — M0–M7)
-- [x] Repository structure (`src/`, `scripts/`, `tests/`, `data/`)
-- [x] `src/types.h` POD definitions and ABI freeze (M1)
-- [x] CPU engine with bounded physics and deterministic combat (M2)
-- [x] Baseline AIs: `stationary_v1`, `pursuit_v1`, `cluster_v1` (M3)
-- [x] Trace format + determinism tests (M4) and MP4 visualizer (M5)
-- [x] Loop-guard injector (M6) and orchestrator CLI (M7)
+**M25: Co-Evolution** (Complete - May 2026)
+- [x] Dual-track co-evolutionary orchestration
+- [x] Team A vs Team B alternating evolution
+- [x] Fitness reversal demonstration (underdog defeats champion)
+- [x] Red Queen dynamics with emergent tactics
+- [x] Browser-accessible presentation with 17 visualizations
+- [🎬 View M25 Presentation](https://leybzon.github.io/SwarmEvolve/m25_coevolution/)
 
-**Phase 2: Sandboxing & Evolutionary Orchestration** (Complete — M8–M10)
-- [x] Sandbox container for untrusted LLM binaries (M8)
-- [x] Fitness evaluator with multi-seed scoring & experiment log (M9)
-- [x] Anthropic / Gemini clients + evolutionary loop (`scripts/evolve.py`, M10)
+**M20-M24: Refinements** (Complete)
+- [x] Byte-identical reproducibility with per-track token budgets (M20)
+- [x] Three-track evolutionary runners with resume semantics (M19)
+- [x] Self-improvement retrospective and dual-LLM architecture (M22-M24)
+- [x] Compile-retry loops with soft-fault tracking
 
-**Phase 3: GPU Scale, Tournament, Demo** (Complete — M11–M14)
-- [x] OpenACC GPU port with profiling harness (M11)
-- [x] Round-robin / Swiss tournament runner with Elo (M12)
-- [x] GPU scaling study to N=100K drones (M13 — ~6.7× over OpenMP, crossover ~4K)
-- [x] Media & demo artefacts (M14)
+**M0-M14: Core Platform** (Complete)
+- [x] GPU-accelerated simulation engine (OpenACC)
+- [x] Sandboxed LLM code execution
+- [x] Evolutionary orchestration with fitness-based selection
+- [x] Tournament system with Elo ratings
+- [x] Deterministic replay and visualization
 
-See recent commits for milestone landings; the head of `main` is the most up-to-date reference.
+See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for complete milestone history.
 
 ## Quick Start
 
@@ -63,7 +64,7 @@ See recent commits for milestone landings; the head of `main` is the most up-to-
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/SwarmEvolve.git
+git clone https://github.com/leybzon/SwarmEvolve.git
 cd SwarmEvolve
 
 # macOS build (CPU)
@@ -94,22 +95,40 @@ python3 scripts/visualizer.py trace.jsonl output.mp4 \
 #   - Winner and final step display (2 sec hold at end)
 ```
 
-### Evolve & Tournament
+### Evolution & Co-Evolution
 
 ```bash
-# One-shot: ask an LLM to write a Team A AI against pursuit_v1, compile, match
-export ANTHROPIC_API_KEY=...
-python3 scripts/evolve_once.py --opponent src/baselines/pursuit_v1.cpp \
-    --as-team A --out-dir data/runs/evolve_once
+# Set up API key
+export ANTHROPIC_API_KEY=your-key-here
 
-# Full evolutionary loop (multi-generation, multi-seed fitness)
-python3 scripts/evolve.py --help
+# Single-generation evolution (Team A vs pursuit_v1 baseline)
+python3 scripts/evolve_dual.py \
+    --opponent src/baselines/pursuit_v1.cpp \
+    --as-team A \
+    --planner-model claude-sonnet-4-20250514 \
+    --coder-model claude-haiku-4-5 \
+    --generations 10 \
+    --n-matches 10 \
+    --out-dir data/runs/evolve_test
 
-# Round-robin tournament with Elo ratings
+# Co-evolution: Team A and Team B evolve against each other
+python3 scripts/evolve_coevolve.py \
+    --init-champion-a data/runs/m22_rq1_100gen/gen_0033/candidate.cpp \
+    --init-champion-b src/baselines/pursuit_v1.cpp \
+    --planner-model claude-sonnet-4-20250514 \
+    --coder-model claude-haiku-4-5 \
+    --rounds 100 \
+    --n-matches 10 \
+    --seed 42 \
+    --out-dir data/runs/coevolve_test
+
+# Tournament with Elo ratings
 python3 scripts/tournament.py \
     --ai src/baselines/pursuit_v1.cpp --name pursuit \
     --ai src/baselines/cluster_v1.cpp --name cluster \
-    --mode round_robin --n-matches 10 --out-dir data/runs/tourney
+    --mode round_robin \
+    --n-matches 10 \
+    --out-dir data/runs/tourney
 ```
 
 ## Architecture Overview
@@ -206,29 +225,69 @@ The game loop executes in strict order to ensure determinism:
 - **Coordination**: Communication protocol enables swarm tactics
 - **Risk/Reward**: Aggressive play risks mutual destruction
 
-## Documentation
+## 📚 Documentation
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Detailed system design and component interactions
-- **[SPECIFICATION.md](SPECIFICATION.md)**: Complete technical specification and data models
-- **[DEVELOPMENT.md](DEVELOPMENT.md)**: Development phases, directory structure, and workflow
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)**: Ordered milestones, tests, CI, and engineering practices
-- **[CLAUDE.md](CLAUDE.md)**: Guidance for Claude Code AI assistant
+### Core Documentation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design and component interactions
+- **[SPECIFICATION.md](SPECIFICATION.md)** - Complete technical specification and data models
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Ordered milestones (M0-M25), tests, and CI practices
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development workflow and directory structure
 
-## Contributing
+### Presentations
+- **[M25: Code Evolution in the Wild](https://leybzon.github.io/SwarmEvolve/m25_coevolution/)** - Interactive browser presentation
+- **[Presentations Index](https://leybzon.github.io/SwarmEvolve/)** - All presentations
 
-This is a research project. Contributions welcome for:
+### AI Assistant Guidance
+- **[CLAUDE.md](CLAUDE.md)** - Instructions for Claude Code when working with this codebase
+- **[presentations/CLAUDE.md](presentations/CLAUDE.md)** - Meta-guidance for presentation work
+
+## 🤝 Contributing
+
+Contributions are welcome! This is an active research project exploring:
+1. Can LLMs iteratively improve complex algorithms through evolutionary pressure?
+2. What emergent behaviors arise from multi-agent systems optimized by competing AI?
+3. How does co-evolution accelerate learning compared to isolated evolution?
+
+**Areas for Contribution:**
 - Baseline AI strategy implementations
-- Visualization enhancements
+- Visualization enhancements (3D rendering, real-time playback)
 - GPU optimization profiling
 - LLM prompt engineering for code generation
+- New evolutionary algorithms (Lamarckian, orthogenesis)
+- Analysis tools for tactical emergence
 
-## License
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-MIT License - see LICENSE file for details
+## 📄 License
 
-## Research Context
+MIT License - see [LICENSE](LICENSE) for details.
 
-SwarmEvolve explores:
-1. Can LLMs iteratively improve complex, stateful algorithms through evolutionary pressure?
-2. What emergent behaviors arise from multi-agent systems optimized by competing AI?
-3. How do GPU compute constraints affect LLM code generation quality?
+## 🎓 Research Highlights
+
+### Key Findings from M25 Co-Evolution Experiment
+- **Fitness Reversal**: Baseline code (66 LOC, -0.8 fitness) defeated a 100-generation champion (204 LOC, +1.0 fitness)
+- **Learning Acceleration**: Co-evolution was 35% faster than isolated evolution
+- **Emergent Tactics**: Formation Spread (80-unit spacing) emerged spontaneously at Round 31
+- **Red Queen Effect**: Champion attempted 47 mutations, all rejected (trapped in local optimum)
+- **Punctuated Equilibrium**: 6 tactical phases with sudden fitness jumps, not gradual improvement
+- **Cost**: $10 in API credits, 90 minutes runtime, consumer GPU
+
+### Research Questions
+1. **Evolutionary Adaptability**: How does code complexity affect evolutionary flexibility?
+2. **Emergent Behavior**: What novel tactics arise from multi-agent competition?
+3. **LLM Code Quality**: Can LLMs generate performant, GPU-compatible C++ code?
+4. **Co-evolution Dynamics**: Do competing populations accelerate each other's improvement?
+
+## 📖 Citation
+
+If you use SwarmEvolve in your research, please cite:
+
+```bibtex
+@software{swarmevolve2026,
+  title = {SwarmEvolve: Evolutionary Software Development through LLM-Guided Co-Evolution},
+  author = {Leybzon, Gene},
+  year = {2026},
+  url = {https://github.com/leybzon/SwarmEvolve},
+  note = {M25: Code Evolution in the Wild}
+}
+```
