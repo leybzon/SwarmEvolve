@@ -4,7 +4,7 @@
 
 The following files have been committed and pushed to enable GitHub Pages:
 
-1. **GitHub Actions Workflow**: `.github/workflows/deploy-pages.yml`
+1. **GitHub Actions Workflow**: `.github/workflows/static.yml`
    - Automatically deploys presentations on push to main
    - Triggered when files in `presentations/` change
 
@@ -17,25 +17,9 @@ The following files have been committed and pushed to enable GitHub Pages:
    - Modal popup functionality for full-screen image viewing
    - Fixed overflow issues
 
-## 🔧 Enable GitHub Pages (One-Time Setup)
+## ✅ GitHub Pages Already Deployed
 
-### Step 1: Navigate to Repository Settings
-1. Go to https://github.com/leybzon/SwarmEvolve
-2. Click **Settings** tab
-3. Click **Pages** in the left sidebar
-
-### Step 2: Configure Source
-1. Under **Build and deployment**:
-   - **Source**: Select `GitHub Actions`
-   - This will use the workflow file we created
-
-### Step 3: Wait for Deployment
-1. Go to **Actions** tab
-2. You should see "Deploy GitHub Pages" workflow running
-3. Wait for it to complete (usually 1-2 minutes)
-
-### Step 4: Access Your Presentation
-Once deployed, your presentations will be available at:
+GitHub Pages has been successfully configured and deployed! Your presentations are now live at:
 
 **Main Index**: https://leybzon.github.io/SwarmEvolve/
 

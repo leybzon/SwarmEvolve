@@ -20,16 +20,16 @@
 **Result**: README now provides a comprehensive, professional introduction suitable for external audiences.
 
 ### 2. GitHub Pages Deployment
-**Status**: Complete
+**Status**: ✅ Live and Working
 
 **What Was Set Up**:
-- GitHub Actions workflow (`.github/workflows/deploy-pages.yml`)
+- GitHub Actions workflow (`.github/workflows/static.yml`)
 - Presentations landing page (`presentations/index.html`)
 - M25 presentation with 17 data visualizations
 - Full-screen modal popups for all images
-- Automatic deployment on push to main
+- Automatic deployment on push to main (when `presentations/` changes)
 
-**Live URLs** (after enabling in Settings):
+**Live URLs**:
 - Main: https://leybzon.github.io/SwarmEvolve/
 - M25: https://leybzon.github.io/SwarmEvolve/m25_coevolution/
 
