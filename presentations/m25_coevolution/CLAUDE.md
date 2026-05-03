@@ -293,4 +293,117 @@ open index.html  # macOS
 
 ---
 
+## Requirements Verification Checklist
+
+**CRITICAL**: Before considering a presentation update complete, verify ALL requirements are actually implemented in the final file. Do NOT rely on memory or assumptions. Use grep/Read tools to confirm.
+
+### Pre-Deployment Checklist
+
+When user requests changes, create a verification checklist and validate AFTER making changes:
+
+1. **Definition Boxes** (`grep -c "class=\"definition\"" index.html`)
+   - [ ] Evolution (Biological) definition added
+   - [ ] Evolution (Code) definition added
+   - [ ] Fitness definition added
+   - [ ] LOC (Lines of Code) definition added
+   - [ ] Punctuated Equilibrium definition added
+   - [ ] Local Optimum definition (if requested)
+   - [ ] Co-evolution definition (if requested)
+
+2. **Credits Slide** (`grep -c "<section>" index.html` should match expected slide count)
+   - [ ] Charles Darwin (1809-1882) with description
+   - [ ] Gregor Mendel (1822-1884) with description
+   - [ ] Carl Linnaeus (1707-1778) with description
+   - [ ] Stephen Jay Gould (1941-2002) with description
+   - [ ] Leigh Van Valen (1935-2010) with description
+   - [ ] Tools section (Claude Code, Sonnet 4, Haiku 4.5, OpenACC, C++17)
+   - [ ] GitHub links (main repo + presentation folder)
+   - [ ] Reproduction command (full evolve_coevolve.py invocation)
+
+3. **Cost De-emphasis** (`grep -c "\$10" index.html`)
+   - [ ] Remove "$10 in API credits" from slide 4
+   - [ ] Remove "$10 budget" from benefit card
+   - [ ] Remove cost comparison table from slide 9
+   - [ ] Keep contextual mention in credits slide only
+
+4. **Illustration Suggestions** (`grep -c "img-suggestion" index.html`)
+   - [ ] Title slide: Phylogenetic tree
+   - [ ] Slide 1: Three-panel (hand-coding | vibe coding | evolution)
+   - [ ] Slide 2: Darwin's finches + code phylogeny
+   - [ ] Slide 3: Arena diagram with trajectories
+   - [ ] Slide 5: Horizontal timeline with fitness jumps
+   - [ ] Slide 6: LOC vs Fitness scatter plot
+   - [ ] Slide 8: Predator-prey oscillation (Lotka-Volterra)
+   - [ ] Slide 12: Finches vs CAD blueprint
+   - [ ] Slide 13: Five scientist portraits
+   - Expect: ~9 placeholders with detailed suggestions (not just "[Image here]")
+
+5. **File Verification** (after ALL edits complete)
+   ```bash
+   # Count sections (should be 14 for M25: title + 12 content + credits)
+   grep -c "<section>" index.html
+
+   # Verify all scientists present
+   grep -i "darwin" index.html
+   grep -i "mendel" index.html
+   grep -i "linnaeus" index.html
+   grep -i "gould" index.html
+   grep -i "van valen" index.html
+
+   # Verify definition boxes
+   grep -c "definition-term" index.html  # Should be ≥5
+
+   # Verify illustration suggestions
+   grep -c "img-suggestion" index.html  # Should be ≥9
+
+   # Verify cost de-emphasis
+   grep -c "\$10" index.html  # Should be 1-2 (contextual only)
+   ```
+
+### Common Failure Modes (Lessons Learned)
+
+1. **"I said I added it, but I didn't"**
+   - Symptom: Describing changes in response but not actually editing the file
+   - Prevention: ALWAYS verify with grep/Read after claiming completion
+   - Example: Claimed to add credits slide, but `grep -c "Mendel" index.html` returned 0
+
+2. **"I edited the wrong version"**
+   - Symptom: Making changes to index_v2.html when index.html is the active file
+   - Prevention: Check file path in Edit tool, verify with `ls -la` before editing
+
+3. **"The section doesn't exist"**
+   - Symptom: Script tries to replace content but regex doesn't match
+   - Prevention: Read the file first, verify exact text to replace exists
+
+4. **"Partial implementation"**
+   - Symptom: Adding 3 of 5 scientists, or 2 of 10 illustration suggestions
+   - Prevention: Create explicit checklist BEFORE making changes, verify each item
+
+### Workflow to Prevent Mistakes
+
+1. **User requests changes** → Create numbered checklist
+2. **Make changes** → Edit files
+3. **Verify EACH item** → Use grep/Read to confirm
+4. **Report results** → Show verification output, admit failures
+5. **Fix failures** → Re-edit until verification passes
+
+### Example Verification Report
+
+Good (shows actual verification):
+```
+✅ Definition boxes: 5 found (Evolution Biological, Evolution Code, Fitness, LOC, Punctuated Equilibrium)
+✅ Credits slide: Slide 13 exists, all 5 scientists present
+❌ Illustration suggestions: Only 2 found, expected ~10 → FIXING NOW
+✅ Cost de-emphasis: 1 mention remaining (contextual in credits)
+```
+
+Bad (claims without evidence):
+```
+✅ Added all definition boxes
+✅ Credits slide complete
+✅ Illustration suggestions added
+```
+
+---
+
 **Remember**: This is M25's story - the underdog who beat the champion through adaptability. Every slide should reinforce that narrative.

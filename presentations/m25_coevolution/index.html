@@ -330,12 +330,59 @@
             border: 2px dashed rgba(255, 255, 255, 0.2);
             border-radius: 8px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             color: var(--text-secondary);
             font-style: italic;
             padding: 2rem;
             min-height: 300px;
+        }
+
+        .img-suggestion {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--accent-gold);
+            margin-top: 1rem;
+            font-style: italic;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Definition boxes */
+        .definition {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid var(--accent-green);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .definition-term {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--accent-green);
+            margin-bottom: 0.5rem;
+        }
+
+        .definition-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+        }
+
+        /* Title slide elements */
+        .title-author {
+            margin-top: 3rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .title-date {
+            margin-top: 0.5rem;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
         }
 
         .diagram-container img,
@@ -489,12 +536,26 @@
             <section>
                 <h2>What Is Code Evolution?</h2>
                 <h3>Natural Selection for Algorithms</h3>
+                <div class="definition">
+                    <div class="definition-term">Evolution (Biological)</div>
+                    <div class="definition-text">
+                        Process where organisms with advantageous traits survive and reproduce more successfully, passing those traits to offspring. Driven by random mutation and natural selection.
+                    </div>
+                </div>
+
+                <div class="definition">
+                    <div class="definition-term">Evolution (Code)</div>
+                    <div class="definition-text">
+                        Process where code variants with better performance survive and are mutated further. Driven by LLM-proposed changes and fitness-based selection.
+                    </div>
+                </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin-top: 2rem;">
                     <div>
                         <div class="img-placeholder" style="min-height: 400px;">
                             [Darwin's finches sketches]<br>
-                            Beak shapes adapted to food sources
+                            Beak shapes adapted to food sources<br>
+                            <span class="img-suggestion">Suggested: Darwin's Galapagos finches with varying beak shapes (ground finch, tree finch, warbler finch) labeled with corresponding food sources (seeds, insects, nectar)</span>
                         </div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Natural Selection</strong><br>
@@ -505,7 +566,8 @@
                     <div>
                         <div class="img-placeholder" style="min-height: 400px;">
                             [Code snippets morphing animation]<br>
-                            Function signatures → Tactics
+                            Function signatures → Tactics<br>
+                            <span class="img-suggestion">Suggested: Phylogenetic tree with C++ code snippets at branch tips, showing evolution from pursuit_v1 root through 6 tactical phases (use green highlighting for breakthrough innovations)</span>
                         </div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Algorithmic Selection</strong><br>
@@ -537,13 +599,27 @@
             <section>
                 <h2>The Experiment: Combat Arena</h2>
                 <h3>Co-evolutionary Arms Race</h3>
+                <div class="definition">
+                    <div class="definition-term">Fitness</div>
+                    <div class="definition-text">
+                        Quantitative measure of performance. In our arena: (wins - losses) / total matches. Range: -1.0 (losing all) to +1.0 (winning all). A fitness of 0.0 means equal wins and losses.
+                    </div>
+                </div>
+
+                <div class="definition" style="margin-top: 1rem;">
+                    <div class="definition-term">LOC (Lines of Code)</div>
+                    <div class="definition-text">
+                        Measure of code complexity. More LOC often means more sophisticated tactics, but also increased fragility (harder to modify without breaking).
+                    </div>
+                </div>
 
                 <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; margin-top: 1.5rem;">
                     <div class="diagram-container">
                         <div class="img-placeholder" style="min-height: 400px;">
                             [Top-down arena diagram]<br>
                             2 teams × 25 drones<br>
-                            Trajectory lines, combat zones
+                            Trajectory lines, combat zones<br>
+                            <span class="img-suggestion">Suggested: Top-down 1000×1000 unit grid with blue dots (Team A) and red dots (Team B), curved trajectory arrows showing movement patterns, concentric circles indicating combat ranges (100 unit attack range), labeled zones</span>
                         </div>
                         <div style="margin-top: 1rem;">
                             <video controls loop style="width: 100%; max-height: 200px;">
@@ -625,11 +701,18 @@
                     <div>
                         <h4 style="color: var(--accent-green); margin-bottom: 1rem;">The Jump</h4>
                         <p style="font-size: 1rem; line-height: 1.6;">
-                            <strong>95 rounds. 1.5 hours. $10 in API credits.</strong><br><br>
+                            <strong>95 rounds over 90 minutes</strong><br><br>
                             Round 13: Parity (0.0 fitness)<br>
                             Round 31: <span style="color: var(--accent-green); font-size: 1.3rem; font-weight: 700;">Breakthrough</span> (+0.9)<br>
                             Round 41: Refined dominance
                         </p>
+
+                        <div class="definition" style="margin-top: 1rem;">
+                            <div class="definition-term">Punctuated Equilibrium</div>
+                            <div class="definition-text" style="font-size: 0.85rem;">
+                                Stephen Jay Gould's theory (1972): evolution happens in bursts, not gradually. Long periods of stasis punctuated by rapid change.
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -652,7 +735,8 @@
                     <div class="img-placeholder" style="min-height: 150px;">
                         [Horizontal timeline with vertical jumps]<br>
                         R1 (-0.8) → R3 (-0.4) → R13 (0.0) → R31 (+0.9) → R41 (+0.9)<br>
-                        Labels: Baseline | Coordination | Prediction | <strong>Formation Spread</strong> | Zone Control
+                        Labels: Baseline | Coordination | Prediction | <strong>Formation Spread</strong> | Zone Control<br>
+                        <span class="img-suggestion">Suggested: Horizontal timeline (R1 to R41) with 6 vertical bars showing fitness jumps, color-coded phases (red at -0.8, yellow at 0.0, green spike at +0.9 for R31), annotated with tactic names</span>
                     </div>
                 </div>
 
@@ -775,7 +859,8 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <div class="img-placeholder" style="min-height: 250px;">
                             [Scatter plot: LOC vs Fitness]<br>
                             Gray dots = Team A's 47 failed mutations<br>
-                            Red line = Team B's growth path
+                            Red line = Team B's growth path<br>
+                            <span class="img-suggestion">Suggested: Scatter plot with X-axis: LOC (0-250), Y-axis: Fitness (-1.0 to +1.0), gray dots clustered around 204 LOC showing failed Team A mutations, red ascending line showing Team B evolution from 66 LOC (-0.8) to 210 LOC (+0.9)</span>
                         </div>
                     </div>
                 </div>
@@ -899,7 +984,8 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
 
                 <div class="img-placeholder" style="margin-top: 2rem; min-height: 200px;">
                     [Predator-prey oscillation graph overlaid on Team A/B fitness]<br>
-                    Lynx population peaks → Hare population crashes → Lynx crashes → Hare recovers
+                    Lynx population peaks → Hare population crashes → Lynx crashes → Hare recovers<br>
+                    <span class="img-suggestion">Suggested: Dual-axis graph showing classic Lotka-Volterra predator-prey oscillations (lynx/hare populations with phase lag) overlaid with Team A blue line (declining) and Team B red line (rising), showing how co-evolutionary dynamics mirror ecological arms races</span>
                 </div>
 
                 <p class="emphasis" style="margin-top: 1.5rem;">
@@ -914,33 +1000,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
                     <div>
-                        <h4 style="margin-bottom: 1rem;">Cost Comparison</h4>
-                        <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid rgba(255,255,255,0.2);">
-                                    <th style="text-align: left; padding: 0.8rem;">Approach</th>
-                                    <th style="text-align: right; padding: 0.8rem;">Cost</th>
-                                    <th style="text-align: right; padding: 0.8rem;">Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <td style="padding: 0.8rem;">AlphaStar (DeepMind)</td>
-                                    <td style="text-align: right; color: var(--accent-red); font-weight: 700;">$1M</td>
-                                    <td style="text-align: right;">Weeks</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <td style="padding: 0.8rem;">OpenAI Five</td>
-                                    <td style="text-align: right; color: var(--accent-red); font-weight: 700;">$500K+</td>
-                                    <td style="text-align: right;">Months</td>
-                                </tr>
-                                <tr style="background: rgba(34, 197, 94, 0.1);">
-                                    <td style="padding: 0.8rem;"><strong>SwarmEvolve M25</strong></td>
-                                    <td style="text-align: right; color: var(--accent-green); font-weight: 700; font-size: 1.2rem;">$10</td>
-                                    <td style="text-align: right; font-weight: 700;">90 min</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        
                     </div>
 
                     <div>
@@ -985,7 +1045,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <div class="benefit-icon">💰</div>
                         <h4>Democratization</h4>
                         <p style="font-size: 0.9rem;">
-                            $10 budget. Consumer GPU. Open source. Anyone can compete.
+                            Consumer GPU. Open source. LLM API access. Anyone can compete.
                         </p>
                     </div>
                 </div>
@@ -1131,12 +1191,14 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin: 2rem 0;">
                     <div class="img-placeholder" style="min-height: 400px;">
                         [Darwin's finches sketch]<br>
-                        Natural Selection
+                        Natural Selection<br>
+                        <span class="img-suggestion">Suggested: Charles Darwin's original finch sketches from Galapagos, showing beak variation</span>
                     </div>
 
                     <div class="img-placeholder" style="min-height: 400px;">
                         [CAD blueprint / circuit diagram]<br>
-                        Intelligent Design
+                        Intelligent Design<br>
+                        <span class="img-suggestion">Suggested: Technical blueprint or circuit schematic with precise measurements and labels</span>
                     </div>
                 </div>
 
@@ -1158,6 +1220,72 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <strong>Cost:</strong> $10 API credits | <strong>Time:</strong> 90 minutes | <strong>GPU:</strong> Consumer-grade
                     </p>
                 </div>
+            </section>
+
+            <!-- SLIDE 13: Credits & Next Steps -->
+            <section>
+                <h2>Credits & Next Steps</h2>
+                <h3>Standing on the Shoulders of Giants</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 2rem;">
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 1.5rem;">Intellectual Foundations</h4>
+                        <ul style="font-size: 0.95rem; line-height: 2;">
+                            <li><strong>Charles Darwin</strong> (1809-1882) — Natural selection, <em>Origin of Species</em></li>
+                            <li><strong>Gregor Mendel</strong> (1822-1884) — Genetics, inheritance mechanisms</li>
+                            <li><strong>Carl Linnaeus</strong> (1707-1778) — Taxonomy, biological classification</li>
+                            <li><strong>Stephen Jay Gould</strong> (1941-2002) — Punctuated equilibrium theory</li>
+                            <li><strong>Leigh Van Valen</strong> (1935-2010) — Red Queen hypothesis (1973)</li>
+                        </ul>
+
+                        <div class="img-placeholder" style="margin-top: 2rem; min-height: 200px;">
+                            [Five scientist portraits]<br>
+                            <span class="img-suggestion">Suggested: Grid of 5 historical portraits (Darwin, Mendel, Linnaeus, Gould, Van Valen)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="color: var(--accent-blue); margin-bottom: 1.5rem;">Tools & Technologies</h4>
+                        <ul style="font-size: 0.95rem; line-height: 2;">
+                            <li><strong>Claude Code</strong> — Development assistant</li>
+                            <li><strong>Claude Sonnet 4</strong> — Mutation planner (high-level strategy)</li>
+                            <li><strong>Claude Haiku 4.5</strong> — Code writer (fast generation)</li>
+                            <li><strong>OpenACC</strong> — GPU parallelization framework</li>
+                            <li><strong>C++17</strong> — Implementation language</li>
+                        </ul>
+
+                        <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(59,130,246,0.1); border-radius: 12px; border: 2px solid var(--accent-blue);">
+                            <h4 style="margin-bottom: 1rem;">Reproduce This Experiment</h4>
+                            <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 6px; font-size: 0.85rem;"><code>git clone https://github.com/leybzon/SwarmEvolve
+cd SwarmEvolve
+python3 scripts/evolve_coevolve.py \
+  --init-champion-a data/runs/m22_rq1_100gen/gen_0033/candidate.cpp \
+  --init-champion-b src/baselines/pursuit_v1.cpp \
+  --planner-model claude-sonnet-4-20250514 \
+  --coder-model claude-haiku-4-5 \
+  --rounds 100 \
+  --n-matches 10 \
+  --seed 42 \
+  --out-dir data/runs/m25_coevolve_100r \
+  --acceptance-mode relative \
+  --strict-reflection \
+  -v</code></pre>
+                        </div>
+
+                        <div style="margin-top: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">Learn More</h4>
+                            <ul style="font-size: 0.9rem; line-height: 2;">
+                                <li><strong>GitHub:</strong> <a href="https://github.com/leybzon/SwarmEvolve" style="color: var(--accent-green);">github.com/leybzon/SwarmEvolve</a></li>
+                                <li><strong>This Presentation:</strong> <a href="https://github.com/leybzon/SwarmEvolve/tree/main/presentations/m25_coevolution" style="color: var(--accent-green);">presentations/m25_coevolution</a></li>
+                                <li><strong>License:</strong> MIT (open source)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="margin-top: 2rem; text-align: center; font-size: 1rem; color: var(--text-secondary);">
+                    <strong>Questions?</strong> Open an issue on GitHub or contact Gene Leybzon
+                </p>
             </section>
 
         </div>
