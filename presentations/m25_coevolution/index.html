@@ -459,11 +459,7 @@
                 </h3>
 
                 <div style="margin-top: 4rem;">
-                    <div class="img-placeholder" style="min-height: 300px; max-width: 600px; margin: 0 auto;">
-                        [Evolutionary tree visualization]<br>
-                        <span class="img-suggestion">Suggested: Phylogenetic tree with code branches instead of species,<br>
-                        roots labeled "pursuit_v1" branching into 6 tactical phases</span>
-                    </div>
+                    <div class="diagram-container" style="max-width: 600px; margin: 0 auto;"><img src="figures/phylogenetic_tree.png" alt="Phylogenetic tree showing code evolution from pursuit_v1 through 6 tactical phases"></div>
                 </div>
 
                 <div class="title-author">Gene Leybzon</div>
@@ -525,10 +521,7 @@
                 </div>
 
                 <div style="margin-top: 3rem;">
-                    <div class="img-placeholder" style="min-height: 200px;">
-                        [Three-panel illustration]<br>
-                        <span class="img-suggestion">Suggested: Left: Person at desk with blueprint | Center: Glitchy AI screen with sparkles | Right: Petri dish with organisms competing</span>
-                    </div>
+                    <div class="diagram-container"><img src="figures/three_paradigms.png" alt="Three programming paradigms: Hand-coding, Vibe Coding, Evolution"></div>
                 </div>
             </section>
 
@@ -552,11 +545,7 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin-top: 2rem;">
                     <div>
-                        <div class="img-placeholder" style="min-height: 400px;">
-                            [Darwin's finches sketches]<br>
-                            Beak shapes adapted to food sources<br>
-                            <span class="img-suggestion">Suggested: Darwin's Galapagos finches with varying beak shapes (ground finch, tree finch, warbler finch) labeled with corresponding food sources (seeds, insects, nectar)</span>
-                        </div>
+                        <div class="diagram-container"><img src="figures/darwins_finches.png" alt="Darwin's finches with different beak shapes adapted to different food sources"></div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Natural Selection</strong><br>
                             Fitness = Survival &amp; Reproduction
@@ -564,11 +553,7 @@
                     </div>
 
                     <div>
-                        <div class="img-placeholder" style="min-height: 400px;">
-                            [Code snippets morphing animation]<br>
-                            Function signatures → Tactics<br>
-                            <span class="img-suggestion">Suggested: Phylogenetic tree with C++ code snippets at branch tips, showing evolution from pursuit_v1 root through 6 tactical phases (use green highlighting for breakthrough innovations)</span>
-                        </div>
+                        <div class="diagram-container"><img src="figures/code_phylogeny.png" alt="Phylogenetic tree showing code evolution with function signatures at each branch"></div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Algorithmic Selection</strong><br>
                             Fitness = Performance in Arena
@@ -615,12 +600,7 @@
 
                 <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; margin-top: 1.5rem;">
                     <div class="diagram-container">
-                        <div class="img-placeholder" style="min-height: 400px;">
-                            [Top-down arena diagram]<br>
-                            2 teams × 25 drones<br>
-                            Trajectory lines, combat zones<br>
-                            <span class="img-suggestion">Suggested: Top-down 1000×1000 unit grid with blue dots (Team A) and red dots (Team B), curved trajectory arrows showing movement patterns, concentric circles indicating combat ranges (100 unit attack range), labeled zones</span>
-                        </div>
+                        <div class="diagram-container"><img src="figures/arena_diagram.png" alt="Top-down arena view with Team A (blue) and Team B (red) drones, showing trajectories and combat ranges"></div>
                         <div style="margin-top: 1rem;">
                             <video controls loop style="width: 100%; max-height: 200px;">
                                 <source src="videos/m25_r1_baseline.mp4" type="video/mp4">
@@ -732,12 +712,7 @@
                 <h3>Six Tactical Phases — Discovered, Not Programmed</h3>
 
                 <div style="margin: 1.5rem 0;">
-                    <div class="img-placeholder" style="min-height: 150px;">
-                        [Horizontal timeline with vertical jumps]<br>
-                        R1 (-0.8) → R3 (-0.4) → R13 (0.0) → R31 (+0.9) → R41 (+0.9)<br>
-                        Labels: Baseline | Coordination | Prediction | <strong>Formation Spread</strong> | Zone Control<br>
-                        <span class="img-suggestion">Suggested: Horizontal timeline (R1 to R41) with 6 vertical bars showing fitness jumps, color-coded phases (red at -0.8, yellow at 0.0, green spike at +0.9 for R31), annotated with tactic names</span>
-                    </div>
+                    <div class="diagram-container"><img src="figures/tactical_timeline.png" alt="Horizontal timeline showing fitness jumps at each tactical phase from R1 to R95"></div>
                 </div>
 
                 <div class="tactic-grid">
@@ -856,12 +831,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <img src="figures/code_growth.png" alt="Code complexity over time: 66 LOC to 210 LOC">
                     </div>
                     <div class="diagram-container">
-                        <div class="img-placeholder" style="min-height: 250px;">
-                            [Scatter plot: LOC vs Fitness]<br>
-                            Gray dots = Team A's 47 failed mutations<br>
-                            Red line = Team B's growth path<br>
-                            <span class="img-suggestion">Suggested: Scatter plot with X-axis: LOC (0-250), Y-axis: Fitness (-1.0 to +1.0), gray dots clustered around 204 LOC showing failed Team A mutations, red ascending line showing Team B evolution from 66 LOC (-0.8) to 210 LOC (+0.9)</span>
-                        </div>
+                        <div class="diagram-container"><img src="figures/loc_fitness_scatter.png" alt="Scatter plot showing LOC vs Fitness with Team A failed mutations and Team B evolution path"></div>
                     </div>
                 </div>
             </section>
@@ -982,11 +952,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                     </div>
                 </div>
 
-                <div class="img-placeholder" style="margin-top: 2rem; min-height: 200px;">
-                    [Predator-prey oscillation graph overlaid on Team A/B fitness]<br>
-                    Lynx population peaks → Hare population crashes → Lynx crashes → Hare recovers<br>
-                    <span class="img-suggestion">Suggested: Dual-axis graph showing classic Lotka-Volterra predator-prey oscillations (lynx/hare populations with phase lag) overlaid with Team A blue line (declining) and Team B red line (rising), showing how co-evolutionary dynamics mirror ecological arms races</span>
-                </div>
+                <div class="diagram-container" style="margin-top: 2rem;"><img src="figures/predator_prey_graph.png" alt="Dual graph showing Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness evolution"></div>
 
                 <p class="emphasis" style="margin-top: 1.5rem;">
                     Team A ran as fast as it could... and still lost ground.
@@ -1143,9 +1109,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <p style="font-size: 0.9rem; line-height: 1.5;">
                             Frontend and backend evolve together, optimizing for latency, throughput, cost. APIs compete for efficiency.
                         </p>
-                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
-                            [Diagram: API A ↔ API B fitness graph]
-                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(59,130,246,0.1); border-radius: 8px;"><p style="font-size: 0.9rem; text-align: center; color: #3b82f6;">API A ↔ API B Co-Evolution</p></div>
                     </div>
 
                     <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(34,197,94,0.3);">
@@ -1153,9 +1117,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <p style="font-size: 0.9rem; line-height: 1.5;">
                             Code that adapts to attacks in real-time. Firewall rules evolve against adversarial traffic patterns.
                         </p>
-                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
-                            [Diagram: Attack pattern → Detection evolves]
-                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(34,197,94,0.1); border-radius: 8px;"><p style="font-size: 0.9rem; text-align: center; color: #22c55e;">Attack → Detection Evolution</p></div>
                     </div>
 
                     <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(236,72,153,0.3);">
@@ -1163,9 +1125,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <p style="font-size: 0.9rem; line-height: 1.5;">
                             Mutate code until tests pass. Fitness = % tests green. Let evolution fix bugs while you sleep.
                         </p>
-                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
-                            [Diagram: Test suite → Mutations → Green build]
-                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(236,72,153,0.1); border-radius: 8px;"><p style="font-size: 0.9rem; text-align: center; color: #ec4899;">Tests → Mutations → Fix</p></div>
                     </div>
 
                     <div style="padding: 1.5rem; background: rgba(255,255,255,0.03); border-radius: 12px; border: 2px solid rgba(245,158,11,0.3);">
@@ -1173,9 +1133,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <p style="font-size: 0.9rem; line-height: 1.5;">
                             Modules co-evolve for mutual benefit. Database queries optimize alongside indexing strategies.
                         </p>
-                        <div class="img-placeholder" style="margin-top: 1rem; min-height: 150px; font-size: 0.8rem;">
-                            [Diagram: Query optimizer ↔ Index builder]
-                        </div>
+                        <div style="margin-top: 1rem; padding: 1rem; background: rgba(245,158,11,0.1); border-radius: 8px;"><p style="font-size: 0.9rem; text-align: center; color: #f59e0b;">Query ↔ Index Optimization</p></div>
                     </div>
                 </div>
 
@@ -1189,17 +1147,9 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 <h2>Evolution vs. Engineering</h2>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin: 2rem 0;">
-                    <div class="img-placeholder" style="min-height: 400px;">
-                        [Darwin's finches sketch]<br>
-                        Natural Selection<br>
-                        <span class="img-suggestion">Suggested: Charles Darwin's original finch sketches from Galapagos, showing beak variation</span>
-                    </div>
+                    <div class="diagram-container"><img src="figures/evolution_vs_engineering.png" alt="Side-by-side comparison: Darwin's finches (natural selection) vs CAD blueprint (intelligent design)" style="max-height: 400px;"></div>
 
-                    <div class="img-placeholder" style="min-height: 400px;">
-                        [CAD blueprint / circuit diagram]<br>
-                        Intelligent Design<br>
-                        <span class="img-suggestion">Suggested: Technical blueprint or circuit schematic with precise measurements and labels</span>
-                    </div>
+                    
                 </div>
 
                 <div class="big-quote" style="font-size: 2.2rem; margin: 2rem 0;">
@@ -1238,10 +1188,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                             <li><strong>Leigh Van Valen</strong> (1935-2010) — Red Queen hypothesis (1973)</li>
                         </ul>
 
-                        <div class="img-placeholder" style="margin-top: 2rem; min-height: 200px;">
-                            [Five scientist portraits]<br>
-                            <span class="img-suggestion">Suggested: Grid of 5 historical portraits (Darwin, Mendel, Linnaeus, Gould, Van Valen)</span>
-                        </div>
+                        <div class="diagram-container" style="margin-top: 2rem;"><img src="figures/scientist_portraits.png" alt="Portraits of Darwin, Mendel, Linnaeus, Gould, and Van Valen"></div>
                     </div>
 
                     <div>
