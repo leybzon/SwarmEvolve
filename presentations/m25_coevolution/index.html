@@ -37,12 +37,12 @@
         }
 
         .reveal h1 { font-size: 3.5rem; }
-        .reveal h2 { font-size: 2.5rem; margin-bottom: 1.5rem; }
+        .reveal h2 { font-size: 2.5rem; margin-bottom: 1rem; }
         .reveal h3 {
             font-size: 1.8rem;
             color: var(--text-secondary);
             font-weight: 400;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .reveal p, .reveal li {
@@ -202,7 +202,7 @@
         }
 
         .tactic-card {
-            padding: 1.5rem;
+            padding: 1rem;
             border-radius: 12px;
             border: 2px solid;
             background: rgba(255, 255, 255, 0.02);
@@ -243,7 +243,7 @@
         .code-split {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+            gap: 1rem;
             margin-top: 1.5rem;
         }
 
@@ -387,6 +387,7 @@
 
         .diagram-container img,
         .diagram-container video {
+            max-height: 450px;
             max-width: 100%;
             max-height: 500px;
             border-radius: 8px;
@@ -543,9 +544,9 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin-top: 2rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin-top: 1rem;">
                     <div>
-                        <div class="diagram-container"><img src="figures/darwins_finches.png" alt="Darwin's finches with different beak shapes adapted to different food sources"></div>
+                        <div class="diagram-container"><img src="figures/darwins_finches.png" alt="Darwin\'s finches with different beak shapes adapted to different food sources" style="max-height: 300px;"></div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Natural Selection</strong><br>
                             Fitness = Survival &amp; Reproduction
@@ -553,7 +554,7 @@
                     </div>
 
                     <div>
-                        <div class="diagram-container"><img src="figures/code_phylogeny.png" alt="Phylogenetic tree showing code evolution with function signatures at each branch"></div>
+                        <div class="diagram-container"><img src="figures/code_phylogeny.png" alt="Phylogenetic tree showing code evolution with function signatures at each branch" style="max-height: 300px;"></div>
                         <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
                             <strong>Algorithmic Selection</strong><br>
                             Fitness = Performance in Arena
@@ -561,7 +562,7 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 3rem;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
                     <div style="text-align: center;">
                         <div style="font-size: 2rem; margin-bottom: 0.5rem;">🧬</div>
                         <h4 style="color: var(--accent-green);">Mutation</h4>
@@ -600,9 +601,9 @@
 
                 <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; margin-top: 1.5rem;">
                     <div class="diagram-container">
-                        <div class="diagram-container"><img src="figures/arena_diagram.png" alt="Top-down arena view with Team A (blue) and Team B (red) drones, showing trajectories and combat ranges"></div>
+                        <div class="diagram-container"><img src="figures/arena_diagram.png" alt="Top-down arena view with Team A (blue) and Team B (red) drones, showing trajectories and combat ranges" style="max-height: 280px;"></div>
                         <div style="margin-top: 1rem;">
-                            <video controls loop style="width: 100%; max-height: 200px;">
+                            <video controls loop style="width: 100%; max-height: 150px;">
                                 <source src="videos/m25_r1_baseline.mp4" type="video/mp4">
                             </video>
                             <p style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
@@ -711,11 +712,11 @@
                 <h2>Emergent Strategies</h2>
                 <h3>Six Tactical Phases — Discovered, Not Programmed</h3>
 
-                <div style="margin: 1.5rem 0;">
-                    <div class="diagram-container"><img src="figures/tactical_timeline.png" alt="Horizontal timeline showing fitness jumps at each tactical phase from R1 to R95"></div>
+                <div style="margin: 1rem 0;">
+                    <div class="diagram-container"><img src="figures/tactical_timeline.png" style="max-height: 150px;" alt="Horizontal timeline showing fitness jumps at each tactical phase from R1 to R95"></div>
                 </div>
 
-                <div class="tactic-grid">
+                <div class="tactic-grid" style="margin-top: 1rem;">
                     <div class="tactic-card" style="border-color: var(--accent-blue);">
                         <h4><span class="tactic-icon">📡</span> Message Coordination</h4>
                         <div class="tactic-fitness">+0.3</div>
@@ -831,7 +832,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <img src="figures/code_growth.png" alt="Code complexity over time: 66 LOC to 210 LOC">
                     </div>
                     <div class="diagram-container">
-                        <div class="diagram-container"><img src="figures/loc_fitness_scatter.png" alt="Scatter plot showing LOC vs Fitness with Team A failed mutations and Team B evolution path"></div>
+                        <div class="diagram-container"><img src="figures/loc_fitness_scatter.png" alt="Scatter plot showing LOC vs Fitness with Team A failed mutations and Team B evolution path" style="max-height: 280px;"></div>
                     </div>
                 </div>
             </section>
@@ -952,7 +953,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                     </div>
                 </div>
 
-                <div class="diagram-container" style="margin-top: 2rem;"><img src="figures/predator_prey_graph.png" alt="Dual graph showing Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness evolution"></div>
+                <div class="diagram-container" style="margin-top: 1rem;"><img src="figures/predator_prey_graph.png" style="max-height: 350px;" alt="Dual graph showing Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness evolution"></div>
 
                 <p class="emphasis" style="margin-top: 1.5rem;">
                     Team A ran as fast as it could... and still lost ground.
@@ -1249,7 +1250,7 @@ python3 scripts/evolve_coevolve.py \
             plugins: [ RevealHighlight ],
             width: 1920,
             height: 1080,
-            margin: 0.04,
+            margin: 0.02,
             minScale: 0.2,
             maxScale: 2.0
         });
