@@ -1,0 +1,521 @@
+<div style="position: relative; width: 100%; background: #060912; border-radius: var(--border-radius-lg); overflow: hidden; border: 0.5px solid var(--color-border-tertiary);">
+  <canvas id="battle" style="display: block; width: 100%; height: 520px;"></canvas>
+  <div style="position: absolute; top: 14px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 18px; pointer-events: none; font-family: ui-monospace, Menlo, monospace;">
+    <div style="color: #5cc7ff;">
+      <div style="font-size: 10px; opacity: 0.65; letter-spacing: 2px;">BLUE FLEET</div>
+      <div style="display: flex; align-items: baseline; gap: 6px;"><span id="blue-count" style="font-size: 24px; font-weight: 500;">32</span><span style="font-size: 11px; opacity: 0.5;">ACTIVE</span></div>
+    </div>
+    <div style="color: #c9c9d4; text-align: center;">
+      <div style="font-size: 10px; opacity: 0.65; letter-spacing: 2px;">ENGAGEMENT</div>
+      <div id="clock" style="font-size: 24px; font-weight: 500;">00:00</div>
+    </div>
+    <div style="color: #ff6b5a; text-align: right;">
+      <div style="font-size: 10px; opacity: 0.65; letter-spacing: 2px;">RED FLEET</div>
+      <div style="display: flex; align-items: baseline; gap: 6px; justify-content: flex-end;"><span id="red-count" style="font-size: 24px; font-weight: 500;">32</span><span style="font-size: 11px; opacity: 0.5;">ACTIVE</span></div>
+    </div>
+  </div>
+  <div id="result-banner" style="position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; background: rgba(6, 9, 18, 0.55);">
+    <div style="font-family: ui-monospace, Menlo, monospace; text-align: center;">
+      <div id="result-text" style="font-size: 32px; font-weight: 500; letter-spacing: 6px; color: #fff;"></div>
+      <div style="font-size: 11px; letter-spacing: 3px; color: #888; margin-top: 8px;">RESTARTING…</div>
+    </div>
+  </div>
+</div>
+<div style="display: flex; gap: 8px; margin-top: 12px; justify-content: center;">
+  <button id="btn-restart">Restart battle</button>
+  <button id="btn-camera">Toggle camera orbit</button>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('battle');
+  const ctx = canvas.getContext('2d');
+  const blueCountEl = document.getElementById('blue-count');
+  const redCountEl = document.getElementById('red-count');
+  const clockEl = document.getElementById('clock');
+  const resultBanner = document.getElementById('result-banner');
+  const resultText = document.getElementById('result-text');
+  let cw = 680, ch = 520, dpr = 1;
+  function resize(){
+    dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    cw = r.width; ch = r.height;
+    canvas.width = cw * dpr; canvas.height = ch * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  let drones=[], shots=[], booms=[], stars=[], embers=[];
+  let t0 = performance.now();
+  let battleEnd = 0;
+  let camOrbit = true;
+  let camAngle = 0;
+  const FOCAL = 720;
+
+  const TEAM = {
+    blue: { core:'#7adcff', glow:'#3aa9ff', trail:'rgba(80,180,255,', shot:'#cdefff', hudCore:'#5cc7ff' },
+    red:  { core:'#ffb16a', glow:'#ff5a3a', trail:'rgba(255,120,80,', shot:'#ffd9b3', hudCore:'#ff6b5a' }
+  };
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function initStars(){
+    stars = [];
+    for (let i = 0; i < 110; i++){
+      stars.push({
+        x: rand(-1400,1400), y: rand(-700,700), z: rand(-300,1100),
+        b: rand(0.15, 0.7)
+      });
+    }
+  }
+
+  function spawnFleet(){
+    drones = []; shots = []; booms = []; embers = [];
+    t0 = performance.now();
+    battleEnd = 0;
+    resultBanner.style.display = 'none';
+
+    const PER_TEAM = 32;
+    // Blue: left, four altitude layers, scattered depth
+    for (let i = 0; i < PER_TEAM; i++){
+      const layer = Math.floor(i / 8);
+      const col = i % 8;
+      const y = -130 + layer * 75 + rand(-12, 12);
+      const z = (col - 3.5) * 55 + rand(-15, 15);
+      const x = -340 + rand(-30, 30);
+      drones.push(mkDrone('blue', x, y, z));
+    }
+    // Red: right, mirrored
+    for (let i = 0; i < PER_TEAM; i++){
+      const layer = Math.floor(i / 8);
+      const col = i % 8;
+      const y = -130 + layer * 75 + rand(-12, 12);
+      const z = (col - 3.5) * 55 + rand(-15, 15);
+      const x = 340 + rand(-30, 30);
+      drones.push(mkDrone('red', x, y, z));
+    }
+  }
+
+  function mkDrone(team, x, y, z){
+    const role = Math.random() < 0.35 ? 'striker' : 'fighter';
+    return {
+      team, x, y, z,
+      vx: team === 'blue' ? rand(0.6,1.4) : rand(-1.4,-0.6),
+      vy: rand(-0.2,0.2), vz: rand(-0.4,0.4),
+      hp: 100,
+      cd: rand(20, 90),
+      alive: true,
+      trail: [],
+      role,
+      jitter: rand(0, Math.PI*2)
+    };
+  }
+
+  function step(){
+    const ARENA_X = 480, ARENA_Y = 220, ARENA_Z = 280;
+    const allies = { blue: [], red: [] };
+    for (const d of drones) if (d.alive) allies[d.team].push(d);
+    const counts = { blue: allies.blue.length, red: allies.red.length };
+
+    for (const d of drones){
+      if (!d.alive) continue;
+      const myTeam = allies[d.team];
+      const enemyTeam = allies[d.team === 'blue' ? 'red' : 'blue'];
+
+      let fx = 0, fy = 0, fz = 0;
+
+      // Separation from allies
+      for (const a of myTeam){
+        if (a === d) continue;
+        const dx = a.x - d.x, dy = a.y - d.y, dz = a.z - d.z;
+        const dd = dx*dx + dy*dy + dz*dz;
+        if (dd < 900 && dd > 0.01){
+          const dist = Math.sqrt(dd);
+          const f = (30 - dist) / 30;
+          fx -= dx/dist * f * 0.7;
+          fy -= dy/dist * f * 0.7;
+          fz -= dz/dist * f * 0.7;
+        }
+      }
+
+      // Cohesion + alignment with nearby allies
+      let cx=0, cy=0, cz=0, avx=0, avy=0, avz=0, n=0;
+      for (const a of myTeam){
+        if (a === d) continue;
+        const dx = a.x - d.x, dy = a.y - d.y, dz = a.z - d.z;
+        const dd = dx*dx + dy*dy + dz*dz;
+        if (dd < 9000){
+          cx += a.x; cy += a.y; cz += a.z;
+          avx += a.vx; avy += a.vy; avz += a.vz;
+          n++;
+        }
+      }
+      if (n > 0){
+        cx/=n; cy/=n; cz/=n;
+        fx += (cx - d.x) * 0.0012;
+        fy += (cy - d.y) * 0.0012;
+        fz += (cz - d.z) * 0.0012;
+        fx += (avx/n - d.vx) * 0.04;
+        fy += (avy/n - d.vy) * 0.04;
+        fz += (avz/n - d.vz) * 0.04;
+      }
+
+      // Find nearest enemy and engage
+      let target = null, minD = Infinity;
+      for (const e of enemyTeam){
+        const dx = e.x - d.x, dy = e.y - d.y, dz = e.z - d.z;
+        const dd = dx*dx+dy*dy+dz*dz;
+        if (dd < minD){ minD = dd; target = e; }
+      }
+
+      if (target){
+        const dx = target.x - d.x, dy = target.y - d.y, dz = target.z - d.z;
+        const dist = Math.sqrt(minD);
+        const ideal = d.role === 'striker' ? 60 : 130;
+        const pull = (dist - ideal) / Math.max(dist, 1);
+        const aggr = d.role === 'striker' ? 0.055 : 0.035;
+        fx += dx * pull * aggr;
+        fy += dy * pull * aggr;
+        fz += dz * pull * aggr;
+
+        // Strafe component (perpendicular)
+        const px = -dz, pz = dx;
+        const pl = Math.sqrt(px*px + pz*pz) || 1;
+        const swirl = Math.sin(performance.now()*0.001 + d.jitter) * 0.02;
+        fx += (px/pl) * swirl;
+        fz += (pz/pl) * swirl;
+
+        // Fire
+        if (dist < 240 && d.cd <= 0){
+          const speed = 7;
+          const tt = dist / speed;
+          const px2 = target.x + target.vx * tt;
+          const py2 = target.y + target.vy * tt;
+          const pz2 = target.z + target.vz * tt;
+          const ax = px2 - d.x, ay = py2 - d.y, az = pz2 - d.z;
+          const al = Math.sqrt(ax*ax+ay*ay+az*az) || 1;
+          shots.push({
+            x: d.x, y: d.y, z: d.z,
+            ox: d.x, oy: d.y, oz: d.z,
+            vx: ax/al*speed, vy: ay/al*speed, vz: az/al*speed,
+            team: d.team, life: 50, target
+          });
+          d.cd = d.role === 'striker' ? rand(28, 55) : rand(45, 90);
+        }
+      }
+
+      // Soft arena bounds
+      if (d.x < -ARENA_X) fx += (-ARENA_X - d.x) * 0.005;
+      if (d.x >  ARENA_X) fx += ( ARENA_X - d.x) * 0.005;
+      if (d.y < -ARENA_Y) fy += (-ARENA_Y - d.y) * 0.005;
+      if (d.y >  ARENA_Y) fy += ( ARENA_Y - d.y) * 0.005;
+      if (d.z < -ARENA_Z) fz += (-ARENA_Z - d.z) * 0.005;
+      if (d.z >  ARENA_Z) fz += ( ARENA_Z - d.z) * 0.005;
+
+      // Apply forces with cap
+      const cap = 0.12;
+      fx = Math.max(-cap, Math.min(cap, fx));
+      fy = Math.max(-cap, Math.min(cap, fy));
+      fz = Math.max(-cap, Math.min(cap, fz));
+
+      d.vx += fx; d.vy += fy; d.vz += fz;
+      // Damping
+      d.vx *= 0.985; d.vy *= 0.985; d.vz *= 0.985;
+      // Speed limit
+      const sp = Math.sqrt(d.vx*d.vx + d.vy*d.vy + d.vz*d.vz);
+      const MAX = 2.6;
+      if (sp > MAX){ d.vx = d.vx/sp*MAX; d.vy = d.vy/sp*MAX; d.vz = d.vz/sp*MAX; }
+
+      d.x += d.vx; d.y += d.vy; d.z += d.vz;
+      if (d.cd > 0) d.cd--;
+
+      // Trail
+      d.trail.push({ x: d.x, y: d.y, z: d.z });
+      if (d.trail.length > 14) d.trail.shift();
+    }
+
+    // Update shots
+    for (const s of shots){
+      s.x += s.vx; s.y += s.vy; s.z += s.vz;
+      s.life--;
+      // Hit check
+      if (s.target && s.target.alive){
+        const dx = s.x - s.target.x, dy = s.y - s.target.y, dz = s.z - s.target.z;
+        const dd = dx*dx + dy*dy + dz*dz;
+        if (dd < 90){
+          s.target.hp -= 25 + Math.random() * 10;
+          s.life = 0;
+          // small spark
+          for (let i = 0; i < 4; i++){
+            embers.push({
+              x: s.target.x, y: s.target.y, z: s.target.z,
+              vx: rand(-1.5,1.5), vy: rand(-1.5,1.5), vz: rand(-1.5,1.5),
+              life: rand(8, 18), team: s.team
+            });
+          }
+        }
+      }
+    }
+    shots = shots.filter(s => s.life > 0);
+
+    // Embers
+    for (const e of embers){
+      e.x += e.vx; e.y += e.vy; e.z += e.vz;
+      e.vx *= 0.9; e.vy *= 0.9; e.vz *= 0.9;
+      e.life--;
+    }
+    embers = embers.filter(e => e.life > 0);
+
+    // Kills
+    for (const d of drones){
+      if (d.alive && d.hp <= 0){
+        d.alive = false;
+        // explosion
+        booms.push({ x: d.x, y: d.y, z: d.z, age: 0, team: d.team });
+        for (let i = 0; i < 18; i++){
+          embers.push({
+            x: d.x, y: d.y, z: d.z,
+            vx: rand(-3,3), vy: rand(-3,3), vz: rand(-3,3),
+            life: rand(20, 40), team: d.team
+          });
+        }
+      }
+    }
+
+    // Booms
+    for (const b of booms) b.age++;
+    booms = booms.filter(b => b.age < 24);
+
+    // Counts
+    blueCountEl.textContent = counts.blue;
+    redCountEl.textContent = counts.red;
+
+    // End condition
+    if (!battleEnd && (counts.blue === 0 || counts.red === 0)){
+      battleEnd = performance.now();
+      const winner = counts.blue === 0 ? 'red' : 'blue';
+      resultText.textContent = (winner === 'blue' ? 'BLUE FLEET' : 'RED FLEET') + ' VICTORIOUS';
+      resultText.style.color = winner === 'blue' ? '#7adcff' : '#ff8a6a';
+      resultBanner.style.display = 'flex';
+    }
+    if (battleEnd && performance.now() - battleEnd > 3500){
+      spawnFleet();
+    }
+  }
+
+  function project(x, y, z){
+    let rx = x, rz = z;
+    if (camOrbit){
+      const c = Math.cos(camAngle), s = Math.sin(camAngle);
+      rx = x*c + z*s;
+      rz = -x*s + z*c;
+    }
+    const depth = rz + 700;
+    const scale = FOCAL / Math.max(depth, 80);
+    return { sx: cw/2 + rx*scale, sy: ch/2 + y*scale, scale, depth: rz };
+  }
+
+  function draw(){
+    // Background gradient (drawn once per frame, not flashing during streaming since this is post-load)
+    const g = ctx.createLinearGradient(0, 0, 0, ch);
+    g.addColorStop(0, '#070b16');
+    g.addColorStop(0.5, '#0a1224');
+    g.addColorStop(1, '#040610');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Stars
+    for (const st of stars){
+      const p = project(st.x, st.y, st.z);
+      if (p.scale > 0.01 && p.sx > -10 && p.sx < cw+10 && p.sy > -10 && p.sy < ch+10){
+        ctx.fillStyle = 'rgba(220,230,255,' + (st.b * Math.min(1, p.scale*1.2)) + ')';
+        ctx.fillRect(p.sx, p.sy, 1, 1);
+      }
+    }
+
+    // Reference horizon ring (subtle radar plane)
+    ctx.strokeStyle = 'rgba(80,120,180,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI*2 + 0.01; a += 0.1){
+      const x = Math.cos(a) * 380;
+      const z = Math.sin(a) * 380;
+      const p = project(x, 200, z);
+      if (a === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI*2 + 0.01; a += 0.1){
+      const x = Math.cos(a) * 380;
+      const z = Math.sin(a) * 380;
+      const p = project(x, -200, z);
+      if (a === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+    }
+    ctx.stroke();
+
+    // Collect renderables and sort by depth (painters algorithm)
+    const items = [];
+    for (const d of drones){
+      if (!d.alive) continue;
+      const p = project(d.x, d.y, d.z);
+      items.push({ kind: 'drone', d, p, depth: p.depth });
+    }
+    for (const s of shots){
+      const p = project(s.x, s.y, s.z);
+      const op = project(s.x - s.vx*5, s.y - s.vy*5, s.z - s.vz*5);
+      items.push({ kind: 'shot', s, p, op, depth: p.depth });
+    }
+    for (const b of booms){
+      const p = project(b.x, b.y, b.z);
+      items.push({ kind: 'boom', b, p, depth: p.depth });
+    }
+    for (const e of embers){
+      const p = project(e.x, e.y, e.z);
+      items.push({ kind: 'ember', e, p, depth: p.depth });
+    }
+    items.sort((a,b) => b.depth - a.depth);
+
+    for (const it of items){
+      if (it.kind === 'drone') drawDrone(it.d, it.p);
+      else if (it.kind === 'shot') drawShot(it.s, it.p, it.op);
+      else if (it.kind === 'boom') drawBoom(it.b, it.p);
+      else if (it.kind === 'ember') drawEmber(it.e, it.p);
+    }
+
+    // Atmospheric vignette
+    const vg = ctx.createRadialGradient(cw/2, ch/2, ch*0.3, cw/2, ch/2, ch*0.85);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, cw, ch);
+  }
+
+  function drawDrone(d, p){
+    const col = TEAM[d.team];
+    const sz = Math.max(2, 4 * p.scale);
+    const fade = Math.min(1, Math.max(0.3, p.scale * 1.2));
+
+    // Trail
+    if (d.trail.length > 1){
+      ctx.lineWidth = Math.max(0.5, 1.5 * p.scale);
+      for (let i = 1; i < d.trail.length; i++){
+        const a = project(d.trail[i-1].x, d.trail[i-1].y, d.trail[i-1].z);
+        const b = project(d.trail[i].x, d.trail[i].y, d.trail[i].z);
+        const alpha = (i / d.trail.length) * 0.5 * fade;
+        ctx.strokeStyle = col.trail + alpha + ')';
+        ctx.beginPath();
+        ctx.moveTo(a.sx, a.sy);
+        ctx.lineTo(b.sx, b.sy);
+        ctx.stroke();
+      }
+    }
+
+    // Glow
+    ctx.shadowBlur = 12 * p.scale;
+    ctx.shadowColor = col.glow;
+    ctx.fillStyle = col.glow;
+    ctx.globalAlpha = 0.5 * fade;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, sz * 1.8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    // Drone body (chevron pointing in velocity direction)
+    const heading = Math.atan2(d.vy, d.vx);
+    ctx.save();
+    ctx.translate(p.sx, p.sy);
+    ctx.rotate(heading);
+    ctx.fillStyle = col.core;
+    ctx.globalAlpha = fade;
+    ctx.beginPath();
+    ctx.moveTo(sz*1.6, 0);
+    ctx.lineTo(-sz, sz*0.9);
+    ctx.lineTo(-sz*0.5, 0);
+    ctx.lineTo(-sz, -sz*0.9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // HP indicator (only if damaged and close)
+    if (d.hp < 100 && p.scale > 0.7){
+      const w = sz * 4;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(p.sx - w/2, p.sy - sz*3, w, 2);
+      ctx.fillStyle = col.core;
+      ctx.fillRect(p.sx - w/2, p.sy - sz*3, w * (d.hp/100), 2);
+    }
+  }
+
+  function drawShot(s, p, op){
+    const col = TEAM[s.team];
+    ctx.shadowBlur = 8 * p.scale;
+    ctx.shadowColor = col.glow;
+    ctx.strokeStyle = col.shot;
+    ctx.lineWidth = Math.max(1, 2 * p.scale);
+    ctx.globalAlpha = Math.min(1, s.life / 30);
+    ctx.beginPath();
+    ctx.moveTo(op.sx, op.sy);
+    ctx.lineTo(p.sx, p.sy);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  function drawBoom(b, p){
+    const col = TEAM[b.team];
+    const r = b.age * 1.6 * p.scale + 2;
+    const a = 1 - b.age / 24;
+    ctx.shadowBlur = 24 * p.scale;
+    ctx.shadowColor = col.glow;
+    ctx.strokeStyle = col.glow;
+    ctx.globalAlpha = a * 0.9;
+    ctx.lineWidth = Math.max(1, 2 * p.scale);
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = col.core;
+    ctx.globalAlpha = a * 0.4;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, r * 0.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  function drawEmber(e, p){
+    const col = TEAM[e.team];
+    const a = e.life / 30;
+    ctx.fillStyle = col.glow;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, Math.max(1, 1.5 * p.scale), 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function fmtTime(ms){
+    const s = Math.floor(ms / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return mm + ':' + ss;
+  }
+
+  function loop(){
+    if (camOrbit) camAngle += 0.0025;
+    step();
+    draw();
+    clockEl.textContent = fmtTime(performance.now() - t0);
+    requestAnimationFrame(loop);
+  }
+
+  document.getElementById('btn-restart').addEventListener('click', spawnFleet);
+  document.getElementById('btn-camera').addEventListener('click', () => { camOrbit = !camOrbit; });
+
+  initStars();
+  spawnFleet();
+  loop();
+})();
+</script>
