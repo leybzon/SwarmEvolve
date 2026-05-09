@@ -489,7 +489,7 @@
             <section class="title-slide">
                 <h1>Code Evolution in the Wild</h1>
                 <h3 style="color: var(--text-secondary); font-style: italic; margin-top: 1rem;">
-                    From Intelligent Design to Natural Selection
+                    From Intelligent Design to Natural Code Selection
                 </h3>
 
                 <div style="margin-top: 4rem;">
@@ -516,12 +516,13 @@
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
                                 👥 5-10 engineers
                             </p>
-                            <div class="path-metric">Days → Weeks</div>
+                            <div class="path-metric">Weeks → Month</div>
                         </div>
                         <div style="font-size: 0.8rem; color: var(--text-secondary);">
                             ✓ Full control<br>
                             ✗ Doesn't scale to complexity
                         </div>
+                        <div class="diagram-container" style="margin-top: 1rem;"><img src="figures/paradigm_traditional.png" alt="Hand-coding paradigm" style="width: 100%; max-height: 200px; object-fit: contain;"></div>
                     </div>
 
                     <div class="path path-vibe">
@@ -535,12 +536,13 @@
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
                                 👥 1 engineer
                             </p>
-                            <div class="path-metric">Minutes</div>
+                            <div class="path-metric">Hours → Days</div>
                         </div>
                         <div style="font-size: 0.8rem; color: var(--text-secondary);">
                             ✓ Rapid prototyping<br>
                             ✗ No performance guarantees
                         </div>
+                        <div class="diagram-container" style="margin-top: 1rem;"><img src="figures/paradigm_vibe.png" alt="Vibe coding paradigm" style="width: 100%; max-height: 200px; object-fit: contain;"></div>
                     </div>
 
                     <div class="path path-evolution">
@@ -554,73 +556,91 @@
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
                                 👥 1 researcher
                             </p>
-                            <div class="path-metric">Hours</div>
+                            <div class="path-metric">Hours → Days</div>
                         </div>
                         <div style="font-size: 0.8rem; color: var(--text-secondary);">
                             ✓ Discovers novel strategies<br>
                             ✓ Human-readable output
                         </div>
+                        <div class="diagram-container" style="margin-top: 1rem;"><img src="figures/paradigm_evolution.png" alt="Evolutionary paradigm" style="width: 100%; max-height: 200px; object-fit: contain;"></div>
                     </div>
-                </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <div class="diagram-container"><img src="figures/three_paradigms.png" alt="Three programming paradigms: Hand-coding, Vibe Coding, Evolution" style="max-height: 220px;"></div>
                 </div>
             </section>
 
             <!-- SLIDE 2: What Is Code Evolution? -->
             <section>
-                <h2>What Is Code Evolution?</h2>
-                <h3>Natural Selection for Algorithms</h3>
-                <div class="definition">
-                    <div class="definition-term">Evolution (Biological)</div>
-                    <div class="definition-text">
-                        Process where organisms with advantageous traits survive and reproduce more successfully, passing those traits to offspring. Driven by random mutation and natural selection.
+                <h2 style="font-size: 3rem; margin-bottom: 0.5rem;">What Is Code Evolution?</h2>
+                <h3 style="font-size: 1.8rem; margin-bottom: 1.5rem;">Natural Selection — Applied to Algorithms</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+
+                    <!-- LEFT: Biological Evolution -->
+                    <div style="padding: 2rem 2rem; border: 3px solid var(--accent-green); border-radius: 16px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), transparent);">
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <h3 style="color: var(--accent-green); margin: 0; font-size: 2.4rem;">🧬 Biological Evolution</h3>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-green); color: #000; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">1</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Variation</strong> — random DNA mutations</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-green); color: #000; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">2</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Selection</strong> — unfit die, fit reproduce</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-green); color: #000; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">3</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Inheritance</strong> — winning DNA passed on</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <span style="background: var(--accent-green); color: #000; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">4</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Repeat</strong> — adaptations emerge</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; text-align: center; font-size: 1.4rem;">
+                            <span style="color: var(--text-secondary);">Fitness =</span>
+                            <strong style="color: var(--accent-green);"> survival &amp; reproduction</strong>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Code Evolution -->
+                    <div style="padding: 2rem 2rem; border: 3px solid var(--accent-magenta); border-radius: 16px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), transparent);">
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <h3 style="color: var(--accent-magenta); margin: 0; font-size: 2.4rem;">💻 Code Evolution</h3>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-magenta); color: #fff; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">1</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Variation</strong> — LLM proposes mutations</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-magenta); color: #fff; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">2</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Selection</strong> — variants fight, losers die</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.4rem;">
+                                <span style="background: var(--accent-magenta); color: #fff; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">3</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Inheritance</strong> — winner = next parent</div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <span style="background: var(--accent-magenta); color: #fff; font-weight: 700; font-size: 1.6rem; border-radius: 50%; min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 1;">4</span>
+                                <div style="font-size: 1.5rem; line-height: 1.3;"><strong>Repeat</strong> — strategies emerge</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; text-align: center; font-size: 1.4rem;">
+                            <span style="color: var(--text-secondary);">Fitness =</span>
+                            <strong style="color: var(--accent-magenta);"> wins − losses in combat</strong>
+                        </div>
                     </div>
                 </div>
 
-                <div class="definition">
-                    <div class="definition-term">Evolution (Code)</div>
-                    <div class="definition-text">
-                        Process where code variants with better performance survive and are mutated further. Driven by LLM-proposed changes and fitness-based selection.
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin-top: 1rem;">
-                    <div>
-                        <div class="diagram-container"><img src="figures/darwins_finches.png" alt="Darwin\'s finches with different beak shapes adapted to different food sources" style="max-height: 300px;"></div>
-                        <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
-                            <strong>Natural Selection</strong><br>
-                            Fitness = Survival &amp; Reproduction
-                        </p>
-                    </div>
-
-                    <div>
-                        <div class="diagram-container"><img src="figures/code_phylogeny.png" alt="Phylogenetic tree showing code evolution with function signatures at each branch" style="max-height: 300px;"></div>
-                        <p style="text-align: center; margin-top: 1rem; color: var(--text-secondary);">
-                            <strong>Algorithmic Selection</strong><br>
-                            Fitness = Performance in Arena
-                        </p>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🧬</div>
-                        <h4 style="color: var(--accent-green);">Mutation</h4>
-                        <p style="font-size: 0.9rem;">LLM proposes changes</p>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚔️</div>
-                        <h4 style="color: var(--accent-green);">Selection</h4>
-                        <p style="font-size: 0.9rem;">Performance determines survival</p>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔄</div>
-                        <h4 style="color: var(--accent-green);">Iteration</h4>
-                        <p style="font-size: 0.9rem;">Winners breed next generation</p>
-                    </div>
-                </div>
+                <p style="margin-top: 1.5rem; text-align: center; font-family: 'Fraunces', serif; font-style: italic; font-size: 1.7rem; color: var(--accent-gold);">
+                    Same algorithm. Different substrate.<br>
+                    DNA → Source code &nbsp;·&nbsp; Predator → Opponent &nbsp;·&nbsp; Generations → Rounds
+                </p>
             </section>
 
             <!-- SLIDE 3: The Arena + Meet the Fighters (COMBINED) -->
