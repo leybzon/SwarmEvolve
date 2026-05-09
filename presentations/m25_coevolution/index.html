@@ -1808,6 +1808,70 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 </p>
             </section>
 
+            <!-- The Result: Underdog Wins -->
+            <section>
+                <h2>The Result: <span style="color: var(--accent-green);">Underdog Wins</span></h2>
+                <h3>Evolution found what engineering didn't</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <!-- LEFT: Fitness Timeline -->
+                    <div>
+                        <div class="diagram-container">
+                            <img src="figures/fitness_timeline.png" alt="Fitness over time: Team B starts at -0.8, crosses over Team A at Round 31, ends dominant" style="max-height: 340px;">
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
+                            Team B (red) overtakes Team A (blue) at Round 31
+                        </p>
+                    </div>
+
+                    <!-- RIGHT: Results Summary Card -->
+                    <div>
+                        <!-- Score Card -->
+                        <div style="padding: 1.2rem 1.5rem; background: rgba(34, 197, 94, 0.06); border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 12px; margin-bottom: 1rem;">
+                            <h4 style="color: var(--accent-green); margin-bottom: 0.6rem; font-size: 1.1rem;">🏆 Final Score</h4>
+                            <div style="display: flex; justify-content: space-around; text-align: center; margin: 0.8rem 0;">
+                                <div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-red);">−0.8</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B start</div>
+                                </div>
+                                <div style="font-size: 2rem; color: var(--text-secondary); align-self: center;">→</div>
+                                <div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-green);">+1.0</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B finish</div>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.9rem; color: var(--text-primary); margin-top: 0.5rem; line-height: 1.5;">
+                                Team B went from <strong style="color: var(--accent-red);">losing 8 out of 10</strong> battles to <strong style="color: var(--accent-green);">dominant winner</strong> — in 95 rounds of unguided evolution.
+                            </p>
+                        </div>
+
+                        <!-- Evolution Trajectory -->
+                        <div style="padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 1rem;">
+                            <h4 style="color: var(--accent-blue); margin-bottom: 0.5rem; font-size: 0.95rem;">📈 Evolution Trajectory</h4>
+                            <div style="font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary);">
+                                <div><strong style="color: var(--text-primary);">R1–R30:</strong> Losing badly. Trying random approaches.</div>
+                                <div><strong style="color: var(--accent-gold);">R31:</strong> <strong style="color: var(--accent-green);">Breakthrough.</strong> Formation Spread mutation accepted.</div>
+                                <div><strong style="color: var(--text-primary);">R32–R95:</strong> Dominance. Team A never recovers.</div>
+                            </div>
+                        </div>
+
+                        <!-- Breakthrough Callout -->
+                        <div style="padding: 1rem 1.5rem; background: rgba(234,179,8,0.06); border-left: 3px solid var(--accent-gold); border-radius: 4px;">
+                            <h4 style="color: var(--accent-gold); margin-bottom: 0.4rem; font-size: 0.95rem;">💡 What Made the Difference</h4>
+                            <p style="font-size: 0.88rem; color: var(--text-primary); margin: 0; line-height: 1.5;">
+                                <strong>Formation Spread</strong> — a single parameter change:<br>
+                                <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 4px;">min_spacing = 80</code><br>
+                                Drones stopped clustering, became harder to hit en masse. No human ever designed this tactic.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="margin-top: 1rem; font-size: 1.3rem;">
+                    The recipe worked. Evolution <em>found a way</em>.
+                </p>
+            </section>
+
             <!-- ============================================ -->
             <!-- ACT 5: CLOSING                               -->
             <!-- ============================================ -->
