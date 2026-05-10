@@ -68,11 +68,17 @@ def _build_bench_binary(
         "-Werror",
         "-Wno-unknown-pragmas",
         # Tolerate compiler-specific warning flags below (clang rejects
-        # -Wno-stringop-overflow as an unknown-warning-option under -Werror).
+        # -Wno-stringop-overflow / -Wno-maybe-uninitialized as
+        # unknown-warning-option under -Werror).
         "-Wno-unknown-warning-option",
         # GCC 13+ emits a false-positive -Wstringop-overflow at -O2 when
         # MAX_DRONES_OVERRIDE is set and memset length is runtime-computed.
         "-Wno-stringop-overflow",
+        # GCC 13+ also emits a false-positive -Wmaybe-uninitialized at -O2
+        # on src/engine.cpp:512 (the stack-allocated ``attack_events`` is
+        # passed with event-count 0 to write_trace_line_v2 and never read
+        # across the call boundary).
+        "-Wno-maybe-uninitialized",
         f"-I{REPO_ROOT / 'src'}",
     ]
     if max_drones_override is not None:

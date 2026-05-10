@@ -60,17 +60,21 @@ def _read_frame_size(mp4_path: Path) -> tuple[int, int]:
 
 
 def test_render_golden_trace_produces_mp4(tmp_path: Path) -> None:
+    fps = 30
     out = tmp_path / "demo.mp4"
-    n_written = render_trace(GOLDEN_TRACE, out, RenderConfig(fps=30, width=400, height=400))
+    n_written = render_trace(GOLDEN_TRACE, out, RenderConfig(fps=fps, width=400, height=400))
 
     assert out.exists() and out.stat().st_size > 0
     n_lines = sum(1 for line in GOLDEN_TRACE.read_text().splitlines() if line.strip())
-    assert n_written == n_lines, f"writer wrote {n_written}, expected {n_lines}"
+    # Since M23 the writer also appends a 2-second outcome hold (no intro
+    # frame here because intro_text defaults to ""): trace_lines + 2*fps.
+    expected = n_lines + 2 * fps
+    assert n_written == expected, f"writer wrote {n_written}, expected {expected}"
 
     # VideoCapture sometimes reports frame count - 1 depending on muxer
     # quirks; tolerate ±1.
     read_back = _read_frame_count(out)
-    assert abs(read_back - n_lines) <= 1, f"cv2 read {read_back}, lines={n_lines}"
+    assert abs(read_back - expected) <= 1, f"cv2 read {read_back}, expected={expected}"
 
 
 def test_render_honours_requested_resolution(tmp_path: Path) -> None:

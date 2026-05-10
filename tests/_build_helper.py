@@ -103,6 +103,21 @@ def build_matchup(tmp_path: Path, team_a_baseline: str, team_b_baseline: str) ->
         "-o",
         str(binary),
     ]
+    # GCC 13 (Ubuntu 24.04 default) emits two false positives at -O2 on
+    # src/engine.cpp under -Werror that the same code compiles cleanly
+    # under Apple clang and earlier g++ versions. Mirror the suppressions
+    # applied in the production Makefile (LINUX_GCC_EXTRA) and in
+    # ``scripts/fitness.py`` so test builds match production behaviour.
+    #   * -Wmaybe-uninitialized: src/engine.cpp:512 passes the stack-allocated
+    #     ``AttackEvent attack_events[2*MAX_DRONES]`` to write_trace_line_v2()
+    #     at tick 0 with event-count 0; GCC can't see across the call.
+    #   * -Wstringop-overflow: at -O2 the optimizer can't prove
+    #     ``num_drones_*`` (int) is non-negative and conservatively flags
+    #     memset paths.
+    cxx_basename = Path(cmd[0]).name
+    if "g++" in cxx_basename and "clang" not in cxx_basename:
+        idx = cmd.index("-Werror") + 1
+        cmd[idx:idx] = ["-Wno-maybe-uninitialized", "-Wno-stringop-overflow"]
     subprocess.run(cmd, check=True, capture_output=True)
     return binary
 
