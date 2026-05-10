@@ -20,26 +20,18 @@
 
 namespace TeamA {
 
-void drone_ai(int my_id,
-              const GameParams* params,
-              const AllyState* allies,
-              const EnemyState* enemies,
-              const float incoming_messages[][MSG_SIZE],
-              float* my_memory,
-              Action* out_action);
+void drone_ai(int my_id, const GameParams* params, const AllyState* allies,
+              const EnemyState* enemies, const float incoming_messages[][MSG_SIZE],
+              float* my_memory, Action* out_action);
 
-}  // namespace TeamA
+} // namespace TeamA
 
 namespace TeamB {
 
-void drone_ai(int my_id,
-              const GameParams* params,
-              const AllyState* allies,
-              const EnemyState* enemies,
-              const float incoming_messages[][MSG_SIZE],
-              float* my_memory,
-              Action* out_action);
+void drone_ai(int my_id, const GameParams* params, const AllyState* allies,
+              const EnemyState* enemies, const float incoming_messages[][MSG_SIZE],
+              float* my_memory, Action* out_action);
 
-}  // namespace TeamB
+} // namespace TeamB
 
-#endif  // SWARMEVOLVE_AI_ABI_H
+#endif // SWARMEVOLVE_AI_ABI_H

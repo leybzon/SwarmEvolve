@@ -31,13 +31,9 @@
 namespace TEAM_NS_PLACEHOLDER {
 
 #pragma acc routine seq
-void drone_ai(int          my_id,
-              const GameParams* params,
-              const AllyState*  allies,
-              const EnemyState* enemies,
-              const float       incoming_messages[][MSG_SIZE],
-              float*            my_memory,
-              Action*           out_action) {
+void drone_ai(int my_id, const GameParams* params, const AllyState* allies,
+              const EnemyState* enemies, const float incoming_messages[][MSG_SIZE],
+              float* my_memory, Action* out_action) {
     (void)incoming_messages;
     (void)enemies;
 
@@ -67,9 +63,9 @@ void drone_ai(int          my_id,
     // drones stay roughly in place (we are measuring kernel work, not
     // combat outcomes).
     const float sign = (my_id & 1) ? -1.0f : 1.0f;
-    out_action->velocity.x = sign * (0.001f + (acc - acc));  // `acc - acc == 0` keeps acc live
+    out_action->velocity.x = sign * (0.001f + (acc - acc)); // `acc - acc == 0` keeps acc live
     out_action->velocity.y = 0.0f;
-    out_action->target_id  = -1;
+    out_action->target_id = -1;
     out_action->message_out[0] = acc;
     out_action->message_out[1] = 0.0f;
     out_action->message_out[2] = 0.0f;
@@ -79,4 +75,4 @@ void drone_ai(int          my_id,
     (void)my_memory;
 }
 
-}  // namespace TEAM_NS_PLACEHOLDER
+} // namespace TEAM_NS_PLACEHOLDER

@@ -62,11 +62,11 @@ struct GameParams {
     float arena_height;
     float max_velocity;
     float disable_range;
-    int   max_cooldown;
-    int   num_drones_a;
-    int   num_drones_b;
-    int   max_ticks;
-    int   current_tick;
+    int max_cooldown;
+    int num_drones_a;
+    int num_drones_b;
+    int max_ticks;
+    int current_tick;
 };
 
 // ---------------------------------------------------------------------------
@@ -74,10 +74,10 @@ struct GameParams {
 // Full visibility of teammate state including cooldown.
 // ---------------------------------------------------------------------------
 struct AllyState {
-    int       id;
-    Vector2D  pos;
-    int       cooldown;
-    bool      alive;
+    int id;
+    Vector2D pos;
+    int cooldown;
+    bool alive;
     // Explicit padding to a 4-byte multiple for predictable layout across
     // compilers. The static_assert below verifies size.
     std::uint8_t _pad[3];
@@ -90,9 +90,9 @@ struct AllyState {
 // struct.
 // ---------------------------------------------------------------------------
 struct EnemyState {
-    int       id;
-    Vector2D  pos;
-    bool      alive;
+    int id;
+    Vector2D pos;
+    bool alive;
     std::uint8_t _pad[3];
 };
 
@@ -101,9 +101,9 @@ struct EnemyState {
 // AI output per tick. target_id == -1 means "do not attack".
 // ---------------------------------------------------------------------------
 struct Action {
-    Vector2D  velocity;
-    int       target_id;
-    float     message_out[MSG_SIZE];
+    Vector2D velocity;
+    int target_id;
+    float message_out[MSG_SIZE];
 };
 
 // ---------------------------------------------------------------------------
@@ -133,21 +133,21 @@ static_assert(MSG_SIZE == 4, "Trace format depends on MSG_SIZE == 4");
 static_assert(MEM_SIZE == 16, "Trace format depends on MEM_SIZE == 16");
 static_assert(MAX_DRONES >= 1);
 
-}  // namespace swarmevolve
+} // namespace swarmevolve
 
 // ---------------------------------------------------------------------------
 // Top-level using-declarations for AI convenience.
 // AI source files include <src/types.h> and may write `Vector2D` unqualified.
 // Engine source files use `swarmevolve::Vector2D` explicitly.
 // ---------------------------------------------------------------------------
-using Vector2D   = swarmevolve::Vector2D;
+using Vector2D = swarmevolve::Vector2D;
 using GameParams = swarmevolve::GameParams;
-using AllyState  = swarmevolve::AllyState;
+using AllyState = swarmevolve::AllyState;
 using EnemyState = swarmevolve::EnemyState;
-using Action     = swarmevolve::Action;
+using Action = swarmevolve::Action;
 
 using swarmevolve::MAX_DRONES;
 using swarmevolve::MEM_SIZE;
 using swarmevolve::MSG_SIZE;
 
-#endif  // SWARMEVOLVE_TYPES_H
+#endif // SWARMEVOLVE_TYPES_H

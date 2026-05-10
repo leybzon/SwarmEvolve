@@ -42,36 +42,33 @@ namespace {
 // Euclidean distance (sqrt(2) * 1000 ~= 1414).
 constexpr float kFarAway = 1.0e18f;
 
-}  // namespace
+} // namespace
 
 #pragma acc routine seq
-void drone_ai(int          my_id,
-              const GameParams* params,
-              const AllyState*  allies,
-              const EnemyState* enemies,
-              const float       incoming_messages[][MSG_SIZE],
-              float*            my_memory,
-              Action*           out_action) {
+void drone_ai(int my_id, const GameParams* params, const AllyState* allies,
+              const EnemyState* enemies, const float incoming_messages[][MSG_SIZE],
+              float* my_memory, Action* out_action) {
     // Incoming messages and persistent memory are unused by this baseline
     // but must still be declared in the signature to match the ABI.
     (void)incoming_messages;
     (void)my_memory;
 
-    const Vector2D my_pos      = allies[my_id].pos;
-    const int      my_cooldown = allies[my_id].cooldown;
-    const int      n_enemies   = params->num_drones_b;  // Team A's opponents.
+    const Vector2D my_pos = allies[my_id].pos;
+    const int my_cooldown = allies[my_id].cooldown;
+    const int n_enemies = params->num_drones_b; // Team A's opponents.
 
     // -- Step 1: find nearest alive enemy ----------------------------------
-    int   nearest    = -1;
-    float nearest_d2 = kFarAway;  // squared distance (sqrt deferred)
+    int nearest = -1;
+    float nearest_d2 = kFarAway; // squared distance (sqrt deferred)
     for (int i = 0; i < n_enemies; ++i) {
-        if (!enemies[i].alive) continue;
+        if (!enemies[i].alive)
+            continue;
         const float dx = enemies[i].pos.x - my_pos.x;
         const float dy = enemies[i].pos.y - my_pos.y;
         const float d2 = dx * dx + dy * dy;
         if (d2 < nearest_d2) {
             nearest_d2 = d2;
-            nearest    = i;
+            nearest = i;
         }
     }
 
@@ -80,10 +77,10 @@ void drone_ai(int          my_id,
         // No enemies left alive — stop moving, hold fire.
         out_action->velocity.x = 0.0f;
         out_action->velocity.y = 0.0f;
-        out_action->target_id  = -1;
+        out_action->target_id = -1;
     } else {
-        const float dx   = enemies[nearest].pos.x - my_pos.x;
-        const float dy   = enemies[nearest].pos.y - my_pos.y;
+        const float dx = enemies[nearest].pos.x - my_pos.x;
+        const float dy = enemies[nearest].pos.y - my_pos.y;
         const float dist = std::sqrt(nearest_d2);
 
         if (dist > 0.0f) {
@@ -97,7 +94,7 @@ void drone_ai(int          my_id,
         }
 
         const bool in_range = dist <= params->disable_range;
-        const bool off_cd   = my_cooldown == 0;
+        const bool off_cd = my_cooldown == 0;
         out_action->target_id = (in_range && off_cd) ? nearest : -1;
     }
 
@@ -113,4 +110,4 @@ void drone_ai(int          my_id,
     out_action->message_out[3] = (nearest < 0) ? kFarAway : std::sqrt(nearest_d2);
 }
 
-}  // namespace TEAM_NS_PLACEHOLDER
+} // namespace TEAM_NS_PLACEHOLDER

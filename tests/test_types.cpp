@@ -32,17 +32,23 @@ namespace {
 struct AbiEntry {
     const char* name;
     std::size_t size;
-    std::size_t offset;  // SIZE_MAX for struct totals
+    std::size_t offset; // SIZE_MAX for struct totals
 };
 
-#define SIZE_ENTRY(T) AbiEntry{#T, sizeof(T), static_cast<std::size_t>(-1)}
-#define OFF_ENTRY(T, field) \
-    AbiEntry { #T "." #field, sizeof(((T*)nullptr)->field), offsetof(T, field) }
+#define SIZE_ENTRY(T)                                                                              \
+    AbiEntry {                                                                                     \
+        #T, sizeof(T), static_cast<std::size_t>(-1)                                                \
+    }
+#define OFF_ENTRY(T, field)                                                                        \
+    AbiEntry {                                                                                     \
+        #T "." #field, sizeof(((T*)nullptr)->field), offsetof(T, field)                            \
+    }
 
 int collect_entries(AbiEntry* out, int cap) {
     int n = 0;
     auto push = [&](AbiEntry e) {
-        if (n < cap) out[n++] = e;
+        if (n < cap)
+            out[n++] = e;
     };
 
     push(SIZE_ENTRY(Vector2D));
@@ -95,15 +101,15 @@ std::string format_entries(const AbiEntry* e, int n) {
 
 bool memcpy_roundtrip() {
     GameParams a{};
-    a.arena_width   = 1000.0f;
-    a.arena_height  = 1000.0f;
-    a.max_velocity  = 5.0f;
+    a.arena_width = 1000.0f;
+    a.arena_height = 1000.0f;
+    a.max_velocity = 5.0f;
     a.disable_range = 50.0f;
-    a.max_cooldown  = 10;
-    a.num_drones_a  = 10;
-    a.num_drones_b  = 10;
-    a.max_ticks     = 1000;
-    a.current_tick  = 42;
+    a.max_cooldown = 10;
+    a.num_drones_a = 10;
+    a.num_drones_b = 10;
+    a.max_ticks = 1000;
+    a.current_tick = 42;
 
     GameParams b{};
     std::memcpy(&b, &a, sizeof(GameParams));
@@ -128,7 +134,7 @@ int update_mode(const std::string& actual) {
     return 0;
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     if (!memcpy_roundtrip()) {

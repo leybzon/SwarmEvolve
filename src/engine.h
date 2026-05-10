@@ -21,13 +21,13 @@
 #ifndef SWARMEVOLVE_ENGINE_H
 #define SWARMEVOLVE_ENGINE_H
 
+#include "types.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-
-#include "types.h"
 
 namespace swarmevolve::engine {
 
@@ -37,14 +37,17 @@ namespace swarmevolve::engine {
 enum Outcome : int {
     OUTCOME_TEAM_A_WIN = 0,
     OUTCOME_TEAM_B_WIN = 1,
-    OUTCOME_DRAW       = 2,
+    OUTCOME_DRAW = 2,
 };
 
 inline const char* outcome_tag(Outcome o) {
     switch (o) {
-        case OUTCOME_TEAM_A_WIN: return "TEAM_A_WIN";
-        case OUTCOME_TEAM_B_WIN: return "TEAM_B_WIN";
-        case OUTCOME_DRAW:       return "DRAW";
+    case OUTCOME_TEAM_A_WIN:
+        return "TEAM_A_WIN";
+    case OUTCOME_TEAM_B_WIN:
+        return "TEAM_B_WIN";
+    case OUTCOME_DRAW:
+        return "DRAW";
     }
     return "UNKNOWN";
 }
@@ -55,7 +58,8 @@ inline const char* outcome_tag(Outcome o) {
 inline int count_alive(const AllyState* drones, int n) {
     int c = 0;
     for (int i = 0; i < n; ++i) {
-        if (drones[i].alive) ++c;
+        if (drones[i].alive)
+            ++c;
     }
     return c;
 }
@@ -72,13 +76,14 @@ inline int count_alive(const AllyState* drones, int n) {
 // ---------------------------------------------------------------------------
 inline void movement_phase(AllyState* drones, const Action* actions, int n,
                            const GameParams& params) {
-    // Explicit bounds are required because nvc++ cannot infer the size of
-    // the raw pointer parameters. Without them, the runtime falls back to
-    // 1-byte transfers which silently corrupt the output. See the
-    // companion note in combat_phase_one_side.
-    #pragma acc parallel loop copy(drones[0:n]) copyin(actions[0:n])
+// Explicit bounds are required because nvc++ cannot infer the size of
+// the raw pointer parameters. Without them, the runtime falls back to
+// 1-byte transfers which silently corrupt the output. See the
+// companion note in combat_phase_one_side.
+#pragma acc parallel loop copy(drones[0 : n]) copyin(actions[0 : n])
     for (int i = 0; i < n; ++i) {
-        if (!drones[i].alive) continue;
+        if (!drones[i].alive)
+            continue;
 
         float vx = actions[i].velocity.x;
         float vy = actions[i].velocity.y;
@@ -93,10 +98,14 @@ inline void movement_phase(AllyState* drones, const Action* actions, int n,
         drones[i].pos.x += vx;
         drones[i].pos.y += vy;
 
-        if (drones[i].pos.x < 0.0f) drones[i].pos.x = 0.0f;
-        if (drones[i].pos.x > params.arena_width) drones[i].pos.x = params.arena_width;
-        if (drones[i].pos.y < 0.0f) drones[i].pos.y = 0.0f;
-        if (drones[i].pos.y > params.arena_height) drones[i].pos.y = params.arena_height;
+        if (drones[i].pos.x < 0.0f)
+            drones[i].pos.x = 0.0f;
+        if (drones[i].pos.x > params.arena_width)
+            drones[i].pos.x = params.arena_width;
+        if (drones[i].pos.y < 0.0f)
+            drones[i].pos.y = 0.0f;
+        if (drones[i].pos.y > params.arena_height)
+            drones[i].pos.y = params.arena_height;
     }
 }
 
@@ -126,44 +135,42 @@ inline void movement_phase(AllyState* drones, const Action* actions, int n,
 //     parallel loop is race-safe without atomics. See ARCHITECTURE.md
 //     §"Combat parallelism note".
 // ---------------------------------------------------------------------------
-inline void combat_phase_one_side(const AllyState* attackers,
-                                  const Action*    attacker_actions,
-                                  int              n_att,
-                                  const AllyState* defenders,
-                                  int              n_def,
-                                  const GameParams& params,
-                                  int*             attacker_cooldowns_out,
-                                  bool*            pending_deaths_target) {
-    // NOTE: We read `defenders[t].alive` rather than consulting the death
-    // buffer. Deaths recorded in this same loop iteration do NOT affect
-    // whether later attackers' shots on the same target succeed — that is
-    // the focus-fire semantics required by the spec.
-    //
-    // Explicit data clauses are required because nvc++ cannot infer bounds
-    // from raw `bool*` / `int*` parameters (it defaults to 1 byte, which
-    // silently corrupts the transfer back to host). `present_or_copy(...)`
-    // stays safe under managed memory (the clause becomes a no-op when the
-    // pointer is managed) and correct under explicit copy.
-    // NOTE on `copy` vs `copyout` for `attacker_cooldowns_out`: we need
-    // `copy` (not `copyout`) because the kernel only writes slots belonging
-    // to *successful* attackers. Slots for misses, cooldown-holders, and
-    // dead attackers are left untouched on the device. With `copyout` those
-    // slots would be uninitialized device memory (random garbage) when
-    // transferred back. With `copy`, the host's zeroed buffer is uploaded
-    // first, so untouched slots round-trip as zero. Caller contract: zero
-    // `attacker_cooldowns_out` before the call.
-    #pragma acc parallel loop                                                  \
-        copyin(attackers[0:n_att], attacker_actions[0:n_att],                  \
-               defenders[0:n_def])                                             \
-        copy(attacker_cooldowns_out[0:n_att],                                  \
-             pending_deaths_target[0:n_def])
+inline void combat_phase_one_side(const AllyState* attackers, const Action* attacker_actions,
+                                  int n_att, const AllyState* defenders, int n_def,
+                                  const GameParams& params, int* attacker_cooldowns_out,
+                                  bool* pending_deaths_target) {
+// NOTE: We read `defenders[t].alive` rather than consulting the death
+// buffer. Deaths recorded in this same loop iteration do NOT affect
+// whether later attackers' shots on the same target succeed — that is
+// the focus-fire semantics required by the spec.
+//
+// Explicit data clauses are required because nvc++ cannot infer bounds
+// from raw `bool*` / `int*` parameters (it defaults to 1 byte, which
+// silently corrupts the transfer back to host). `present_or_copy(...)`
+// stays safe under managed memory (the clause becomes a no-op when the
+// pointer is managed) and correct under explicit copy.
+// NOTE on `copy` vs `copyout` for `attacker_cooldowns_out`: we need
+// `copy` (not `copyout`) because the kernel only writes slots belonging
+// to *successful* attackers. Slots for misses, cooldown-holders, and
+// dead attackers are left untouched on the device. With `copyout` those
+// slots would be uninitialized device memory (random garbage) when
+// transferred back. With `copy`, the host's zeroed buffer is uploaded
+// first, so untouched slots round-trip as zero. Caller contract: zero
+// `attacker_cooldowns_out` before the call.
+#pragma acc parallel loop copyin(attackers[0 : n_att], attacker_actions[0 : n_att],                \
+                                 defenders[0 : n_def])                                             \
+    copy(attacker_cooldowns_out[0 : n_att], pending_deaths_target[0 : n_def])
     for (int i = 0; i < n_att; ++i) {
-        if (!attackers[i].alive) continue;
-        if (attackers[i].cooldown > 0) continue;
+        if (!attackers[i].alive)
+            continue;
+        if (attackers[i].cooldown > 0)
+            continue;
 
         const int target_id = attacker_actions[i].target_id;
-        if (target_id < 0 || target_id >= n_def) continue;
-        if (!defenders[target_id].alive) continue;
+        if (target_id < 0 || target_id >= n_def)
+            continue;
+        if (!defenders[target_id].alive)
+            continue;
 
         const float dx = attackers[i].pos.x - defenders[target_id].pos.x;
         const float dy = attackers[i].pos.y - defenders[target_id].pos.y;
@@ -187,7 +194,7 @@ inline void combat_phase_one_side(const AllyState* attackers,
 // time" rule for mutual-destruction cases.
 // ---------------------------------------------------------------------------
 inline void apply_cooldowns(AllyState* drones, const int* new_cooldowns, int n) {
-    #pragma acc parallel loop copyin(new_cooldowns[0:n]) copy(drones[0:n])
+#pragma acc parallel loop copyin(new_cooldowns[0 : n]) copy(drones[0 : n])
     for (int i = 0; i < n; ++i) {
         if (new_cooldowns[i] > 0) {
             drones[i].cooldown = new_cooldowns[i];
@@ -199,9 +206,10 @@ inline void apply_cooldowns(AllyState* drones, const int* new_cooldowns, int n) 
 // Phase 4 helper: apply pending deaths.
 // ---------------------------------------------------------------------------
 inline void apply_deaths(AllyState* drones, const bool* pending_deaths, int n) {
-    #pragma acc parallel loop copyin(pending_deaths[0:n]) copy(drones[0:n])
+#pragma acc parallel loop copyin(pending_deaths[0 : n]) copy(drones[0 : n])
     for (int i = 0; i < n; ++i) {
-        if (pending_deaths[i]) drones[i].alive = false;
+        if (pending_deaths[i])
+            drones[i].alive = false;
     }
 }
 
@@ -211,7 +219,7 @@ inline void apply_deaths(AllyState* drones, const bool* pending_deaths, int n) {
 // snapshot (useful for traces / stats) but dead drones never decrement.
 // ---------------------------------------------------------------------------
 inline void decrement_cooldowns(AllyState* drones, int n) {
-    #pragma acc parallel loop copy(drones[0:n])
+#pragma acc parallel loop copy(drones[0 : n])
     for (int i = 0; i < n; ++i) {
         if (drones[i].alive && drones[i].cooldown > 0) {
             drones[i].cooldown -= 1;
@@ -224,13 +232,10 @@ inline void decrement_cooldowns(AllyState* drones, int n) {
 // Alive drones publish their `message_out`; dead drones' slots are zeroed
 // (SPECIFICATION §3.5 / §7.4).
 // ---------------------------------------------------------------------------
-inline void route_messages(const AllyState* drones,
-                           const Action*    actions,
-                           float            out_messages[][MSG_SIZE],
-                           int              n) {
-    #pragma acc parallel loop                                                  \
-        copyin(drones[0:n], actions[0:n])                                      \
-        copyout(out_messages[0:n][0:MSG_SIZE])
+inline void route_messages(const AllyState* drones, const Action* actions,
+                           float out_messages[][MSG_SIZE], int n) {
+#pragma acc parallel loop copyin(drones[0 : n], actions[0 : n])                                    \
+    copyout(out_messages[0 : n][0 : MSG_SIZE])
     for (int i = 0; i < n; ++i) {
         if (drones[i].alive) {
             for (int j = 0; j < MSG_SIZE; ++j) {
@@ -251,30 +256,42 @@ inline void route_messages(const AllyState* drones,
 // The `current_tick >= max_ticks` rule is evaluated by the caller so that
 // the last recorded trace line can include the outcome tag.
 // ---------------------------------------------------------------------------
-inline bool check_early_termination(const AllyState* a, int na,
-                                    const AllyState* b, int nb,
+inline bool check_early_termination(const AllyState* a, int na, const AllyState* b, int nb,
                                     Outcome* out_outcome) {
     const int a_alive = count_alive(a, na);
     const int b_alive = count_alive(b, nb);
 
-    if (a_alive == 0 && b_alive == 0) { *out_outcome = OUTCOME_DRAW;       return true; }
-    if (a_alive == 0)                  { *out_outcome = OUTCOME_TEAM_B_WIN; return true; }
-    if (b_alive == 0)                  { *out_outcome = OUTCOME_TEAM_A_WIN; return true; }
+    if (a_alive == 0 && b_alive == 0) {
+        *out_outcome = OUTCOME_DRAW;
+        return true;
+    }
+    if (a_alive == 0) {
+        *out_outcome = OUTCOME_TEAM_B_WIN;
+        return true;
+    }
+    if (b_alive == 0) {
+        *out_outcome = OUTCOME_TEAM_A_WIN;
+        return true;
+    }
     return false;
 }
 
-inline Outcome final_outcome(const AllyState* a, int na,
-                             const AllyState* b, int nb) {
+inline Outcome final_outcome(const AllyState* a, int na, const AllyState* b, int nb) {
     const int a_alive = count_alive(a, na);
     const int b_alive = count_alive(b, nb);
-    if (a_alive > 0 && b_alive == 0) return OUTCOME_TEAM_A_WIN;
-    if (b_alive > 0 && a_alive == 0) return OUTCOME_TEAM_B_WIN;
-    if (a_alive == 0 && b_alive == 0) return OUTCOME_DRAW;
-    if (a_alive > b_alive) return OUTCOME_TEAM_A_WIN;
-    if (b_alive > a_alive) return OUTCOME_TEAM_B_WIN;
+    if (a_alive > 0 && b_alive == 0)
+        return OUTCOME_TEAM_A_WIN;
+    if (b_alive > 0 && a_alive == 0)
+        return OUTCOME_TEAM_B_WIN;
+    if (a_alive == 0 && b_alive == 0)
+        return OUTCOME_DRAW;
+    if (a_alive > b_alive)
+        return OUTCOME_TEAM_A_WIN;
+    if (b_alive > a_alive)
+        return OUTCOME_TEAM_B_WIN;
     return OUTCOME_DRAW;
 }
 
-}  // namespace swarmevolve::engine
+} // namespace swarmevolve::engine
 
-#endif  // SWARMEVOLVE_ENGINE_H
+#endif // SWARMEVOLVE_ENGINE_H

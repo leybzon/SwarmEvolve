@@ -31,47 +31,47 @@ namespace {
 
 int g_failures = 0;
 
-#define CHECK(cond)                                                                \
-    do {                                                                           \
-        if (!(cond)) {                                                             \
-            std::fprintf(stderr, "FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);   \
-            ++g_failures;                                                          \
-        }                                                                          \
+#define CHECK(cond)                                                                                \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            std::fprintf(stderr, "FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);                   \
+            ++g_failures;                                                                          \
+        }                                                                                          \
     } while (0)
 
-#define CHECK_NEAR(a, b, tol)                                                       \
-    do {                                                                            \
-        const float _a = (a), _b = (b);                                             \
-        if (std::fabs(_a - _b) > (tol)) {                                           \
-            std::fprintf(stderr, "FAIL %s:%d  |%g - %g| > %g\n",                    \
-                         __FILE__, __LINE__, _a, _b, (tol));                        \
-            ++g_failures;                                                           \
-        }                                                                           \
+#define CHECK_NEAR(a, b, tol)                                                                      \
+    do {                                                                                           \
+        const float _a = (a), _b = (b);                                                            \
+        if (std::fabs(_a - _b) > (tol)) {                                                          \
+            std::fprintf(stderr, "FAIL %s:%d  |%g - %g| > %g\n", __FILE__, __LINE__, _a, _b,       \
+                         (tol));                                                                   \
+            ++g_failures;                                                                          \
+        }                                                                                          \
     } while (0)
 
 // -- helpers ----------------------------------------------------------------
 
 GameParams default_params() {
     GameParams p{};
-    p.arena_width   = 1000.0f;
-    p.arena_height  = 1000.0f;
-    p.max_velocity  = 5.0f;
+    p.arena_width = 1000.0f;
+    p.arena_height = 1000.0f;
+    p.max_velocity = 5.0f;
     p.disable_range = 50.0f;
-    p.max_cooldown  = 10;
-    p.num_drones_a  = 3;
-    p.num_drones_b  = 3;
-    p.max_ticks     = 1000;
-    p.current_tick  = 0;
+    p.max_cooldown = 10;
+    p.num_drones_a = 3;
+    p.num_drones_b = 3;
+    p.max_ticks = 1000;
+    p.current_tick = 0;
     return p;
 }
 
 AllyState make_drone(int id, float x, float y, int cooldown = 0, bool alive = true) {
     AllyState s{};
-    s.id       = id;
-    s.pos.x    = x;
-    s.pos.y    = y;
+    s.id = id;
+    s.pos.x = x;
+    s.pos.y = y;
     s.cooldown = cooldown;
-    s.alive    = alive;
+    s.alive = alive;
     return s;
 }
 
@@ -79,7 +79,7 @@ AllyState make_drone(int id, float x, float y, int cooldown = 0, bool alive = tr
 
 void test_velocity_clamping() {
     GameParams p = default_params();
-    AllyState drones[1] = { make_drone(0, 100.0f, 100.0f) };
+    AllyState drones[1] = {make_drone(0, 100.0f, 100.0f)};
     Action actions[1]{};
     // Input 10 × max_velocity along +x direction. After clamping, speed
     // should equal max_velocity exactly (no drift beyond FP epsilon).
@@ -89,7 +89,7 @@ void test_velocity_clamping() {
     swarmevolve::engine::movement_phase(drones, actions, 1, p);
 
     CHECK_NEAR(drones[0].pos.x, 100.0f + p.max_velocity, 1e-5f);
-    CHECK_NEAR(drones[0].pos.y, 100.0f,                  1e-5f);
+    CHECK_NEAR(drones[0].pos.y, 100.0f, 1e-5f);
 }
 
 void test_boundary_clamp_all_edges() {
@@ -102,22 +102,22 @@ void test_boundary_clamp_all_edges() {
     };
     Action actions[4]{};
     // Try to push each drone past its boundary by max_velocity.
-    actions[0].velocity.x = -10.0f;           // would go to -10
-    actions[1].velocity.x =  10.0f;           // would go to 1010
-    actions[2].velocity.y = -10.0f;           // would go to -10
-    actions[3].velocity.y =  10.0f;           // would go to 1010
+    actions[0].velocity.x = -10.0f; // would go to -10
+    actions[1].velocity.x = 10.0f;  // would go to 1010
+    actions[2].velocity.y = -10.0f; // would go to -10
+    actions[3].velocity.y = 10.0f;  // would go to 1010
 
     swarmevolve::engine::movement_phase(drones, actions, 4, p);
 
-    CHECK_NEAR(drones[0].pos.x, 0.0f,      1e-5f);
-    CHECK_NEAR(drones[1].pos.x, 1000.0f,   1e-5f);
-    CHECK_NEAR(drones[2].pos.y, 0.0f,      1e-5f);
-    CHECK_NEAR(drones[3].pos.y, 1000.0f,   1e-5f);
+    CHECK_NEAR(drones[0].pos.x, 0.0f, 1e-5f);
+    CHECK_NEAR(drones[1].pos.x, 1000.0f, 1e-5f);
+    CHECK_NEAR(drones[2].pos.y, 0.0f, 1e-5f);
+    CHECK_NEAR(drones[3].pos.y, 1000.0f, 1e-5f);
 }
 
 void test_dead_drones_do_not_move() {
     GameParams p = default_params();
-    AllyState drones[1] = { make_drone(0, 500.0f, 500.0f, /*cd=*/0, /*alive=*/false) };
+    AllyState drones[1] = {make_drone(0, 500.0f, 500.0f, /*cd=*/0, /*alive=*/false)};
     Action actions[1]{};
     actions[0].velocity.x = 100.0f;
     swarmevolve::engine::movement_phase(drones, actions, 1, p);
@@ -129,13 +129,13 @@ void test_combat_range_boundary_exact_hit() {
     p.num_drones_a = 1;
     p.num_drones_b = 1;
 
-    AllyState a[1] = { make_drone(0, 0.0f, 0.0f) };
-    AllyState b[1] = { make_drone(0, p.disable_range, 0.0f) };  // dist == range
+    AllyState a[1] = {make_drone(0, 0.0f, 0.0f)};
+    AllyState b[1] = {make_drone(0, p.disable_range, 0.0f)}; // dist == range
     Action act_a[1]{};
     act_a[0].target_id = 0;
 
-    int  new_cd_a[MAX_DRONES]   = {};
-    bool deaths_b[MAX_DRONES]   = {};
+    int new_cd_a[MAX_DRONES] = {};
+    bool deaths_b[MAX_DRONES] = {};
     swarmevolve::engine::combat_phase_one_side(a, act_a, 1, b, 1, p, new_cd_a, deaths_b);
 
     CHECK(deaths_b[0] == true);
@@ -147,17 +147,17 @@ void test_combat_range_boundary_just_out_of_range() {
     p.num_drones_a = 1;
     p.num_drones_b = 1;
 
-    AllyState a[1] = { make_drone(0, 0.0f, 0.0f) };
-    AllyState b[1] = { make_drone(0, p.disable_range + 0.5f, 0.0f) };
+    AllyState a[1] = {make_drone(0, 0.0f, 0.0f)};
+    AllyState b[1] = {make_drone(0, p.disable_range + 0.5f, 0.0f)};
     Action act_a[1]{};
     act_a[0].target_id = 0;
 
-    int  new_cd_a[MAX_DRONES]   = {};
-    bool deaths_b[MAX_DRONES]   = {};
+    int new_cd_a[MAX_DRONES] = {};
+    bool deaths_b[MAX_DRONES] = {};
     swarmevolve::engine::combat_phase_one_side(a, act_a, 1, b, 1, p, new_cd_a, deaths_b);
 
     CHECK(deaths_b[0] == false);
-    CHECK(new_cd_a[0] == 0);  // no cooldown for out-of-range shot
+    CHECK(new_cd_a[0] == 0); // no cooldown for out-of-range shot
 }
 
 void test_mutual_destruction() {
@@ -168,12 +168,14 @@ void test_mutual_destruction() {
     p.num_drones_a = 1;
     p.num_drones_b = 1;
 
-    AllyState a[1] = { make_drone(0, 0.0f, 0.0f) };
-    AllyState b[1] = { make_drone(0, 10.0f, 0.0f) };  // well within range
-    Action act_a[1]{}; act_a[0].target_id = 0;
-    Action act_b[1]{}; act_b[0].target_id = 0;
+    AllyState a[1] = {make_drone(0, 0.0f, 0.0f)};
+    AllyState b[1] = {make_drone(0, 10.0f, 0.0f)}; // well within range
+    Action act_a[1]{};
+    act_a[0].target_id = 0;
+    Action act_b[1]{};
+    act_b[0].target_id = 0;
 
-    int  new_cd_a[MAX_DRONES] = {}, new_cd_b[MAX_DRONES] = {};
+    int new_cd_a[MAX_DRONES] = {}, new_cd_b[MAX_DRONES] = {};
     bool deaths_a[MAX_DRONES] = {}, deaths_b[MAX_DRONES] = {};
 
     // Both attack phases read pre-death state → both succeed.
@@ -202,16 +204,16 @@ void test_focus_fire_three_attackers_one_target() {
 
     AllyState a[3] = {
         make_drone(0, 10.0f, 0.0f),
-        make_drone(1,  0.0f, 10.0f),
+        make_drone(1, 0.0f, 10.0f),
         make_drone(2, 20.0f, 20.0f),
     };
-    AllyState b[1] = { make_drone(0, 0.0f, 0.0f) };
+    AllyState b[1] = {make_drone(0, 0.0f, 0.0f)};
     Action act_a[3]{};
     act_a[0].target_id = 0;
     act_a[1].target_id = 0;
     act_a[2].target_id = 0;
 
-    int  new_cd_a[MAX_DRONES] = {};
+    int new_cd_a[MAX_DRONES] = {};
     bool deaths_b[MAX_DRONES] = {};
     swarmevolve::engine::combat_phase_one_side(a, act_a, 3, b, 1, p, new_cd_a, deaths_b);
 
@@ -233,16 +235,16 @@ void test_invalid_target_ids_do_not_charge_cooldown() {
         make_drone(3, 0.0f, 0.0f),
     };
     AllyState b[2] = {
-        make_drone(0, 500.0f, 500.0f, /*cd=*/0, /*alive=*/false),  // already dead
-        make_drone(1, 5.0f, 0.0f),                                  // alive + in range
+        make_drone(0, 500.0f, 500.0f, /*cd=*/0, /*alive=*/false), // already dead
+        make_drone(1, 5.0f, 0.0f),                                // alive + in range
     };
     Action act_a[4]{};
-    act_a[0].target_id = -2;    // invalid negative
-    act_a[1].target_id = 99;    // >= n_def (out of range)
-    act_a[2].target_id = 0;     // dead target
-    act_a[3].target_id = 1;     // valid — should succeed
+    act_a[0].target_id = -2; // invalid negative
+    act_a[1].target_id = 99; // >= n_def (out of range)
+    act_a[2].target_id = 0;  // dead target
+    act_a[3].target_id = 1;  // valid — should succeed
 
-    int  new_cd_a[MAX_DRONES] = {};
+    int new_cd_a[MAX_DRONES] = {};
     bool deaths_b[MAX_DRONES] = {};
     swarmevolve::engine::combat_phase_one_side(a, act_a, 4, b, 2, p, new_cd_a, deaths_b);
 
@@ -250,7 +252,7 @@ void test_invalid_target_ids_do_not_charge_cooldown() {
     CHECK(new_cd_a[1] == 0);
     CHECK(new_cd_a[2] == 0);
     CHECK(new_cd_a[3] == p.max_cooldown);
-    CHECK(deaths_b[0] == false);  // was already dead, no new death flag
+    CHECK(deaths_b[0] == false); // was already dead, no new death flag
     CHECK(deaths_b[1] == true);
 }
 
@@ -267,7 +269,7 @@ void test_dead_drone_messages_zeroed() {
     actions[1].message_out[0] = 1.25f;
 
     // Drone 1 dies this tick.
-    bool deaths[2] = { false, true };
+    bool deaths[2] = {false, true};
     swarmevolve::engine::apply_deaths(drones, deaths, 2);
 
     float msgs[MAX_DRONES][MSG_SIZE];
@@ -293,11 +295,11 @@ void test_cooldown_decrement_only_on_alive() {
     };
     swarmevolve::engine::decrement_cooldowns(drones, 2);
     CHECK(drones[0].cooldown == 4);
-    CHECK(drones[1].cooldown == 5);  // dead drone does not decrement
+    CHECK(drones[1].cooldown == 5); // dead drone does not decrement
 }
 
 void test_termination_a_wins_when_b_empty() {
-    AllyState a[2] = { make_drone(0, 0, 0), make_drone(1, 0, 0) };
+    AllyState a[2] = {make_drone(0, 0, 0), make_drone(1, 0, 0)};
     AllyState b[2] = {
         make_drone(0, 0, 0, 0, /*alive=*/false),
         make_drone(1, 0, 0, 0, /*alive=*/false),
@@ -309,8 +311,8 @@ void test_termination_a_wins_when_b_empty() {
 }
 
 void test_termination_draw_when_both_empty() {
-    AllyState a[1] = { make_drone(0, 0, 0, 0, false) };
-    AllyState b[1] = { make_drone(0, 0, 0, 0, false) };
+    AllyState a[1] = {make_drone(0, 0, 0, 0, false)};
+    AllyState b[1] = {make_drone(0, 0, 0, 0, false)};
     swarmevolve::engine::Outcome out;
     const bool terminated = swarmevolve::engine::check_early_termination(a, 1, b, 1, &out);
     CHECK(terminated == true);
@@ -319,11 +321,12 @@ void test_termination_draw_when_both_empty() {
 
 void test_attacker_on_cooldown_does_not_fire() {
     GameParams p = default_params();
-    AllyState a[1] = { make_drone(0, 0.0f, 0.0f, /*cd=*/3) };
-    AllyState b[1] = { make_drone(0, 10.0f, 0.0f) };
-    Action act_a[1]{}; act_a[0].target_id = 0;
+    AllyState a[1] = {make_drone(0, 0.0f, 0.0f, /*cd=*/3)};
+    AllyState b[1] = {make_drone(0, 10.0f, 0.0f)};
+    Action act_a[1]{};
+    act_a[0].target_id = 0;
 
-    int  new_cd_a[MAX_DRONES] = {};
+    int new_cd_a[MAX_DRONES] = {};
     bool deaths_b[MAX_DRONES] = {};
     swarmevolve::engine::combat_phase_one_side(a, act_a, 1, b, 1, p, new_cd_a, deaths_b);
 
@@ -331,7 +334,7 @@ void test_attacker_on_cooldown_does_not_fire() {
     CHECK(new_cd_a[0] == 0);
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     test_velocity_clamping();

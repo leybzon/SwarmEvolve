@@ -41,30 +41,27 @@ constexpr float kFarAway = 1.0e18f;
 // small multiple of max_velocity so a cohesive swarm doesn't oscillate.
 constexpr float kClusterRadius = 40.0f;
 
-}  // namespace
+} // namespace
 
 #pragma acc routine seq
-void drone_ai(int          my_id,
-              const GameParams* params,
-              const AllyState*  allies,
-              const EnemyState* enemies,
-              const float       incoming_messages[][MSG_SIZE],
-              float*            my_memory,
-              Action*           out_action) {
+void drone_ai(int my_id, const GameParams* params, const AllyState* allies,
+              const EnemyState* enemies, const float incoming_messages[][MSG_SIZE],
+              float* my_memory, Action* out_action) {
     (void)incoming_messages;
     (void)my_memory;
 
-    const Vector2D my_pos      = allies[my_id].pos;
-    const int      my_cooldown = allies[my_id].cooldown;
-    const int      n_allies    = params->num_drones_b;  // this team
-    const int      n_enemies   = params->num_drones_a;  // opponents
+    const Vector2D my_pos = allies[my_id].pos;
+    const int my_cooldown = allies[my_id].cooldown;
+    const int n_allies = params->num_drones_b;  // this team
+    const int n_enemies = params->num_drones_a; // opponents
 
     // -- Step 1: centroid of alive allies ---------------------------------
     float sum_x = 0.0f;
     float sum_y = 0.0f;
-    int   alive_count = 0;
+    int alive_count = 0;
     for (int i = 0; i < n_allies; ++i) {
-        if (!allies[i].alive) continue;
+        if (!allies[i].alive)
+            continue;
         sum_x += allies[i].pos.x;
         sum_y += allies[i].pos.y;
         ++alive_count;
@@ -72,20 +69,23 @@ void drone_ai(int          my_id,
     // `alive_count` is at least 1 because `my_id` is alive (engine only
     // calls drone_ai for alive drones — see engine.cpp query_phase), but
     // we still guard the division for safety inside a #pragma acc routine.
-    const float centroid_x = (alive_count > 0) ? (sum_x / static_cast<float>(alive_count)) : my_pos.x;
-    const float centroid_y = (alive_count > 0) ? (sum_y / static_cast<float>(alive_count)) : my_pos.y;
+    const float centroid_x =
+        (alive_count > 0) ? (sum_x / static_cast<float>(alive_count)) : my_pos.x;
+    const float centroid_y =
+        (alive_count > 0) ? (sum_y / static_cast<float>(alive_count)) : my_pos.y;
 
     // -- Step 2: enemy nearest the centroid -------------------------------
-    int   focus    = -1;
+    int focus = -1;
     float focus_d2 = kFarAway;
     for (int i = 0; i < n_enemies; ++i) {
-        if (!enemies[i].alive) continue;
+        if (!enemies[i].alive)
+            continue;
         const float ex = enemies[i].pos.x - centroid_x;
         const float ey = enemies[i].pos.y - centroid_y;
         const float d2 = ex * ex + ey * ey;
         if (d2 < focus_d2) {
             focus_d2 = d2;
-            focus    = i;
+            focus = i;
         }
     }
 
@@ -102,15 +102,15 @@ void drone_ai(int          my_id,
     float heading_x = 0.0f;
     float heading_y = 0.0f;
     {
-        const float cdx  = centroid_x - my_pos.x;
-        const float cdy  = centroid_y - my_pos.y;
+        const float cdx = centroid_x - my_pos.x;
+        const float cdy = centroid_y - my_pos.y;
         const float cdist = std::sqrt(cdx * cdx + cdy * cdy);
 
         float pursue_x = 0.0f, pursue_y = 0.0f;
         if (focus >= 0) {
             const float fdx = enemies[focus].pos.x - my_pos.x;
             const float fdy = enemies[focus].pos.y - my_pos.y;
-            const float fd  = std::sqrt(fdx * fdx + fdy * fdy);
+            const float fd = std::sqrt(fdx * fdx + fdy * fdy);
             if (fd > 0.0f) {
                 pursue_x = fdx / fd;
                 pursue_y = fdy / fd;
@@ -128,7 +128,8 @@ void drone_ai(int          my_id,
         float w_cluster = 0.0f;
         if (cdist > kClusterRadius) {
             w_cluster = (cdist - kClusterRadius) / cdist;
-            if (w_cluster > 1.0f) w_cluster = 1.0f;
+            if (w_cluster > 1.0f)
+                w_cluster = 1.0f;
         }
         const float w_pursue = 1.0f - w_cluster;
 
@@ -166,12 +167,13 @@ void drone_ai(int          my_id,
         }
         if (action_target < 0) {
             for (int i = 0; i < n_enemies; ++i) {
-                if (!enemies[i].alive) continue;
+                if (!enemies[i].alive)
+                    continue;
                 const float dx = enemies[i].pos.x - my_pos.x;
                 const float dy = enemies[i].pos.y - my_pos.y;
                 if (dx * dx + dy * dy <= range_sq) {
                     action_target = i;
-                    break;  // lowest-id in-range enemy — deterministic
+                    break; // lowest-id in-range enemy — deterministic
                 }
             }
         }
@@ -185,4 +187,4 @@ void drone_ai(int          my_id,
     out_action->message_out[3] = static_cast<float>(alive_count);
 }
 
-}  // namespace TeamB
+} // namespace TeamB

@@ -3,9 +3,12 @@
 int f(int n) {
     int sum = 0;
     for (int i = 0; i < n; ++i) {
-        if (i == 3) continue;
-        if (i == 7) return sum;
-        if (i >= 10) break;
+        if (i == 3)
+            continue;
+        if (i == 7)
+            return sum;
+        if (i >= 10)
+            break;
         sum += i;
     }
     return sum;

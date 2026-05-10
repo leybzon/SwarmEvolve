@@ -193,18 +193,24 @@ def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) 
         "-o",
         str(binary),
     ]
-    # GCC 13 (Ubuntu 24.04 default) emits a false-positive
-    # -Wstringop-overflow at -O2 on memset calls in src/engine.cpp whose
-    # length is `sizeof(T) * w.params.num_drones_*` (a runtime-bounded int
-    # the optimizer can't prove is non-negative). The same code compiles
-    # cleanly under Apple clang, nvc++ and earlier g++ versions. Suppress
-    # for g++ only — Apple clang doesn't recognize this flag without
-    # -Wno-unknown-warning-option, and we want to keep the warning active
-    # everywhere else. Same workaround already exists in the Makefile
-    # (LINUX_GCC_EXTRA, BENCH_GCC_EXTRA).
+    # GCC 13 (Ubuntu 24.04 default) emits two false positives at -O2 on
+    # src/engine.cpp under -Werror that the same code compiles cleanly
+    # under Apple clang, nvc++ and earlier g++ versions:
+    #   * -Wmaybe-uninitialized at line 512 — the stack-allocated
+    #     `AttackEvent attack_events[2*MAX_DRONES]` is passed to
+    #     write_trace_line_v2() at tick 0 with event-count 0; the function
+    #     never reads the buffer but GCC can't tell across the call.
+    #   * -Wstringop-overflow on memset paths whose length is
+    #     `sizeof(T) * num_drones_*` (int the optimizer can't prove
+    #     non-negative).
+    # Suppress for g++ only — Apple clang would need
+    # -Wno-unknown-warning-option to silently accept the GCC-specific
+    # name, and we want the warnings active under every other toolchain.
+    # Same workaround in the Makefile (LINUX_GCC_EXTRA, BENCH_GCC_EXTRA).
     compiler_basename = Path(compiler).name
     if "g++" in compiler_basename and "clang" not in compiler_basename:
-        cmd.insert(cmd.index("-Werror") + 1, "-Wno-stringop-overflow")
+        idx = cmd.index("-Werror") + 1
+        cmd[idx:idx] = ["-Wno-maybe-uninitialized", "-Wno-stringop-overflow"]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise CompileError(

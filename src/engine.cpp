@@ -17,6 +17,11 @@
 // src/ai_abi.h and the link step resolves `TeamA::drone_ai` /
 // `TeamB::drone_ai` from src/a/*.cpp and src/b/*.cpp respectively.
 
+#include "engine.h"
+
+#include "ai_abi.h"
+#include "types.h"
+
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -27,10 +32,6 @@
 #include <memory>
 #include <random>
 
-#include "ai_abi.h"
-#include "engine.h"
-#include "types.h"
-
 using namespace swarmevolve;
 using swarmevolve::engine::Outcome;
 
@@ -40,42 +41,42 @@ using swarmevolve::engine::Outcome;
 namespace {
 
 struct CliArgs {
-    const char* record_path = nullptr;  // nullptr means "no trace"
-    std::uint64_t seed      = 0;
-    int drones_a            = 10;
-    int drones_b            = 10;
-    int max_ticks           = 1000;
-    float arena_scale       = 1.0f;
-    bool benchmark          = false;
-    int repeats             = 1;
-    bool help               = false;
+    const char* record_path = nullptr; // nullptr means "no trace"
+    std::uint64_t seed = 0;
+    int drones_a = 10;
+    int drones_b = 10;
+    int max_ticks = 1000;
+    float arena_scale = 1.0f;
+    bool benchmark = false;
+    int repeats = 1;
+    bool help = false;
     // M15a: when true, the trace includes per-tick `actions[]` and
     // `attacks[]` arrays (schema v2). Off by default so legacy consumers
     // (visualizer, golden-trace determinism test) see the v1 format
     // byte-for-byte. Has no effect unless --record is also set.
-    bool record_actions     = false;
+    bool record_actions = false;
 };
 
 void print_help() {
     std::fprintf(stderr,
-        "swarmevolve [OPTIONS]\n"
-        "\n"
-        "Options:\n"
-        "  --record <path>     Write JSON-Lines trace to <path>.\n"
-        "  --seed <int>        Seed for initial-position PRNG (default: 0).\n"
-        "  --drones-a <int>    Team A size, 1..MAX_DRONES (default: 10).\n"
-        "  --drones-b <int>    Team B size, 1..MAX_DRONES (default: 10).\n"
-        "  --max-ticks <int>   Simulation cap (default: 1000).\n"
-        "  --arena-scale <f>   Multiplier on arena width/height (default: 1.0).\n"
-        "                      M13 scaling uses sqrt(N/50) to keep density constant.\n"
-        "  --benchmark         Benchmark mode: no trace, no logging, one\n"
-        "                      JSON line per repeat emitted to stdout.\n"
-        "  --repeats <int>     Benchmark mode: repeats per invocation (default: 1).\n"
-        "  --record-actions    Emit schema v2 trace: include per-tick `actions[]`\n"
-        "                      (velocity, target_id, message_out) and `attacks[]`\n"
-        "                      (attacker/target team+id, hit flag). Requires --record.\n"
-        "                      Off by default to preserve v1 byte-for-byte parity.\n"
-        "  --help              Print this message.\n");
+                 "swarmevolve [OPTIONS]\n"
+                 "\n"
+                 "Options:\n"
+                 "  --record <path>     Write JSON-Lines trace to <path>.\n"
+                 "  --seed <int>        Seed for initial-position PRNG (default: 0).\n"
+                 "  --drones-a <int>    Team A size, 1..MAX_DRONES (default: 10).\n"
+                 "  --drones-b <int>    Team B size, 1..MAX_DRONES (default: 10).\n"
+                 "  --max-ticks <int>   Simulation cap (default: 1000).\n"
+                 "  --arena-scale <f>   Multiplier on arena width/height (default: 1.0).\n"
+                 "                      M13 scaling uses sqrt(N/50) to keep density constant.\n"
+                 "  --benchmark         Benchmark mode: no trace, no logging, one\n"
+                 "                      JSON line per repeat emitted to stdout.\n"
+                 "  --repeats <int>     Benchmark mode: repeats per invocation (default: 1).\n"
+                 "  --record-actions    Emit schema v2 trace: include per-tick `actions[]`\n"
+                 "                      (velocity, target_id, message_out) and `attacks[]`\n"
+                 "                      (attacker/target team+id, hit flag). Requires --record.\n"
+                 "                      Off by default to preserve v1 byte-for-byte parity.\n"
+                 "  --help              Print this message.\n");
 }
 
 // Returns 0 on success, nonzero on parse error.
@@ -94,27 +95,33 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
             out->help = true;
         } else if (std::strcmp(a, "--record") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->record_path = v;
         } else if (std::strcmp(a, "--seed") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->seed = static_cast<std::uint64_t>(std::strtoull(v, nullptr, 10));
         } else if (std::strcmp(a, "--drones-a") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->drones_a = static_cast<int>(std::strtol(v, nullptr, 10));
         } else if (std::strcmp(a, "--drones-b") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->drones_b = static_cast<int>(std::strtol(v, nullptr, 10));
         } else if (std::strcmp(a, "--max-ticks") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->max_ticks = static_cast<int>(std::strtol(v, nullptr, 10));
         } else if (std::strcmp(a, "--arena-scale") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->arena_scale = std::strtof(v, nullptr);
         } else if (std::strcmp(a, "--benchmark") == 0) {
             out->benchmark = true;
@@ -122,18 +129,18 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
             out->record_actions = true;
         } else if (std::strcmp(a, "--repeats") == 0) {
             const char* v = need_value(a);
-            if (!v) return 1;
+            if (!v)
+                return 1;
             out->repeats = static_cast<int>(std::strtol(v, nullptr, 10));
         } else {
             std::fprintf(stderr, "ERROR kind=cli detail=unknown-flag flag=%s\n", a);
             return 1;
         }
     }
-    if (out->drones_a < 1 || out->drones_a > MAX_DRONES ||
-        out->drones_b < 1 || out->drones_b > MAX_DRONES) {
-        std::fprintf(stderr,
-            "ERROR kind=cli detail=drones-out-of-range a=%d b=%d max=%d\n",
-            out->drones_a, out->drones_b, MAX_DRONES);
+    if (out->drones_a < 1 || out->drones_a > MAX_DRONES || out->drones_b < 1 ||
+        out->drones_b > MAX_DRONES) {
+        std::fprintf(stderr, "ERROR kind=cli detail=drones-out-of-range a=%d b=%d max=%d\n",
+                     out->drones_a, out->drones_b, MAX_DRONES);
         return 1;
     }
     if (out->max_ticks < 1) {
@@ -150,20 +157,19 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
         return 1;
     }
     if (out->benchmark && out->record_path != nullptr) {
-        std::fprintf(stderr,
+        std::fprintf(
+            stderr,
             "ERROR kind=cli detail=benchmark-excludes-record\n"
             "       --benchmark mode is side-effect-free by design; --record is forbidden.\n");
         return 1;
     }
     if (out->record_actions && out->record_path == nullptr) {
-        std::fprintf(stderr,
-            "ERROR kind=cli detail=record-actions-requires-record\n"
-            "       --record-actions has no effect without --record.\n");
+        std::fprintf(stderr, "ERROR kind=cli detail=record-actions-requires-record\n"
+                             "       --record-actions has no effect without --record.\n");
         return 1;
     }
     if (out->record_actions && out->benchmark) {
-        std::fprintf(stderr,
-            "ERROR kind=cli detail=record-actions-excludes-benchmark\n");
+        std::fprintf(stderr, "ERROR kind=cli detail=record-actions-excludes-benchmark\n");
         return 1;
     }
     return 0;
@@ -174,14 +180,14 @@ int parse_cli(int argc, char** argv, CliArgs* out) {
 // ---------------------------------------------------------------------------
 struct World {
     GameParams params{};
-    AllyState  a[MAX_DRONES]{};
-    AllyState  b[MAX_DRONES]{};
-    Action     act_a[MAX_DRONES]{};
-    Action     act_b[MAX_DRONES]{};
-    float      msgs_a[MAX_DRONES][MSG_SIZE]{};
-    float      msgs_b[MAX_DRONES][MSG_SIZE]{};
-    float      mem_a[MAX_DRONES][MEM_SIZE]{};
-    float      mem_b[MAX_DRONES][MEM_SIZE]{};
+    AllyState a[MAX_DRONES]{};
+    AllyState b[MAX_DRONES]{};
+    Action act_a[MAX_DRONES]{};
+    Action act_b[MAX_DRONES]{};
+    float msgs_a[MAX_DRONES][MSG_SIZE]{};
+    float msgs_b[MAX_DRONES][MSG_SIZE]{};
+    float mem_a[MAX_DRONES][MEM_SIZE]{};
+    float mem_b[MAX_DRONES][MEM_SIZE]{};
     // Per-tick scratch enemy views (one per team, projected from the
     // opposing AllyState). Kept in the World so managed memory /
     // present-data clauses see a single stable host pointer rather than
@@ -191,10 +197,10 @@ struct World {
     // Combat-phase scratch (cooldowns + pending deaths). Likewise keeping
     // these in the World avoids stack-allocated arrays inside the tick loop,
     // which are unfriendly to OpenACC managed memory on nvc++.
-    int        new_cd_a[MAX_DRONES]{};
-    int        new_cd_b[MAX_DRONES]{};
-    bool       deaths_a[MAX_DRONES]{};
-    bool       deaths_b[MAX_DRONES]{};
+    int new_cd_a[MAX_DRONES]{};
+    int new_cd_b[MAX_DRONES]{};
+    bool deaths_a[MAX_DRONES]{};
+    bool deaths_b[MAX_DRONES]{};
 };
 
 // World is heap-allocated in main() so that large-MAX_DRONES builds
@@ -204,15 +210,15 @@ struct World {
 
 void init_world(World& w, const CliArgs& cli) {
     // Fill GameParams with spec defaults (SPECIFICATION.md §1.3 "Typical Values").
-    w.params.arena_width   = 1000.0f * cli.arena_scale;
-    w.params.arena_height  = 1000.0f * cli.arena_scale;
-    w.params.max_velocity  = 5.0f;
+    w.params.arena_width = 1000.0f * cli.arena_scale;
+    w.params.arena_height = 1000.0f * cli.arena_scale;
+    w.params.max_velocity = 5.0f;
     w.params.disable_range = 50.0f;
-    w.params.max_cooldown  = 10;
-    w.params.num_drones_a  = cli.drones_a;
-    w.params.num_drones_b  = cli.drones_b;
-    w.params.max_ticks     = cli.max_ticks;
-    w.params.current_tick  = 0;
+    w.params.max_cooldown = 10;
+    w.params.num_drones_a = cli.drones_a;
+    w.params.num_drones_b = cli.drones_b;
+    w.params.max_ticks = cli.max_ticks;
+    w.params.current_tick = 0;
 
     std::mt19937_64 rng(cli.seed);
     // Use uniform_real_distribution for positions. Both the PRNG and the
@@ -224,18 +230,18 @@ void init_world(World& w, const CliArgs& cli) {
     std::uniform_real_distribution<float> uy(0.0f, w.params.arena_height);
 
     for (int i = 0; i < cli.drones_a; ++i) {
-        w.a[i].id       = i;
-        w.a[i].pos.x    = ux(rng);
-        w.a[i].pos.y    = uy(rng);
+        w.a[i].id = i;
+        w.a[i].pos.x = ux(rng);
+        w.a[i].pos.y = uy(rng);
         w.a[i].cooldown = 0;
-        w.a[i].alive    = true;
+        w.a[i].alive = true;
     }
     for (int i = 0; i < cli.drones_b; ++i) {
-        w.b[i].id       = i;
-        w.b[i].pos.x    = ux(rng);
-        w.b[i].pos.y    = uy(rng);
+        w.b[i].id = i;
+        w.b[i].pos.x = ux(rng);
+        w.b[i].pos.y = uy(rng);
         w.b[i].cooldown = 0;
-        w.b[i].alive    = true;
+        w.b[i].alive = true;
     }
     // Messages and memory are already zeroed by aggregate init.
 }
@@ -248,11 +254,11 @@ void init_world(World& w, const CliArgs& cli) {
 void write_team_array(std::FILE* f, const AllyState* drones, int n) {
     std::fputc('[', f);
     for (int i = 0; i < n; ++i) {
-        if (i > 0) std::fputc(',', f);
-        std::fprintf(f,
-            "{\"id\":%d,\"x\":%.2f,\"y\":%.2f,\"cooldown\":%d,\"alive\":%s}",
-            drones[i].id, drones[i].pos.x, drones[i].pos.y,
-            drones[i].cooldown, drones[i].alive ? "true" : "false");
+        if (i > 0)
+            std::fputc(',', f);
+        std::fprintf(f, "{\"id\":%d,\"x\":%.2f,\"y\":%.2f,\"cooldown\":%d,\"alive\":%s}",
+                     drones[i].id, drones[i].pos.x, drones[i].pos.y, drones[i].cooldown,
+                     drones[i].alive ? "true" : "false");
     }
     std::fputc(']', f);
 }
@@ -265,15 +271,15 @@ void write_team_array(std::FILE* f, const AllyState* drones, int n) {
 void write_actions_array(std::FILE* f, const Action* actions, const AllyState* drones, int n) {
     std::fputc('[', f);
     for (int i = 0; i < n; ++i) {
-        if (i > 0) std::fputc(',', f);
+        if (i > 0)
+            std::fputc(',', f);
         std::fprintf(f,
-            "{\"id\":%d,\"alive\":%s,\"vx\":%.4f,\"vy\":%.4f,\"target_id\":%d,"
-            "\"msg\":[%.4f,%.4f,%.4f,%.4f]}",
-            drones[i].id, drones[i].alive ? "true" : "false",
-            actions[i].velocity.x, actions[i].velocity.y,
-            actions[i].target_id,
-            actions[i].message_out[0], actions[i].message_out[1],
-            actions[i].message_out[2], actions[i].message_out[3]);
+                     "{\"id\":%d,\"alive\":%s,\"vx\":%.4f,\"vy\":%.4f,\"target_id\":%d,"
+                     "\"msg\":[%.4f,%.4f,%.4f,%.4f]}",
+                     drones[i].id, drones[i].alive ? "true" : "false", actions[i].velocity.x,
+                     actions[i].velocity.y, actions[i].target_id, actions[i].message_out[0],
+                     actions[i].message_out[1], actions[i].message_out[2],
+                     actions[i].message_out[3]);
     }
     std::fputc(']', f);
 }
@@ -288,12 +294,12 @@ void write_actions_array(std::FILE* f, const Action* actions, const AllyState* d
 // we re-run it deterministically on the host (same criteria, same iteration
 // order) to avoid plumbing event buffers through the GPU kernels.
 struct AttackEvent {
-    int   attacker_team;  // 0=A, 1=B
-    int   attacker_id;
-    int   target_team;    // 0=A, 1=B
-    int   target_id;
-    bool  hit;            // true iff all four success criteria held
-    float dist;           // attacker<->target Euclidean at resolution time
+    int attacker_team; // 0=A, 1=B
+    int attacker_id;
+    int target_team; // 0=A, 1=B
+    int target_id;
+    bool hit;   // true iff all four success criteria held
+    float dist; // attacker<->target Euclidean at resolution time
 };
 
 // Compute attack events for one attacking team. The inputs are the
@@ -301,15 +307,10 @@ struct AttackEvent {
 // applied) so that the per-event `hit` flag matches the actual combat
 // outcome. Matches engine.h::combat_phase_one_side semantics exactly.
 // Returns number of events written. `out` must have capacity >= n_att.
-int compute_attack_events(int attacker_team,
-                          const AllyState* attackers,
-                          const Action*    attacker_actions,
-                          int              n_att,
-                          int              target_team,
-                          const AllyState* defenders,
-                          int              n_def,
-                          const GameParams& params,
-                          AttackEvent*     out) {
+int compute_attack_events(int attacker_team, const AllyState* attackers,
+                          const Action* attacker_actions, int n_att, int target_team,
+                          const AllyState* defenders, int n_def, const GameParams& params,
+                          AttackEvent* out) {
     int n = 0;
     for (int i = 0; i < n_att; ++i) {
         const int tid = attacker_actions[i].target_id;
@@ -318,9 +319,12 @@ int compute_attack_events(int attacker_team,
         // the spec's "attempt" definition; record-keeping for pure
         // no-ops (target_id == -1 or dead attacker) would explode the
         // event stream size without adding information.
-        if (!attackers[i].alive) continue;
-        if (attackers[i].cooldown > 0) continue;
-        if (tid < 0 || tid >= n_def) continue;
+        if (!attackers[i].alive)
+            continue;
+        if (attackers[i].cooldown > 0)
+            continue;
+        if (tid < 0 || tid >= n_def)
+            continue;
 
         const float dx = attackers[i].pos.x - defenders[tid].pos.x;
         const float dy = attackers[i].pos.y - defenders[tid].pos.y;
@@ -340,11 +344,11 @@ int compute_attack_events(int attacker_team,
         // out-of-range targets are less so but we keep them to let AAR
         // spot "always-shooting-too-far" AI pathologies.
         out[n].attacker_team = attacker_team;
-        out[n].attacker_id   = i;
-        out[n].target_team   = target_team;
-        out[n].target_id     = tid;
-        out[n].hit           = hit;
-        out[n].dist          = std::sqrt(dist_sq);
+        out[n].attacker_id = i;
+        out[n].target_team = target_team;
+        out[n].target_id = tid;
+        out[n].hit = hit;
+        out[n].dist = std::sqrt(dist_sq);
         ++n;
     }
     return n;
@@ -353,13 +357,13 @@ int compute_attack_events(int attacker_team,
 void write_attacks_array(std::FILE* f, const AttackEvent* events, int n) {
     std::fputc('[', f);
     for (int i = 0; i < n; ++i) {
-        if (i > 0) std::fputc(',', f);
+        if (i > 0)
+            std::fputc(',', f);
         std::fprintf(f,
-            "{\"atk_team\":%d,\"atk_id\":%d,\"tgt_team\":%d,\"tgt_id\":%d,"
-            "\"hit\":%s,\"dist\":%.4f}",
-            events[i].attacker_team, events[i].attacker_id,
-            events[i].target_team, events[i].target_id,
-            events[i].hit ? "true" : "false", events[i].dist);
+                     "{\"atk_team\":%d,\"atk_id\":%d,\"tgt_team\":%d,\"tgt_id\":%d,"
+                     "\"hit\":%s,\"dist\":%.4f}",
+                     events[i].attacker_team, events[i].attacker_id, events[i].target_team,
+                     events[i].target_id, events[i].hit ? "true" : "false", events[i].dist);
     }
     std::fputc(']', f);
 }
@@ -384,10 +388,8 @@ void write_trace_line(std::FILE* f, int tick, const World& w, const char* outcom
 // `tick_actions_a` / `tick_actions_b` are the actions that were applied
 // during this tick (post-query, pre-next-tick). `events`/`n_events` are
 // the attack events resolved in this tick's combat phase.
-void write_trace_line_v2(std::FILE* f, int tick, const World& w,
-                         const Action* tick_actions_a,
-                         const Action* tick_actions_b,
-                         const AttackEvent* events, int n_events,
+void write_trace_line_v2(std::FILE* f, int tick, const World& w, const Action* tick_actions_a,
+                         const Action* tick_actions_b, const AttackEvent* events, int n_events,
                          const char* outcome_tag_or_null) {
     std::fprintf(f, "{\"schema_version\":2,\"tick\":%d,\"team_a\":", tick);
     write_team_array(f, w.a, w.params.num_drones_a);
@@ -417,19 +419,17 @@ void write_trace_line_v2(std::FILE* f, int tick, const World& w,
 // ---------------------------------------------------------------------------
 
 struct TeamAAiCallable {
-    #pragma acc routine seq
-    void operator()(int my_id, const GameParams* p, const AllyState* a,
-                    const EnemyState* e, const float (*msgs)[MSG_SIZE],
-                    float* mem, Action* out) const {
+#pragma acc routine seq
+    void operator()(int my_id, const GameParams* p, const AllyState* a, const EnemyState* e,
+                    const float (*msgs)[MSG_SIZE], float* mem, Action* out) const {
         TeamA::drone_ai(my_id, p, a, e, msgs, mem, out);
     }
 };
 
 struct TeamBAiCallable {
-    #pragma acc routine seq
-    void operator()(int my_id, const GameParams* p, const AllyState* a,
-                    const EnemyState* e, const float (*msgs)[MSG_SIZE],
-                    float* mem, Action* out) const {
+#pragma acc routine seq
+    void operator()(int my_id, const GameParams* p, const AllyState* a, const EnemyState* e,
+                    const float (*msgs)[MSG_SIZE], float* mem, Action* out) const {
         TeamB::drone_ai(my_id, p, a, e, msgs, mem, out);
     }
 };
@@ -439,40 +439,34 @@ struct TeamBAiCallable {
 // aliasing (different layout). This runs once per tick per team and is
 // cheap (n <= MAX_DRONES).
 void project_enemies(const AllyState* src, EnemyState* dst, int n) {
-    #pragma acc parallel loop copyin(src[0:n]) copyout(dst[0:n])
+#pragma acc parallel loop copyin(src[0 : n]) copyout(dst[0 : n])
     for (int i = 0; i < n; ++i) {
-        dst[i].id    = src[i].id;
-        dst[i].pos   = src[i].pos;
+        dst[i].id = src[i].id;
+        dst[i].pos = src[i].pos;
         dst[i].alive = src[i].alive;
     }
 }
 
 template <typename AiCallable>
-void query_phase(AiCallable fn, int my_n, int their_n,
-                 const GameParams* params,
-                 const AllyState* my_allies,
-                 const EnemyState* enemy_view,
-                 const float msgs[][MSG_SIZE],
-                 float memory[][MEM_SIZE],
-                 Action* out_actions) {
+void query_phase(AiCallable fn, int my_n, int their_n, const GameParams* params,
+                 const AllyState* my_allies, const EnemyState* enemy_view,
+                 const float msgs[][MSG_SIZE], float memory[][MEM_SIZE], Action* out_actions) {
     // `their_n` is used only inside the `#pragma acc` data clause for the
     // enemy_view copyin bound. Non-OpenACC compilers skip the pragma, so we
     // touch `their_n` explicitly to silence -Werror=unused-parameter.
     (void)their_n;
-    // Determinism note: each iteration writes only to out_actions[i] and
-    // memory[i] (caller-disjoint per-drone slots), and reads shared state
-    // read-only. There are no reductions, so thread ordering is
-    // irrelevant — the result is bit-identical to the serial loop.
-    // The OpenMP pragma is guarded so the GPU (OpenACC) build does not
-    // accidentally fork a host thread team on top of the device launch.
-    #pragma acc parallel loop                                                  \
-        copyin(my_allies[0:my_n], enemy_view[0:their_n],                       \
-               msgs[0:my_n][0:MSG_SIZE])                                       \
-        copy(memory[0:my_n][0:MEM_SIZE])                                       \
-        copyout(out_actions[0:my_n])
-    #if defined(_OPENMP) && !defined(_OPENACC)
-    #pragma omp parallel for schedule(static)
-    #endif
+// Determinism note: each iteration writes only to out_actions[i] and
+// memory[i] (caller-disjoint per-drone slots), and reads shared state
+// read-only. There are no reductions, so thread ordering is
+// irrelevant — the result is bit-identical to the serial loop.
+// The OpenMP pragma is guarded so the GPU (OpenACC) build does not
+// accidentally fork a host thread team on top of the device launch.
+#pragma acc parallel loop copyin(my_allies[0 : my_n], enemy_view[0 : their_n],                     \
+                                 msgs[0 : my_n][0 : MSG_SIZE])                                     \
+    copy(memory[0 : my_n][0 : MEM_SIZE]) copyout(out_actions[0 : my_n])
+#if defined(_OPENMP) && !defined(_OPENACC)
+#pragma omp parallel for schedule(static)
+#endif
     for (int i = 0; i < my_n; ++i) {
         if (!my_allies[i].alive) {
             // Dead drones skip AI and emit a zeroed action. This also
@@ -494,8 +488,7 @@ void query_phase(AiCallable fn, int my_n, int their_n,
 // When `record_actions_v2` is true, the trace is written in schema v2 format
 // (actions_a, actions_b, attacks). Otherwise v1 is emitted (byte-identical
 // to M0..M14 output, preserving the golden-trace SHA).
-Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
-                  int* out_ticks_executed) {
+Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2, int* out_ticks_executed) {
     // Scratch buffers for schema-v2 attack events. Max capacity is
     // 2*MAX_DRONES (one potential attempt per drone per tick, across both
     // teams). Kept on the stack here — the allocation is <1 KiB.
@@ -509,8 +502,7 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
     if (trace) {
         if (record_actions_v2) {
             // act_a/act_b are zero-initialized; tick-0 shows those.
-            write_trace_line_v2(trace, 0, w, w.act_a, w.act_b,
-                                attack_events, 0, nullptr);
+            write_trace_line_v2(trace, 0, w, w.act_a, w.act_b, attack_events, 0, nullptr);
         } else {
             write_trace_line(trace, 0, w, nullptr);
         }
@@ -531,12 +523,10 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
         project_enemies(w.b, w.enemies_for_a, w.params.num_drones_b);
         project_enemies(w.a, w.enemies_for_b, w.params.num_drones_a);
 
-        query_phase(TeamAAiCallable{}, w.params.num_drones_a, w.params.num_drones_b,
-                    &w.params, w.a, w.enemies_for_a,
-                    w.msgs_a, w.mem_a, w.act_a);
-        query_phase(TeamBAiCallable{}, w.params.num_drones_b, w.params.num_drones_a,
-                    &w.params, w.b, w.enemies_for_b,
-                    w.msgs_b, w.mem_b, w.act_b);
+        query_phase(TeamAAiCallable{}, w.params.num_drones_a, w.params.num_drones_b, &w.params, w.a,
+                    w.enemies_for_a, w.msgs_a, w.mem_a, w.act_a);
+        query_phase(TeamBAiCallable{}, w.params.num_drones_b, w.params.num_drones_a, &w.params, w.b,
+                    w.enemies_for_b, w.msgs_b, w.mem_b, w.act_b);
 
         // Phase 2: Movement.
         swarmevolve::engine::movement_phase(w.a, w.act_a, w.params.num_drones_a, w.params);
@@ -547,14 +537,12 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
         std::memset(w.new_cd_b, 0, sizeof(int) * w.params.num_drones_b);
         std::memset(w.deaths_a, 0, sizeof(bool) * w.params.num_drones_a);
         std::memset(w.deaths_b, 0, sizeof(bool) * w.params.num_drones_b);
-        swarmevolve::engine::combat_phase_one_side(
-            w.a, w.act_a, w.params.num_drones_a,
-            w.b, w.params.num_drones_b,
-            w.params, w.new_cd_a, w.deaths_b);
-        swarmevolve::engine::combat_phase_one_side(
-            w.b, w.act_b, w.params.num_drones_b,
-            w.a, w.params.num_drones_a,
-            w.params, w.new_cd_b, w.deaths_a);
+        swarmevolve::engine::combat_phase_one_side(w.a, w.act_a, w.params.num_drones_a, w.b,
+                                                   w.params.num_drones_b, w.params, w.new_cd_a,
+                                                   w.deaths_b);
+        swarmevolve::engine::combat_phase_one_side(w.b, w.act_b, w.params.num_drones_b, w.a,
+                                                   w.params.num_drones_a, w.params, w.new_cd_b,
+                                                   w.deaths_a);
 
         // M15a: Capture attack events using the same alive/cooldown state
         // that combat_phase_one_side consumed. Must run BEFORE
@@ -564,12 +552,10 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
         if (record_actions_v2) {
             n_events += compute_attack_events(
                 /*attacker_team=*/0, w.a, w.act_a, w.params.num_drones_a,
-                /*target_team=*/  1, w.b, w.params.num_drones_b,
-                w.params, attack_events + n_events);
+                /*target_team=*/1, w.b, w.params.num_drones_b, w.params, attack_events + n_events);
             n_events += compute_attack_events(
                 /*attacker_team=*/1, w.b, w.act_b, w.params.num_drones_b,
-                /*target_team=*/  0, w.a, w.params.num_drones_a,
-                w.params, attack_events + n_events);
+                /*target_team=*/0, w.a, w.params.num_drones_a, w.params, attack_events + n_events);
         }
 
         // Phase 4: Cleanup.
@@ -583,14 +569,13 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
         swarmevolve::engine::route_messages(w.b, w.act_b, w.msgs_b, w.params.num_drones_b);
 
         // Termination check.
-        if (swarmevolve::engine::check_early_termination(
-                w.a, w.params.num_drones_a,
-                w.b, w.params.num_drones_b, &outcome)) {
+        if (swarmevolve::engine::check_early_termination(w.a, w.params.num_drones_a, w.b,
+                                                         w.params.num_drones_b, &outcome)) {
             if (trace) {
                 const char* tag = swarmevolve::engine::outcome_tag(outcome);
                 if (record_actions_v2) {
-                    write_trace_line_v2(trace, t, w, w.act_a, w.act_b,
-                                        attack_events, n_events, tag);
+                    write_trace_line_v2(trace, t, w, w.act_a, w.act_b, attack_events, n_events,
+                                        tag);
                 } else {
                     write_trace_line(trace, t, w, tag);
                 }
@@ -609,8 +594,7 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
                 tag = swarmevolve::engine::outcome_tag(tick_limit_outcome);
             }
             if (record_actions_v2) {
-                write_trace_line_v2(trace, t, w, w.act_a, w.act_b,
-                                    attack_events, n_events, tag);
+                write_trace_line_v2(trace, t, w, w.act_a, w.act_b, attack_events, n_events, tag);
             } else {
                 write_trace_line(trace, t, w, tag);
             }
@@ -618,10 +602,11 @@ Outcome run_match(World& w, std::FILE* trace, bool record_actions_v2,
     }
 
     if (!done) {
-        outcome = swarmevolve::engine::final_outcome(
-            w.a, w.params.num_drones_a, w.b, w.params.num_drones_b);
+        outcome = swarmevolve::engine::final_outcome(w.a, w.params.num_drones_a, w.b,
+                                                     w.params.num_drones_b);
     }
-    if (out_ticks_executed) *out_ticks_executed = std::min(t, w.params.max_ticks);
+    if (out_ticks_executed)
+        *out_ticks_executed = std::min(t, w.params.max_ticks);
     return outcome;
 }
 
@@ -637,14 +622,15 @@ constexpr const char* bench_backend_tag() {
 #endif
 }
 
-}  // namespace
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Main.
 // ---------------------------------------------------------------------------
 int main(int argc, char** argv) {
     CliArgs cli{};
-    if (parse_cli(argc, argv, &cli) != 0) return 10;
+    if (parse_cli(argc, argv, &cli) != 0)
+        return 10;
     if (cli.help) {
         print_help();
         return 0;
@@ -662,40 +648,33 @@ int main(int argc, char** argv) {
             // different initial configurations, not the same one R times.
             // Each repeat resets world state from scratch.
             CliArgs repeat_cli = cli;
-            repeat_cli.seed    = cli.seed + static_cast<std::uint64_t>(r);
+            repeat_cli.seed = cli.seed + static_cast<std::uint64_t>(r);
             init_world(w, repeat_cli);
 
             const auto t0 = std::chrono::steady_clock::now();
             int ticks_executed = 0;
             Outcome outcome = run_match(w, /*trace=*/nullptr,
-                                        /*record_actions_v2=*/false,
-                                        &ticks_executed);
+                                        /*record_actions_v2=*/false, &ticks_executed);
             const auto t1 = std::chrono::steady_clock::now();
 
-            const double wall_ms =
-                std::chrono::duration<double, std::milli>(t1 - t0).count();
-            const double per_tick_us = (ticks_executed > 0)
-                ? (wall_ms * 1000.0 / static_cast<double>(ticks_executed))
-                : 0.0;
+            const double wall_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+            const double per_tick_us =
+                (ticks_executed > 0) ? (wall_ms * 1000.0 / static_cast<double>(ticks_executed))
+                                     : 0.0;
 
             // Single JSON line per repeat. Keep fields lexicographically
             // ordered so the driver can parse by name without peeking at
             // order. `outcome_code` is the int so downstream can filter by
             // win/loss/draw if interesting; `outcome_tag` is the string.
-            std::printf(
-                "{\"backend\":\"%s\",\"repeat\":%d,\"seed\":%llu,"
-                "\"n_a\":%d,\"n_b\":%d,\"ticks_requested\":%d,"
-                "\"ticks_executed\":%d,\"arena_scale\":%.6f,"
-                "\"wall_ms\":%.6f,\"per_tick_us\":%.6f,"
-                "\"outcome_code\":%d,\"outcome_tag\":\"%s\"}\n",
-                bench_backend_tag(), r,
-                static_cast<unsigned long long>(repeat_cli.seed),
-                w.params.num_drones_a, w.params.num_drones_b,
-                w.params.max_ticks, ticks_executed,
-                static_cast<double>(cli.arena_scale),
-                wall_ms, per_tick_us,
-                static_cast<int>(outcome),
-                swarmevolve::engine::outcome_tag(outcome));
+            std::printf("{\"backend\":\"%s\",\"repeat\":%d,\"seed\":%llu,"
+                        "\"n_a\":%d,\"n_b\":%d,\"ticks_requested\":%d,"
+                        "\"ticks_executed\":%d,\"arena_scale\":%.6f,"
+                        "\"wall_ms\":%.6f,\"per_tick_us\":%.6f,"
+                        "\"outcome_code\":%d,\"outcome_tag\":\"%s\"}\n",
+                        bench_backend_tag(), r, static_cast<unsigned long long>(repeat_cli.seed),
+                        w.params.num_drones_a, w.params.num_drones_b, w.params.max_ticks,
+                        ticks_executed, static_cast<double>(cli.arena_scale), wall_ms, per_tick_us,
+                        static_cast<int>(outcome), swarmevolve::engine::outcome_tag(outcome));
             std::fflush(stdout);
         }
         return 0;
@@ -716,13 +695,13 @@ int main(int argc, char** argv) {
     int ticks_executed = 0;
     Outcome outcome = run_match(w, trace, cli.record_actions, &ticks_executed);
 
-    if (trace) std::fclose(trace);
+    if (trace)
+        std::fclose(trace);
 
     const int a_alive = swarmevolve::engine::count_alive(w.a, w.params.num_drones_a);
     const int b_alive = swarmevolve::engine::count_alive(w.b, w.params.num_drones_b);
     std::printf("outcome=%s a_alive=%d b_alive=%d ticks=%d\n",
-                swarmevolve::engine::outcome_tag(outcome),
-                a_alive, b_alive, w.params.current_tick);
+                swarmevolve::engine::outcome_tag(outcome), a_alive, b_alive, w.params.current_tick);
 
     return static_cast<int>(outcome);
 }

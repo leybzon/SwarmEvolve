@@ -3,6 +3,7 @@ int main() {
     int i = 0;
 loop:
     ++i;
-    if (i < 5) goto loop;
+    if (i < 5)
+        goto loop;
     return i;
 }

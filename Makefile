@@ -19,15 +19,23 @@ PYTHON     ?= python3
 # pragmas and never warns on them) so CXXFLAGS_GPU omits it.
 CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
 CXXFLAGS_GPU    = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
-# g++-only suppressions. GCC 13 (Ubuntu 24.04 default) emits a false-positive
-# -Wstringop-overflow at -O2 on memset/memcpy calls whose length is a
-# runtime-computed value the optimizer can't bound (e.g.
-# `sizeof(int) * w.params.num_drones_a` in src/engine.cpp). The same code
-# compiles cleanly under Apple clang and nvc++. Suppress for g++ only —
-# applied to build-linux-cpu/-cpu-omp below — so other toolchains keep the
-# extra coverage. Same workaround already exists for bench builds (see
-# BENCH_GCC_EXTRA below).
-LINUX_GCC_EXTRA = -Wno-stringop-overflow
+# g++-only suppressions. Two distinct false positives on the Ubuntu 24.04
+# default toolchain (GCC 13) at -O2 with -Werror enabled:
+#
+#   * -Wmaybe-uninitialized: src/engine.cpp:512 passes the stack-allocated
+#     `AttackEvent attack_events[2 * MAX_DRONES]` to write_trace_line_v2()
+#     on the tick-0 emit path. The third argument (event count) is 0 so
+#     the function never reads the buffer, but GCC can't see across the
+#     call boundary and conservatively flags it. Apple clang/nvc++ are
+#     silent.
+#   * -Wstringop-overflow: also engine.cpp — at -O2 the optimizer can't
+#     prove `w.params.num_drones_*` (int) is non-negative, models the
+#     memset length as ~SIZE_MAX, and triggers the diagnostic. Same
+#     diagnosis as the long-standing BENCH_GCC_EXTRA suppression below.
+#
+# Applied to build-linux-cpu/-cpu-omp only so Apple clang and nvc++ keep
+# their extra coverage.
+LINUX_GCC_EXTRA = -Wno-maybe-uninitialized -Wno-stringop-overflow
 # Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
 # the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
 # Linux CI sets SANITIZE=1 to exercise the sanitized build.
