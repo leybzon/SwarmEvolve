@@ -1098,35 +1098,6 @@
                 </div>
             </section>
 
-            <section>
-                <h2>The Reversal</h2>
-                <h3>Punctuated Equilibrium — Evolution Isn't a Ramp, It's a Staircase</h3>
-
-                <div class="diagram-container" style="margin: 1rem 0;">
-                    <img src="figures/fitness_timeline.png" alt="Fitness over time: Team A blue line starts high, Team B red line starts low and crosses over at Round 31">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">The Jump</h4>
-                        <p style="font-size: 1rem; line-height: 1.6;">
-                            <strong>95 rounds. ~90 minutes. ~$10.</strong><br><br>
-                            Round 13: Parity at 0.0 fitness<br>
-                            Round 31: <span style="color: var(--accent-green); font-size: 1.25rem; font-weight: 700;">Breakthrough</span> at +0.9<br>
-                            Round 41: Refined dominance
-                        </p>
-                        <div class="definition" style="margin-top: 0.8rem;">
-                            <div class="definition-term">Punctuated Equilibrium</div>
-                            <div class="definition-text" style="font-size: 0.85rem;">
-                                Stephen Jay Gould (1972): evolution happens in bursts, not gradually. Long stasis, then sudden change. Co-evolution made this happen on purpose.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="diagram-container">
-                        <img src="figures/tactical_staircase.png" alt="Staircase graph showing 6 tactical phases with vertical jumps in fitness" style="max-height: 380px;">
-                    </div>
-                </div>
-            </section>
 
             <section>
                 <h2>Emergent Behavior</h2>
@@ -1218,185 +1189,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 </div>
             </section>
 
-            <!-- ============================================ -->
-            <!-- ACT 3: ANALYSIS & LESSONS LEARNED           -->
-            <!-- ============================================ -->
 
-            <section>
-                <h2>When Evolution Stalls</h2>
-                <h3>Lessons From Failed Experiments</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
-                    <div>
-                        <h4 style="color: var(--accent-red); margin-bottom: 1rem;">❌ Why Earlier Experiments Failed</h4>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🏝️ Small Arena</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Convergent tactics, no exploration space<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Island dwarfism</em>
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🎯 Fixed Opponent</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Overfitting, no pressure to adapt<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Coelacanth (400M years unchanged)</em>
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px;">
-                            <h5 style="margin-bottom: 0.5rem;">🧬 Single Lineage</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                No genetic diversity, local optimum trap<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Cheetah genetic bottleneck</em>
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">✅ Our Solution: Co-Evolution</h4>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🌍 Bigger Arena</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                1000×1000 units, exploration space for novel tactics<br>
-                                <strong>Result:</strong> Formation Spread emerges
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🔄 Alternating Pressure</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Team A evolves → Team B responds → repeat<br>
-                                <strong>Result:</strong> Shifting fitness landscape (Red Queen)
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px;">
-                            <h5 style="margin-bottom: 0.5rem;">⚔️ Dynamic Opponent</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Opponent improves, can't overfit<br>
-                                <strong>Result:</strong> 35% faster learning vs isolated evolution
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <p style="margin-top: 1.5rem; text-align: center; font-size: 1.05rem;">
-                    <strong>Key insight:</strong> Evolution needs enemies that fight back.
-                </p>
-            </section>
-
-            <section>
-                <h2>The Red Queen's Race</h2>
-                <h3>Why Team A Failed to Adapt</h3>
-
-                <div class="big-quote" style="font-size: 1.6rem; margin: 0.8rem 0;">
-                    "It takes all the running you can do, to keep in the same place."
-                    <div class="quote-attribution">— Lewis Carroll, <em>Through the Looking-Glass</em></div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
-                    <div>
-                        <h4 style="color: var(--accent-red); margin-bottom: 0.8rem;">Team A: Trapped in Local Optimum</h4>
-                        <div class="diagram-container">
-                            <img src="figures/team_a_stagnation.png" alt="Team A's 47 rejected mutations" style="max-height: 200px;">
-                        </div>
-                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
-                            <li><strong>47 mutation attempts</strong></li>
-                            <li><strong>0 acceptances</strong></li>
-                            <li>Every change broke critical logic</li>
-                            <li>Over-specialized for pursuit_v1</li>
-                        </ul>
-                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
-                            Bio analog: Panda's thumb — over-adapted, can't switch
-                        </p>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">Team B: Adaptive Success</h4>
-                        <div class="diagram-container">
-                            <img src="figures/team_b_acceptance_rate.png" alt="Team B's 8 acceptances in 95 rounds" style="max-height: 200px;">
-                        </div>
-                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
-                            <li><strong>95 rounds total</strong></li>
-                            <li><strong>8 acceptances</strong> (8.4% rate)</li>
-                            <li>Started simple, stayed flexible</li>
-                            <li>Each innovation built on previous</li>
-                        </ul>
-                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
-                            Bio analog: Darwin's finches — beak plasticity
-                        </p>
-                    </div>
-                </div>
-
-                <div class="diagram-container" style="margin-top: 0.8rem;">
-                    <img src="figures/predator_prey_graph.png" style="max-height: 280px;" alt="Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness">
-                </div>
-
-                <p class="emphasis" style="margin-top: 0.8rem; font-size: 1.3rem;">
-                    Team A ran as fast as it could... and still lost ground.
-                </p>
-            </section>
-
-            <section>
-                <h2>What Evolution Unlocked</h2>
-                <h3>Cheap. Readable. Reproducible.</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1rem 0;">
-                    <div>
-                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Cost &amp; Time</h4>
-                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
-                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">AlphaStar (DeepMind)</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                ~$1,000,000 compute · weeks of training · TPU pods · 100B+ parameter neural net
-                            </p>
-                        </div>
-                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
-                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">SwarmEvolve (M25)</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                ~$10 API · 90 minutes · consumer GPU · 210 lines of C++
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Interpretability</h4>
-                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
-                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">Neural Net</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Black box. "It works, but we don't know why."
-                            </p>
-                        </div>
-                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
-                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">Evolved C++</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Read the code. Debug the logic. The "secret" is one line: <code>min_spacing = 80.0f</code>.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="benefits-grid" style="margin-top: 0.8rem;">
-                    <div class="benefit-card">
-                        <div class="benefit-icon">🔬</div>
-                        <h4>Interpretability</h4>
-                        <p style="font-size: 0.9rem;">Read the code. Debug the logic. No 100B-parameter mystery.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">⚡</div>
-                        <h4>Speed</h4>
-                        <p style="font-size: 0.9rem;">90 minutes vs weeks. Iterate in real time.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">💰</div>
-                        <h4>Democratization</h4>
-                        <p style="font-size: 0.9rem;">Consumer GPU. Open source. Anyone can run this.</p>
-                    </div>
-                </div>
-            </section>
 
             <!-- ============================================ -->
             <!-- ACT 4: EVOLUTION ENGINEERING                 -->
@@ -1914,6 +1707,214 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
             <!-- ============================================ -->
             <!-- BACKUP SLIDES                                -->
             <!-- ============================================ -->
+
+
+            <section>
+                <h2>The Reversal</h2>
+                <h3>Punctuated Equilibrium — Evolution Isn't a Ramp, It's a Staircase</h3>
+
+                <div class="diagram-container" style="margin: 1rem 0;">
+                    <img src="figures/fitness_timeline.png" alt="Fitness over time: Team A blue line starts high, Team B red line starts low and crosses over at Round 31">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">The Jump</h4>
+                        <p style="font-size: 1rem; line-height: 1.6;">
+                            <strong>95 rounds. ~90 minutes. ~$10.</strong><br><br>
+                            Round 13: Parity at 0.0 fitness<br>
+                            Round 31: <span style="color: var(--accent-green); font-size: 1.25rem; font-weight: 700;">Breakthrough</span> at +0.9<br>
+                            Round 41: Refined dominance
+                        </p>
+                        <div class="definition" style="margin-top: 0.8rem;">
+                            <div class="definition-term">Punctuated Equilibrium</div>
+                            <div class="definition-text" style="font-size: 0.85rem;">
+                                Stephen Jay Gould (1972): evolution happens in bursts, not gradually. Long stasis, then sudden change. Co-evolution made this happen on purpose.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="diagram-container">
+                        <img src="figures/tactical_staircase.png" alt="Staircase graph showing 6 tactical phases with vertical jumps in fitness" style="max-height: 380px;">
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>When Evolution Stalls</h2>
+                <h3>Lessons From Failed Experiments</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
+                    <div>
+                        <h4 style="color: var(--accent-red); margin-bottom: 1rem;">❌ Why Earlier Experiments Failed</h4>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h5 style="margin-bottom: 0.5rem;">🏝️ Small Arena</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Convergent tactics, no exploration space<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Island dwarfism</em>
+                            </p>
+                        </div>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h5 style="margin-bottom: 0.5rem;">🎯 Fixed Opponent</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Overfitting, no pressure to adapt<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Coelacanth (400M years unchanged)</em>
+                            </p>
+                        </div>
+
+                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px;">
+                            <h5 style="margin-bottom: 0.5rem;">🧬 Single Lineage</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                No genetic diversity, local optimum trap<br>
+                                <em style="color: var(--text-secondary);">Bio analog: Cheetah genetic bottleneck</em>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">✅ Our Solution: Co-Evolution</h4>
+
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h5 style="margin-bottom: 0.5rem;">🌍 Bigger Arena</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                1000×1000 units, exploration space for novel tactics<br>
+                                <strong>Result:</strong> Formation Spread emerges
+                            </p>
+                        </div>
+
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h5 style="margin-bottom: 0.5rem;">🔄 Alternating Pressure</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Team A evolves → Team B responds → repeat<br>
+                                <strong>Result:</strong> Shifting fitness landscape (Red Queen)
+                            </p>
+                        </div>
+
+                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px;">
+                            <h5 style="margin-bottom: 0.5rem;">⚔️ Dynamic Opponent</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Opponent improves, can't overfit<br>
+                                <strong>Result:</strong> 35% faster learning vs isolated evolution
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="margin-top: 1.5rem; text-align: center; font-size: 1.05rem;">
+                    <strong>Key insight:</strong> Evolution needs enemies that fight back.
+                </p>
+            </section>
+
+            <section>
+                <h2>The Red Queen's Race</h2>
+                <h3>Why Team A Failed to Adapt</h3>
+
+                <div class="big-quote" style="font-size: 1.6rem; margin: 0.8rem 0;">
+                    "It takes all the running you can do, to keep in the same place."
+                    <div class="quote-attribution">— Lewis Carroll, <em>Through the Looking-Glass</em></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <div>
+                        <h4 style="color: var(--accent-red); margin-bottom: 0.8rem;">Team A: Trapped in Local Optimum</h4>
+                        <div class="diagram-container">
+                            <img src="figures/team_a_stagnation.png" alt="Team A's 47 rejected mutations" style="max-height: 200px;">
+                        </div>
+                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
+                            <li><strong>47 mutation attempts</strong></li>
+                            <li><strong>0 acceptances</strong></li>
+                            <li>Every change broke critical logic</li>
+                            <li>Over-specialized for pursuit_v1</li>
+                        </ul>
+                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
+                            Bio analog: Panda's thumb — over-adapted, can't switch
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">Team B: Adaptive Success</h4>
+                        <div class="diagram-container">
+                            <img src="figures/team_b_acceptance_rate.png" alt="Team B's 8 acceptances in 95 rounds" style="max-height: 200px;">
+                        </div>
+                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
+                            <li><strong>95 rounds total</strong></li>
+                            <li><strong>8 acceptances</strong> (8.4% rate)</li>
+                            <li>Started simple, stayed flexible</li>
+                            <li>Each innovation built on previous</li>
+                        </ul>
+                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
+                            Bio analog: Darwin's finches — beak plasticity
+                        </p>
+                    </div>
+                </div>
+
+                <div class="diagram-container" style="margin-top: 0.8rem;">
+                    <img src="figures/predator_prey_graph.png" style="max-height: 280px;" alt="Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness">
+                </div>
+
+                <p class="emphasis" style="margin-top: 0.8rem; font-size: 1.3rem;">
+                    Team A ran as fast as it could... and still lost ground.
+                </p>
+            </section>
+
+            <section>
+                <h2>What Evolution Unlocked</h2>
+                <h3>Cheap. Readable. Reproducible.</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1rem 0;">
+                    <div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Cost &amp; Time</h4>
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
+                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">AlphaStar (DeepMind)</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                ~$1,000,000 compute · weeks of training · TPU pods · 100B+ parameter neural net
+                            </p>
+                        </div>
+                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
+                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">SwarmEvolve (M25)</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                ~$10 API · 90 minutes · consumer GPU · 210 lines of C++
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Interpretability</h4>
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
+                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">Neural Net</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Black box. "It works, but we don't know why."
+                            </p>
+                        </div>
+                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
+                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">Evolved C++</h5>
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                Read the code. Debug the logic. The "secret" is one line: <code>min_spacing = 80.0f</code>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="benefits-grid" style="margin-top: 0.8rem;">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🔬</div>
+                        <h4>Interpretability</h4>
+                        <p style="font-size: 0.9rem;">Read the code. Debug the logic. No 100B-parameter mystery.</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⚡</div>
+                        <h4>Speed</h4>
+                        <p style="font-size: 0.9rem;">90 minutes vs weeks. Iterate in real time.</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">💰</div>
+                        <h4>Democratization</h4>
+                        <p style="font-size: 0.9rem;">Consumer GPU. Open source. Anyone can run this.</p>
+                    </div>
+                </div>
+            </section>
+
 
             <section>
                 <h2>Beyond Swarms: Evolution Arenas in the Wild</h2>
