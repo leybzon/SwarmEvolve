@@ -993,7 +993,7 @@
                             </video>
                         </div>
                         <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 0.6rem;">
-                            🔴 Team A (champion, 204 LOC) &nbsp;vs&nbsp; 🔵 Team B (baseline, 66 LOC) — Round 1
+                            🔴 Team A (final champion, 204 LOC) &nbsp;vs&nbsp; 🔵 Team B (baseline, 66 LOC) — Round 1
                         </p>
                     </div>
 
@@ -1109,7 +1109,7 @@
 
                 <p style="margin-top: 0.8rem; font-size: 1rem; text-align: center; color: var(--text-secondary);">
                     These tactics have names because we <em>observed</em> them. The LLM didn't plan "zone control."<br>
-                    It tried <strong>47 mutations</strong>. <strong>8 survived</strong>. This one won.
+                    Across both teams: <strong>55 mutation attempts</strong>. <strong>8 accepted</strong>. This is one of them.
                 </p>
             </section>
 
@@ -1145,7 +1145,7 @@ if (mag &gt; 0.01f) {
                     </div>
 
                     <div class="code-panel code-panel-b">
-                        <div class="code-header">Round 31: Breakthrough (187 LOC)</div>
+                        <div class="code-header">Round 31 Breakthrough: 187 LOC</div>
                         <pre><code class="language-cpp">// Formation Spread with repulsion
 float repulse_x = 0.0f;
 float repulse_y = 0.0f;
@@ -1260,7 +1260,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <ul>
                             <li>Fast — one mutation, one compile, one test</li>
                             <li>Simple comparison: A's code vs B's code</li>
-                            <li>Cheap to iterate ($10 for 100 rounds)</li>
+                            <li>Cheap to iterate ($10 for 95 rounds)</li>
                         </ul>
                         <strong style="font-size: 0.9rem;">Cons</strong>
                         <ul>
@@ -1341,7 +1341,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         </div>
 
                         <div class="loop-settings">
-                            <strong>M25 settings:</strong> Alternating teams · 100 rounds total · current champion always faces current champion
+                            <strong>M25 settings:</strong> Alternating teams · 95 rounds total · current champion always faces current champion
                         </div>
                     </div>
                 </div>
@@ -1486,7 +1486,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                             <p>Let it run. Cheap if you have spare compute.</p>
                         </div>
                         <div class="m25-pick">
-                            <strong>M25 chose: Fixed budget — 100 rounds, ~$10</strong>
+                            <strong>M25 chose: Fixed budget — 95 rounds, ~$10</strong>
                             <p>Predictable, re-runnable for ablation studies, fits a lunch break.</p>
                         </div>
                     </div>
@@ -1541,7 +1541,7 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                         <span class="recipe-icon">🛑</span>
                         <div>
                             <div class="recipe-label">TERMINATION</div>
-                            <div class="recipe-value">100 rounds · ~$10 · ~90 min</div>
+                            <div class="recipe-value">95 rounds · ~$10 · ~90 min</div>
                         </div>
                     </div>
                 </div>
@@ -1551,8 +1551,8 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 <div class="vs-container" style="margin-top: 0.8rem;">
                     <div class="fighter fighter-a">
                         <h4 style="color: var(--accent-blue); margin-bottom: 0.8rem;">Team A — The Champion</h4>
-                        <div class="stat-line"><span class="stat-label">Evolution:</span><span class="stat-value">100 generations</span></div>
-                        <div class="stat-line"><span class="stat-label">Code:</span><span class="stat-value">204 LOC</span></div>
+                        <div class="stat-line"><span class="stat-label">Evolution:</span><span class="stat-value">95 generations</span></div>
+                        <div class="stat-line"><span class="stat-label">Final champion:</span><span class="stat-value">204 LOC</span></div>
                         <div class="stat-line"><span class="stat-label">Starting fitness:</span><span class="stat-value" style="color: var(--accent-blue);">+1.0 (perfect)</span></div>
                     </div>
                     <div class="vs-badge">VS</div>
