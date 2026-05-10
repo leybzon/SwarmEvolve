@@ -25,11 +25,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from journal import (  # noqa: E402
+from journal import (
     JOURNAL_SCHEMA_VERSION,
     MAX_REWRITES,
     METRIC_REL_TOLERANCE,
-    ValidationResult,
     append_entry,
     canonicalise_entry,
     read_entries,
@@ -38,18 +37,21 @@ from journal import (  # noqa: E402
     validate_against_aar,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixture builders
 # ---------------------------------------------------------------------------
 
-def _ok_entry(generation: int, *,
-              verdict: str = "confirmed",
-              fitness: float | None = 0.5,
-              fitness_delta: float | None = 0.1,
-              tags: list[str] | None = None,
-              cited: dict | None = None,
-              status: str = "ok") -> dict:
+
+def _ok_entry(
+    generation: int,
+    *,
+    verdict: str = "confirmed",
+    fitness: float | None = 0.5,
+    fitness_delta: float | None = 0.1,
+    tags: list[str] | None = None,
+    cited: dict | None = None,
+    status: str = "ok",
+) -> dict:
     if tags is None:
         tags = ["tight_formation", "focus_fire"]
     if cited is None:
@@ -83,12 +85,14 @@ def _ok_entry(generation: int, *,
 
 
 def _stall_entry(generation: int) -> dict:
-    e = _ok_entry(generation,
-                  verdict="stalled",
-                  fitness=None,
-                  fitness_delta=None,
-                  status="compile_failed",
-                  cited={})
+    e = _ok_entry(
+        generation,
+        verdict="stalled",
+        fitness=None,
+        fitness_delta=None,
+        status="compile_failed",
+        cited={},
+    )
     e["tactic_tags"] = []
     return e
 
@@ -104,6 +108,7 @@ _AAR_OK = {
 # ---------------------------------------------------------------------------
 # Schema validation
 # ---------------------------------------------------------------------------
+
 
 def test_schema_accepts_ok_entry() -> None:
     entry = canonicalise_entry(_ok_entry(1))
@@ -146,6 +151,7 @@ def test_schema_rejects_ok_with_stalled_verdict() -> None:
 # ---------------------------------------------------------------------------
 # Metric grounding
 # ---------------------------------------------------------------------------
+
 
 def test_metric_grounding_accepts_within_tolerance() -> None:
     aar = {"focus_fire_redundancy": 0.2500}
@@ -193,6 +199,7 @@ def test_metric_grounding_zero_truth_uses_absolute_tolerance() -> None:
 # Canonicalisation
 # ---------------------------------------------------------------------------
 
+
 def test_canonicalise_lowercases_and_snakecases_tags() -> None:
     entry = _ok_entry(1, tags=["Tight Formation", "FOCUS-FIRE", "tight_formation"])
     canon = canonicalise_entry(entry)
@@ -217,6 +224,7 @@ def test_canonicalise_defaults_schema_version() -> None:
 # ---------------------------------------------------------------------------
 # Append path
 # ---------------------------------------------------------------------------
+
 
 def test_append_writes_canonical_line(tmp_path: Path) -> None:
     path = tmp_path / "journal.jsonl"
@@ -282,6 +290,7 @@ def test_append_appends_not_overwrites(tmp_path: Path) -> None:
 # Read path
 # ---------------------------------------------------------------------------
 
+
 def test_read_nonexistent_returns_empty(tmp_path: Path) -> None:
     assert read_entries(tmp_path / "never.jsonl") == []
 
@@ -311,6 +320,7 @@ def test_read_raises_on_non_trailing_corruption(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Recall
 # ---------------------------------------------------------------------------
+
 
 def _build_30_entry_fixture(path: Path, aar: dict) -> None:
     """Populate a path with 30 entries spanning gens 0..29."""
@@ -369,8 +379,9 @@ def test_recall_tag_overlap_selects_matching(tmp_path: Path) -> None:
     path = tmp_path / "journal.jsonl"
     _build_30_entry_fixture(path, _AAR_OK)
     # Planned tags target the 'tight_formation' lineage.
-    picked = recall(path, recency_k=0, extremes_k=0,
-                    planned_tags=["tight_formation"], max_entries=20)
+    picked = recall(
+        path, recency_k=0, extremes_k=0, planned_tags=["tight_formation"], max_entries=20
+    )
     gens = {int(e["generation"]) for e in picked}
     # At least one tight_formation entry selected (gens where g%3==0).
     assert any(g % 3 == 0 for g in gens)
@@ -379,16 +390,20 @@ def test_recall_tag_overlap_selects_matching(tmp_path: Path) -> None:
 def test_recall_caps_at_max_entries(tmp_path: Path) -> None:
     path = tmp_path / "journal.jsonl"
     _build_30_entry_fixture(path, _AAR_OK)
-    picked = recall(path, recency_k=10, extremes_k=10, max_entries=5,
-                    planned_tags=["tight_formation", "spread", "kiting"])
+    picked = recall(
+        path,
+        recency_k=10,
+        extremes_k=10,
+        max_entries=5,
+        planned_tags=["tight_formation", "spread", "kiting"],
+    )
     assert len(picked) <= 5
 
 
 def test_recall_caps_at_max_bytes(tmp_path: Path) -> None:
     path = tmp_path / "journal.jsonl"
     _build_30_entry_fixture(path, _AAR_OK)
-    picked = recall(path, max_bytes=500, max_entries=100,
-                    planned_tags=["tight_formation"])
+    picked = recall(path, max_bytes=500, max_entries=100, planned_tags=["tight_formation"])
     total_bytes = sum(len(json.dumps(e, sort_keys=True)) + 1 for e in picked)
     assert total_bytes <= 500 or len(picked) == 1  # at least one kept
 
@@ -408,6 +423,7 @@ def test_recall_empty_journal(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
+
 
 def test_render_for_prompt_empty() -> None:
     md = render_for_prompt([])
@@ -436,6 +452,7 @@ def test_render_for_prompt_token_cap() -> None:
 # Resume semantics (§3.X.7 criterion 3)
 # ---------------------------------------------------------------------------
 
+
 def test_resume_reproduces_next_recall(tmp_path: Path) -> None:
     """Replaying from journal.jsonl reproduces the recall output exactly."""
     path = tmp_path / "journal.jsonl"
@@ -449,6 +466,7 @@ def test_resume_reproduces_next_recall(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Constants sanity
 # ---------------------------------------------------------------------------
+
 
 def test_constants_match_spec() -> None:
     assert JOURNAL_SCHEMA_VERSION == 1

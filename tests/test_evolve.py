@@ -44,9 +44,9 @@ CHECKPOINT_SCHEMA = REPO_ROOT / "docs" / "checkpoint_schema.json"
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import evolve  # noqa: E402
-import experiment_log  # noqa: E402
-from _build_helper import CXX  # noqa: E402
+import evolve
+import experiment_log
+from _build_helper import CXX
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -104,17 +104,28 @@ def test_no_cpp_block_rejects_gen(tmp_path: Path, opponent_path: Path):
     (mr / "0.md").write_text("no code block here, just prose.\n")
 
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr),
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--out-dir", str(out_dir),
-        "--seed", "7",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mr),
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "1",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "7",
+        ]
+    )
     # Loop completes (exit 0) because 1 failure is below the default cap.
     assert rc == 0
     state = json.loads((out_dir / "state.json").read_text())
@@ -137,18 +148,30 @@ def test_retry_disabled_with_zero_budget(tmp_path: Path, opponent_path: Path):
     (mr / "0.md").write_text("no fence here.\n")
 
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr),
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--max-compile-retries", "0",
-        "--out-dir", str(out_dir),
-        "--seed", "7",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mr),
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "1",
+            "--max-compile-retries",
+            "0",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "7",
+        ]
+    )
     assert rc == 0
     state = json.loads((out_dir / "state.json").read_text())
     assert state["history"][0]["status"] == "parse_failed"
@@ -158,7 +181,8 @@ def test_retry_disabled_with_zero_budget(tmp_path: Path, opponent_path: Path):
 
 @pytest.mark.skipif(CXX is None, reason="no C++ compiler available")
 def test_retry_succeeds_after_bad_first_response(
-    tmp_path: Path, opponent_path: Path,
+    tmp_path: Path,
+    opponent_path: Path,
 ):
     """First mock response has no fenced block (parse_failed); the retry
     pulls a valid pursuit AI and the generation is reported with the
@@ -172,18 +196,30 @@ def test_retry_succeeds_after_bad_first_response(
     (mr / "1.md").write_text(_fenced(_baseline_cpp("TeamA")))
 
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr),
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--max-compile-retries", "3",
-        "--out-dir", str(out_dir),
-        "--seed", "7",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mr),
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "1",
+            "--max-compile-retries",
+            "3",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "7",
+        ]
+    )
     assert rc == 0
     state = json.loads((out_dir / "state.json").read_text())
     row = state["history"][0]
@@ -203,7 +239,8 @@ def test_retry_succeeds_after_bad_first_response(
 
 
 def test_retry_exhausts_budget_then_reports_last_stage(
-    tmp_path: Path, opponent_path: Path,
+    tmp_path: Path,
+    opponent_path: Path,
 ):
     """When every attempt within the retry budget fails parse, the
     generation is recorded as parse_failed with n_attempts = budget+1.
@@ -214,18 +251,30 @@ def test_retry_exhausts_budget_then_reports_last_stage(
         (mr / f"{i:02d}.md").write_text(f"no fence in response {i}\n")
 
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr),
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--max-compile-retries", "3",
-        "--out-dir", str(out_dir),
-        "--seed", "7",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mr),
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "1",
+            "--max-compile-retries",
+            "3",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "7",
+        ]
+    )
     assert rc == 0
     state = json.loads((out_dir / "state.json").read_text())
     row = state["history"][0]
@@ -242,18 +291,30 @@ def test_compile_failure_cap(tmp_path: Path, opponent_path: Path):
         (mr / f"{i:02d}.md").write_text(f"no fence in response {i}\n")
 
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr),
-        "--generations", "10",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--max-compile-failures", "3",
-        "--checkpoint-every", "1",
-        "--out-dir", str(out_dir),
-        "--seed", "7",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mr),
+            "--generations",
+            "10",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--max-compile-failures",
+            "3",
+            "--checkpoint-every",
+            "1",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "7",
+        ]
+    )
     assert rc == evolve.EXIT_LOOP_ABORTED_COMPILE_CAP
     state = json.loads((out_dir / "state.json").read_text())
     assert state["compile_failures"] == 3
@@ -261,12 +322,14 @@ def test_compile_failure_cap(tmp_path: Path, opponent_path: Path):
 
     # events.jsonl must contain loop_aborted with reason=max_compile_failures.
     events = experiment_log.ExperimentLog.read(out_dir)
-    assert any(e["type"] == "loop_aborted"
-               and e.get("reason") == "max_compile_failures" for e in events)
+    assert any(
+        e["type"] == "loop_aborted" and e.get("reason") == "max_compile_failures" for e in events
+    )
 
 
-def test_redacts_api_key_in_logs(tmp_path: Path, opponent_path: Path,
-                                 monkeypatch: pytest.MonkeyPatch):
+def test_redacts_api_key_in_logs(
+    tmp_path: Path, opponent_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     """A fake Anthropic key smuggled into an LLM error string must be
     redacted in every on-disk artifact the loop writes."""
     # Use a payload that masquerades as an error message containing the
@@ -279,12 +342,14 @@ def test_redacts_api_key_in_logs(tmp_path: Path, opponent_path: Path,
 
     class LeakyClient:
         model = "mock-leaky"
+
         def generate(self, prompt: str, *, max_tokens: int = 4096):
             raise llm_client.LLMError(f"synthetic failure: api_key={fake_key}")
 
     # Build state directly (bypass CLI) so we can inject LeakyClient.
     out_dir = tmp_path / "run"
     out_dir.mkdir()
+
     # Feed the loop through the normal code path by monkey-patching
     # evolve._build_client to yield our leaky client.
     def _build(kind, *, model, mock_response_paths, mock_cursor):
@@ -292,21 +357,33 @@ def test_redacts_api_key_in_logs(tmp_path: Path, opponent_path: Path,
 
     monkeypatch.setattr(evolve, "_build_client", _build)
 
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        # mock_response_paths is not actually read by LeakyClient but
-        # the CLI requires --mock-response-dir; pass an empty placeholder
-        # via a dummy md.
-        "--mock-response-dir", str(_dummy_mock_dir(tmp_path)),
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--max-compile-failures", "5",
-        "--checkpoint-every", "1",
-        "--out-dir", str(out_dir),
-        "--seed", "42",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            # mock_response_paths is not actually read by LeakyClient but
+            # the CLI requires --mock-response-dir; pass an empty placeholder
+            # via a dummy md.
+            "--mock-response-dir",
+            str(_dummy_mock_dir(tmp_path)),
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--max-compile-failures",
+            "5",
+            "--checkpoint-every",
+            "1",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "42",
+        ]
+    )
     # Loop returns 0 (1 failure, cap is 5). The key must not appear
     # anywhere under run_dir/.
     assert rc == 0
@@ -346,7 +423,9 @@ needs_cxx = pytest.mark.skipif(CXX is None, reason="no C++ compiler available")
 
 @needs_cxx
 def test_three_gen_mock_loop(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """Three-gen run with symmetric seed=opponent.
 
@@ -357,17 +436,28 @@ def test_three_gen_mock_loop(
     gen entries, and a checkpoint + plot exist.
     """
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir_three_gens),
-        "--generations", "3",
-        "--n-matches", "3",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--out-dir", str(out_dir),
-        "--seed", "101",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir_three_gens),
+            "--generations",
+            "3",
+            "--n-matches",
+            "3",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "1",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "101",
+        ]
+    )
     assert rc == 0, f"loop exited {rc}"
 
     state = json.loads((out_dir / "state.json").read_text())
@@ -395,6 +485,7 @@ def test_three_gen_mock_loop(
     plot = out_dir / "plots" / "fitness.png"
     try:
         import matplotlib  # noqa: F401
+
         have_mpl = True
     except ImportError:
         have_mpl = False
@@ -422,26 +513,37 @@ def test_three_gen_mock_loop(
 
 @needs_cxx
 def test_checkpoint_validates_against_schema(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     jsonschema = pytest.importorskip("jsonschema")
     out_dir = tmp_path / "run"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir_three_gens),
-        "--generations", "3",
-        "--n-matches", "2",
-        "--workers", "1",
-        "--checkpoint-every", "3",
-        "--out-dir", str(out_dir),
-        "--seed", "11",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir_three_gens),
+            "--generations",
+            "3",
+            "--n-matches",
+            "2",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "3",
+            "--out-dir",
+            str(out_dir),
+            "--seed",
+            "11",
+        ]
+    )
     assert rc == 0
     schema = json.loads(CHECKPOINT_SCHEMA.read_text())
-    fitness_schema = json.loads(
-        (REPO_ROOT / "docs" / "fitness_schema.json").read_text()
-    )
+    fitness_schema = json.loads((REPO_ROOT / "docs" / "fitness_schema.json").read_text())
     # The checkpoint schema's `$ref: fitness_schema.json` resolves
     # relative to its own `$id` — we pre-seed the resolver store so it
     # never hits the network.
@@ -459,43 +561,71 @@ def test_checkpoint_validates_against_schema(
 
 @needs_cxx
 def test_resume_matches_uninterrupted(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """Run 2 gens → resume for 1 more → same final champion as a
     single uninterrupted 3-gen run (with the same seed)."""
     # Run A: 2 gens, then resume for 1 more.
     run_a = tmp_path / "run_a"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir_three_gens),
-        "--generations", "2",
-        "--n-matches", "2",
-        "--workers", "1",
-        "--checkpoint-every", "2",
-        "--out-dir", str(run_a),
-        "--seed", "321",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir_three_gens),
+            "--generations",
+            "2",
+            "--n-matches",
+            "2",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "2",
+            "--out-dir",
+            str(run_a),
+            "--seed",
+            "321",
+        ]
+    )
     assert rc == 0
-    rc = evolve.main([
-        "--resume", str(run_a),
-        "--generations", "3",
-    ])
+    rc = evolve.main(
+        [
+            "--resume",
+            str(run_a),
+            "--generations",
+            "3",
+        ]
+    )
     assert rc == 0
 
     # Run B: 3 gens in one shot.
     run_b = tmp_path / "run_b"
-    rc = evolve.main([
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir_three_gens),
-        "--generations", "3",
-        "--n-matches", "2",
-        "--workers", "1",
-        "--checkpoint-every", "3",
-        "--out-dir", str(run_b),
-        "--seed", "321",
-    ])
+    rc = evolve.main(
+        [
+            "--opponent",
+            str(opponent_path),
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir_three_gens),
+            "--generations",
+            "3",
+            "--n-matches",
+            "2",
+            "--workers",
+            "1",
+            "--checkpoint-every",
+            "3",
+            "--out-dir",
+            str(run_b),
+            "--seed",
+            "321",
+        ]
+    )
     assert rc == 0
 
     state_a = json.loads((run_a / "state.json").read_text())
@@ -516,20 +646,37 @@ def test_resume_matches_uninterrupted(
 # ---------------------------------------------------------------------------
 
 
-def _run_evolve(tmp_path: Path, opponent_path: Path, mr_dir: Path,
-                *, aar: bool, journal: bool, generations: int = 2,
-                seed: int = 7, name: str = "run") -> Path:
+def _run_evolve(
+    tmp_path: Path,
+    opponent_path: Path,
+    mr_dir: Path,
+    *,
+    aar: bool,
+    journal: bool,
+    generations: int = 2,
+    seed: int = 7,
+    name: str = "run",
+) -> Path:
     out_dir = tmp_path / name
     argv = [
-        "--opponent", str(opponent_path),
-        "--client", "mock",
-        "--mock-response-dir", str(mr_dir),
-        "--generations", str(generations),
-        "--n-matches", "2",
-        "--workers", "1",
-        "--checkpoint-every", "1",
-        "--out-dir", str(out_dir),
-        "--seed", str(seed),
+        "--opponent",
+        str(opponent_path),
+        "--client",
+        "mock",
+        "--mock-response-dir",
+        str(mr_dir),
+        "--generations",
+        str(generations),
+        "--n-matches",
+        "2",
+        "--workers",
+        "1",
+        "--checkpoint-every",
+        "1",
+        "--out-dir",
+        str(out_dir),
+        "--seed",
+        str(seed),
         "--aar" if aar else "--no-aar",
         "--journal" if journal else "--no-journal",
     ]
@@ -539,17 +686,31 @@ def _run_evolve(tmp_path: Path, opponent_path: Path, mr_dir: Path,
 
 
 @needs_cxx
-@pytest.mark.parametrize("aar,journal", [
-    (False, False), (True, False), (False, True), (True, True),
-])
+@pytest.mark.parametrize(
+    "aar,journal",
+    [
+        (False, False),
+        (True, False),
+        (False, True),
+        (True, True),
+    ],
+)
 def test_m16_ablation_matrix_runs_clean(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
-    aar: bool, journal: bool,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
+    aar: bool,
+    journal: bool,
 ):
     """All four 2x2 ablation combinations complete without error."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=aar, journal=journal, generations=2, seed=17,
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=aar,
+        journal=journal,
+        generations=2,
+        seed=17,
         name=f"run_{int(aar)}{int(journal)}",
     )
     # Generations completed.
@@ -563,12 +724,20 @@ def test_m16_ablation_matrix_runs_clean(
 
 @needs_cxx
 def test_m16_journal_written_when_enabled(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With --journal, journal.jsonl has one entry per generation."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=True, journal=True, generations=2, seed=19, name="run_j_on",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=True,
+        journal=True,
+        generations=2,
+        seed=19,
+        name="run_j_on",
     )
     jp = out_dir / "journal.jsonl"
     assert jp.is_file(), "journal.jsonl missing"
@@ -577,8 +746,13 @@ def test_m16_journal_written_when_enabled(
     for raw in lines:
         entry = json.loads(raw)
         assert entry["schema_version"] == 1
-        assert entry["status"] in ("ok", "compile_failed", "lint_failed",
-                                    "inject_failed", "runtime_failed")
+        assert entry["status"] in (
+            "ok",
+            "compile_failed",
+            "lint_failed",
+            "inject_failed",
+            "runtime_failed",
+        )
         assert entry["verdict"] in ("confirmed", "partial", "rejected", "stalled")
         # Validation bookkeeping is present.
         assert "validation" in entry
@@ -587,24 +761,40 @@ def test_m16_journal_written_when_enabled(
 
 @needs_cxx
 def test_m16_no_journal_when_disabled(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With --no-journal, journal.jsonl must not be created."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=True, journal=False, generations=2, seed=23, name="run_j_off",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=True,
+        journal=False,
+        generations=2,
+        seed=23,
+        name="run_j_off",
     )
     assert not (out_dir / "journal.jsonl").exists()
 
 
 @needs_cxx
 def test_m16_aar_sidecars_when_enabled(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With --aar, each gen dir has aar.md and aar.json sidecars."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=True, journal=False, generations=2, seed=29, name="run_a_on",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=True,
+        journal=False,
+        generations=2,
+        seed=29,
+        name="run_a_on",
     )
     for n in range(2):
         gd = out_dir / "gens" / f"{n:04d}"
@@ -617,12 +807,20 @@ def test_m16_aar_sidecars_when_enabled(
 
 @needs_cxx
 def test_m16_no_aar_sidecars_when_disabled(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With --no-aar, no aar.md/aar.json sidecars are produced."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=False, journal=False, generations=2, seed=31, name="run_a_off",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=False,
+        journal=False,
+        generations=2,
+        seed=31,
+        name="run_a_off",
     )
     for n in range(2):
         gd = out_dir / "gens" / f"{n:04d}"
@@ -632,13 +830,21 @@ def test_m16_no_aar_sidecars_when_disabled(
 
 @needs_cxx
 def test_m16_prompt_contains_disabled_sentinel_when_ablated(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With both flags off, both {AAR} and {PRIOR_LESSONS} slots become
     the sentinel string ``(disabled)`` in every prompt."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=False, journal=False, generations=1, seed=37, name="run_both_off",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=False,
+        journal=False,
+        generations=1,
+        seed=37,
+        name="run_both_off",
     )
     prompt = (out_dir / "gens" / "0000" / "prompt.md").read_text()
     # The rendered prompt must carry the sentinel string for both slots
@@ -648,13 +854,21 @@ def test_m16_prompt_contains_disabled_sentinel_when_ablated(
 
 @needs_cxx
 def test_m16_prompt_contains_aar_block_on_gen_two(
-    tmp_path: Path, opponent_path: Path, mock_response_dir_three_gens: Path,
+    tmp_path: Path,
+    opponent_path: Path,
+    mock_response_dir_three_gens: Path,
 ):
     """With --aar, generation 1's prompt should contain the gen-0 AAR
     block (not the (disabled) sentinel in the AAR slot)."""
     out_dir = _run_evolve(
-        tmp_path, opponent_path, mock_response_dir_three_gens,
-        aar=True, journal=False, generations=2, seed=41, name="run_aar_on",
+        tmp_path,
+        opponent_path,
+        mock_response_dir_three_gens,
+        aar=True,
+        journal=False,
+        generations=2,
+        seed=41,
+        name="run_aar_on",
     )
     # Gen 0 has no prior AAR → the slot is "(none — no prior generation yet)".
     p0 = (out_dir / "gens" / "0000" / "prompt.md").read_text()
@@ -664,13 +878,13 @@ def test_m16_prompt_contains_aar_block_on_gen_two(
     p1 = (out_dir / "gens" / "0001" / "prompt.md").read_text()
     # Either a markdown-style heading or a known metric key from the AAR.
     has_aar_signal = any(
-        s in p1 for s in (
+        s in p1
+        for s in (
             "After-Action Report",  # telemetry_aar title
             "focus_fire_redundancy",
             "mean_pairwise_distance",
         )
     )
     assert has_aar_signal, (
-        "Gen-1 prompt did not include gen-0 AAR content; "
-        "first 2000 chars:\n" + p1[:2000]
+        "Gen-1 prompt did not include gen-0 AAR content; first 2000 chars:\n" + p1[:2000]
     )

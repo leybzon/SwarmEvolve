@@ -55,9 +55,10 @@ import json
 import logging
 import math
 import sys
-from dataclasses import dataclass, asdict, field
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 # --- local imports: scripts/ on sys.path -----------------------------------
 _THIS = Path(__file__).resolve()
@@ -114,6 +115,7 @@ _LOG = logging.getLogger("swarmevolve.tactic_detector")
 @dataclass(frozen=True)
 class TacticEvent:
     """One first-appearance record emitted by a detector."""
+
     schema_version: int
     tactic: str
     first_tick: int
@@ -192,9 +194,7 @@ def _split_allies_by_median_projection(
     rx, ry = rx / rn, ry / rn
     # Perpendicular axis (rotate 90° CCW).
     px, py = -ry, rx
-    projected = [
-        (px * (d["x"] - ex) + py * (d["y"] - ey), d) for d in allies
-    ]
+    projected = [(px * (d["x"] - ex) + py * (d["y"] - ey), d) for d in allies]
     # Sort by projection then by drone id for stability.
     projected.sort(key=lambda t: (t[0], t[1]["id"]))
     half = len(projected) // 2
@@ -215,7 +215,6 @@ def detect_flanking(
     best_streak = 0
     streak_start: int | None = None
     best_start: int | None = None
-    best_angle_at_fire = 0.0
     for t in ticks:
         allies = _alive(t[us_key])
         enemies = _alive(t[them_key])
@@ -243,14 +242,16 @@ def detect_flanking(
             if streak > best_streak:
                 best_streak = streak
                 best_start = streak_start
-                best_angle_at_fire = angle
                 if streak >= FLANK_MIN_STREAK_TICKS and best_start is not None:
                     return TacticEvent(
                         schema_version=SCHEMA_VERSION,
                         tactic="flanking",
                         first_tick=best_start,
                         sustained_ticks=streak,
-                        track="", model="", seed=-1, generation=-1,
+                        track="",
+                        model="",
+                        seed=-1,
+                        generation=-1,
                         perspective=perspective,
                         evidence={
                             "angle_deg": round(angle, 2),
@@ -329,7 +330,10 @@ def detect_kiting(
                     tactic="kiting",
                     first_tick=streak_start,
                     sustained_ticks=streak,
-                    track="", model="", seed=-1, generation=-1,
+                    track="",
+                    model="",
+                    seed=-1,
+                    generation=-1,
                     perspective=perspective,
                     evidence={
                         "kiting_fraction": round(frac, 3),
@@ -374,9 +378,7 @@ def detect_focus_fire_discipline(
             if atk["atk_team"] != us_team_id:
                 continue
             # Redundant ↔ target id was not alive at resolution time.
-            is_redundant = (
-                not atk["hit"] and not tgt_alive.get(atk["tgt_id"], True)
-            )
+            is_redundant = not atk["hit"] and not tgt_alive.get(atk["tgt_id"], True)
             window_attempts.append(1 if is_redundant else 0)
             if len(window_attempts) > FF_WINDOW_ATTEMPTS:
                 window_attempts.pop(0)
@@ -391,7 +393,10 @@ def detect_focus_fire_discipline(
                     tactic="focus_fire_discipline",
                     first_tick=first_tick_of_qualifying_window,
                     sustained_ticks=FF_WINDOW_ATTEMPTS,
-                    track="", model="", seed=-1, generation=-1,
+                    track="",
+                    model="",
+                    seed=-1,
+                    generation=-1,
                     perspective=perspective,
                     evidence={
                         "redundant_ratio": round(ratio, 4),
@@ -407,8 +412,7 @@ def detect_focus_fire_discipline(
 # ---------------------------------------------------------------------------
 
 
-def _quantise(x: float, bins: int,
-              lo: float = -1.0, hi: float = 1.0) -> int:
+def _quantise(x: float, bins: int, lo: float = -1.0, hi: float = 1.0) -> int:
     """Uniform bucket in [lo, hi] → {0, .., bins-1}. Out-of-range clips."""
     if x <= lo:
         return 0
@@ -429,7 +433,7 @@ def _nmi(xs: list[int], ys: list[int]) -> float:
     px: dict[int, int] = {}
     py: dict[int, int] = {}
     pxy: dict[tuple[int, int], int] = {}
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=False):
         px[x] = px.get(x, 0) + 1
         py[y] = py.get(y, 0) + 1
         pxy[(x, y)] = pxy.get((x, y), 0) + 1
@@ -482,8 +486,7 @@ def detect_message_coded_targeting(
             any_obs = True
         if any_obs:
             ticks_counted += 1
-    if (ticks_counted < MSG_MIN_TICKS
-            or target_events < MSG_MIN_TARGET_EVENTS):
+    if ticks_counted < MSG_MIN_TICKS or target_events < MSG_MIN_TARGET_EVENTS:
         return None
     best_c = -1
     best_nmi = -1.0
@@ -497,8 +500,7 @@ def detect_message_coded_targeting(
     # Find the earliest tick with any observation.
     first_tick = 0
     for t in ticks:
-        if any(a.get("alive") and int(a["target_id"]) >= 0
-               for a in t.get(us_actions, [])):
+        if any(a.get("alive") and int(a["target_id"]) >= 0 for a in t.get(us_actions, [])):
             first_tick = int(t["tick"])
             break
     return TacticEvent(
@@ -506,7 +508,10 @@ def detect_message_coded_targeting(
         tactic="message_coded_targeting",
         first_tick=first_tick,
         sustained_ticks=ticks_counted,
-        track="", model="", seed=-1, generation=-1,
+        track="",
+        model="",
+        seed=-1,
+        generation=-1,
         perspective=perspective,
         evidence={
             "best_channel": best_c,
@@ -567,15 +572,20 @@ def scan_trace(
         if ev is None:
             continue
         # Rehydrate metadata that the detectors don't see.
-        events.append(TacticEvent(
-            schema_version=ev.schema_version,
-            tactic=ev.tactic,
-            first_tick=ev.first_tick,
-            sustained_ticks=ev.sustained_ticks,
-            track=track, model=model, seed=seed, generation=generation,
-            perspective=ev.perspective,
-            evidence=ev.evidence,
-        ))
+        events.append(
+            TacticEvent(
+                schema_version=ev.schema_version,
+                tactic=ev.tactic,
+                first_tick=ev.first_tick,
+                sustained_ticks=ev.sustained_ticks,
+                track=track,
+                model=model,
+                seed=seed,
+                generation=generation,
+                perspective=ev.perspective,
+                evidence=ev.evidence,
+            )
+        )
     return events
 
 
@@ -584,8 +594,7 @@ def scan_trace(
 # ---------------------------------------------------------------------------
 
 
-def write_events(events: Iterable[TacticEvent], out_path: Path,
-                 *, pretty: bool = False) -> None:
+def write_events(events: Iterable[TacticEvent], out_path: Path, *, pretty: bool = False) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as fh:
         for ev in events:
@@ -609,9 +618,7 @@ def read_events(path: Path) -> list[dict[str, Any]]:
             # Tolerate a trailing partial line (kill-9 on appender).
             if i == len(path.read_text().splitlines()) - 1:
                 continue
-            raise ValueError(
-                f"{path}:{i}: invalid JSON ({e.msg})"
-            ) from e
+            raise ValueError(f"{path}:{i}: invalid JSON ({e.msg})") from e
     return events
 
 
@@ -681,8 +688,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    s = sub.add_parser("scan",
-                       help="scan a v2 trace → tactic_events.jsonl")
+    s = sub.add_parser("scan", help="scan a v2 trace → tactic_events.jsonl")
     s.add_argument("trace", help="path to v2 trace.jsonl")
     s.add_argument("out", help="path to output tactic_events.jsonl")
     s.add_argument("--perspective", choices=("a", "b"), default="a")
@@ -690,15 +696,18 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--model", default="", help="model id")
     s.add_argument("--seed", type=int, default=-1, help="lineage seed")
     s.add_argument("--generation", type=int, default=-1)
-    s.add_argument("--tactic", action="append",
-                   choices=list(TACTICS),
-                   help="restrict to a single tactic (repeatable)")
-    s.add_argument("--pretty", action="store_true",
-                   help="indent output JSON (not JSON-lines; for debugging)")
+    s.add_argument(
+        "--tactic",
+        action="append",
+        choices=list(TACTICS),
+        help="restrict to a single tactic (repeatable)",
+    )
+    s.add_argument(
+        "--pretty", action="store_true", help="indent output JSON (not JSON-lines; for debugging)"
+    )
     s.set_defaults(func=_cmd_scan)
 
-    d = sub.add_parser("dump-config",
-                       help="print the frozen threshold configuration")
+    d = sub.add_parser("dump-config", help="print the frozen threshold configuration")
     d.set_defaults(func=_cmd_dump_config)
     return parser
 
@@ -718,16 +727,31 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = [
-    "SCHEMA_VERSION", "TACTICS", "TacticEvent",
-    "detect_flanking", "detect_kiting",
-    "detect_focus_fire_discipline", "detect_message_coded_targeting",
-    "scan_trace", "write_events", "read_events",
-    "build_parser", "main",
+    "FF_MAX_REDUNDANT_RATIO",
+    "FF_WINDOW_ATTEMPTS",
+    "FLANK_MIN_ALLIES_ALIVE",
     # Thresholds (exported for tests + docs):
-    "FLANK_MIN_ANGLE_DEG", "FLANK_MIN_STREAK_TICKS", "FLANK_MIN_ALLIES_ALIVE",
-    "KITE_COS_MIN", "KITE_MIN_FRACTION", "KITE_MIN_STREAK_TICKS",
+    "FLANK_MIN_ANGLE_DEG",
+    "FLANK_MIN_STREAK_TICKS",
+    "KITE_COS_MIN",
+    "KITE_MIN_FRACTION",
+    "KITE_MIN_STREAK_TICKS",
     "KITE_MIN_VEL_MAG",
-    "FF_WINDOW_ATTEMPTS", "FF_MAX_REDUNDANT_RATIO",
-    "MSG_MIN_NMI", "MSG_MIN_TARGET_EVENTS", "MSG_MIN_TICKS",
-    "MSG_CHANNEL_BINS", "MSG_SIZE",
+    "MSG_CHANNEL_BINS",
+    "MSG_MIN_NMI",
+    "MSG_MIN_TARGET_EVENTS",
+    "MSG_MIN_TICKS",
+    "MSG_SIZE",
+    "SCHEMA_VERSION",
+    "TACTICS",
+    "TacticEvent",
+    "build_parser",
+    "detect_flanking",
+    "detect_focus_fire_discipline",
+    "detect_kiting",
+    "detect_message_coded_targeting",
+    "main",
+    "read_events",
+    "scan_trace",
+    "write_events",
 ]

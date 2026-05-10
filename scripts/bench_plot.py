@@ -113,8 +113,8 @@ def plot_wall_ms_vs_n(summary: list[dict[str, Any]], out_png: Path) -> bool:
         # IQR band (p25 / p75) drawn as a light error bar where available.
         y_lo = [r["wall_ms_p25"] for r in rows]
         y_hi = [r["wall_ms_p75"] for r in rows]
-        err_lo = [y - lo for y, lo in zip(ys, y_lo)]
-        err_hi = [hi - y for y, hi in zip(ys, y_hi)]
+        err_lo = [y - lo for y, lo in zip(ys, y_lo, strict=False)]
+        err_hi = [hi - y for y, hi in zip(ys, y_hi, strict=False)]
         ax.errorbar(
             xs,
             ys,
@@ -301,15 +301,11 @@ def render_all(out_dir: Path) -> dict[str, Any]:
     plots_dir = out_dir / "plots"
     plots_dir.mkdir(parents=True, exist_ok=True)
 
-    status["plots"]["wall_ms_vs_N.png"] = plot_wall_ms_vs_n(
-        summary, plots_dir / "wall_ms_vs_N.png"
-    )
+    status["plots"]["wall_ms_vs_N.png"] = plot_wall_ms_vs_n(summary, plots_dir / "wall_ms_vs_N.png")
     status["plots"]["per_tick_us_vs_N.png"] = plot_per_tick_us_vs_n(
         summary, plots_dir / "per_tick_us_vs_N.png"
     )
-    status["plots"]["speedup_vs_N.png"] = plot_speedup_vs_n(
-        summary, plots_dir / "speedup_vs_N.png"
-    )
+    status["plots"]["speedup_vs_N.png"] = plot_speedup_vs_n(summary, plots_dir / "speedup_vs_N.png")
     return status
 
 

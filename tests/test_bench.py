@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from tests._build_helper import BASELINES, CXX, build_matchup, render_baseline
+from tests._build_helper import BASELINES, CXX, render_baseline
 
 pytestmark = pytest.mark.skipif(CXX is None, reason="no C++17 compiler available")
 
@@ -117,9 +117,7 @@ def test_bench_binary_smoke(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
-    assert proc.returncode == 0, (
-        f"bench smoke failed rc={proc.returncode} stderr={proc.stderr!r}"
-    )
+    assert proc.returncode == 0, f"bench smoke failed rc={proc.returncode} stderr={proc.stderr!r}"
     lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]
     assert len(lines) == 3
     for i, line in enumerate(lines):
@@ -285,9 +283,7 @@ def test_bench_backends_agree_at_small_n(tmp_path: Path) -> None:
     assert gpp is not None  # for mypy
     # Use g++ (not CXX, which may be Homebrew clang) for both builds so the
     # only delta is the -fopenmp flag.
-    bin_cpu1 = _build_bench_binary_with_cc(
-        tmp_path, cc=gpp, label="cpu1", extra_flags=[]
-    )
+    bin_cpu1 = _build_bench_binary_with_cc(tmp_path, cc=gpp, label="cpu1", extra_flags=[])
     bin_omp = _build_bench_binary_with_cc(
         tmp_path, cc=gpp, label="cpu-omp", extra_flags=["-fopenmp"]
     )
@@ -319,9 +315,7 @@ def test_bench_backends_agree_at_small_n(tmp_path: Path) -> None:
 
     h_cpu1 = hashlib.sha256(trace_cpu1.read_bytes()).hexdigest()
     h_omp = hashlib.sha256(trace_omp.read_bytes()).hexdigest()
-    assert h_cpu1 == h_omp, (
-        f"OpenMP regressed determinism: cpu1={h_cpu1} cpu_omp={h_omp}"
-    )
+    assert h_cpu1 == h_omp, f"OpenMP regressed determinism: cpu1={h_cpu1} cpu_omp={h_omp}"
 
 
 def _build_bench_binary_with_cc(

@@ -9,7 +9,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from lint_ai_tokens import scan_file  # noqa: E402
+from lint_ai_tokens import scan_file
 
 
 def _write(tmp_path: Path, name: str, contents: str) -> Path:

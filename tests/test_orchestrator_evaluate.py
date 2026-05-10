@@ -38,11 +38,15 @@ jsonschema = pytest.importorskip("jsonschema")
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     import os as _os
+
     env = dict(_os.environ)
     env["CXX"] = CXX
     return subprocess.run(
         [sys.executable, str(ORCHESTRATOR), *args],
-        capture_output=True, text=True, check=False, env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
 
 
@@ -73,15 +77,23 @@ def evaluate_run(tmp_path_factory):
     Module-scoped to avoid paying the compile+run tax more than once.
     """
     out = tmp_path_factory.mktemp("evaluate_ok")
-    result = _run([
-        "evaluate",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--n-matches", "3",
-        "--seed-base", "0",
-        "--workers", "1",
-        "--out-dir", str(out),
-    ])
+    result = _run(
+        [
+            "evaluate",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--n-matches",
+            "3",
+            "--seed-base",
+            "0",
+            "--workers",
+            "1",
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
     return out
 
@@ -126,8 +138,7 @@ def test_evaluate_summary_matches_fitness_json(evaluate_run):
     fj = json.loads((evaluate_run / "fitness.json").read_text())
     events = _read_events(evaluate_run)
     summary = next(e for e in events if e["type"] == "fitness_summary")
-    for key in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev",
-                "ci_low", "ci_high"):
+    for key in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev", "ci_low", "ci_high"):
         assert summary[key] == fj[key], key
 
 
@@ -138,13 +149,19 @@ def test_evaluate_summary_matches_fitness_json(evaluate_run):
 
 def test_evaluate_missing_team_a_exits_2(tmp_path):
     out = tmp_path / "missing_a"
-    result = _run([
-        "evaluate",
-        "--team-a", str(tmp_path / "nope.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--n-matches", "1",
-        "--out-dir", str(out),
-    ])
+    result = _run(
+        [
+            "evaluate",
+            "--team-a",
+            str(tmp_path / "nope.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--n-matches",
+            "1",
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert result.returncode == 2
     assert "missing-team-a-source" in result.stderr
     # No fitness.json when input validation fails before any work.
@@ -153,13 +170,19 @@ def test_evaluate_missing_team_a_exits_2(tmp_path):
 
 def test_evaluate_missing_team_b_exits_2(tmp_path):
     out = tmp_path / "missing_b"
-    result = _run([
-        "evaluate",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(tmp_path / "nope.cpp"),
-        "--n-matches", "1",
-        "--out-dir", str(out),
-    ])
+    result = _run(
+        [
+            "evaluate",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(tmp_path / "nope.cpp"),
+            "--n-matches",
+            "1",
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert result.returncode == 2
     assert "missing-team-b-source" in result.stderr
 
@@ -173,14 +196,21 @@ def test_evaluate_compile_failure_exits_3(tmp_path):
         "}\n"
     )
     out = tmp_path / "compile_fail"
-    result = _run([
-        "evaluate",
-        "--team-a", str(broken),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--n-matches", "1",
-        "--workers", "1",
-        "--out-dir", str(out),
-    ])
+    result = _run(
+        [
+            "evaluate",
+            "--team-a",
+            str(broken),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert result.returncode == 3
     # No fitness.json because we failed before aggregating.
     assert not (out / "fitness.json").exists()

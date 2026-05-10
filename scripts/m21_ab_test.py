@@ -34,6 +34,7 @@ _LOG = logging.getLogger("swarmevolve.m21_ab_test")
 @dataclass
 class Condition:
     """Test condition configuration."""
+
     name: str
     description: str
     script: str  # Which script to run
@@ -59,8 +60,10 @@ CONDITIONS = [
         description="Dual-LLM (Opus planner + Haiku coder)",
         script="evolve_dual.py",
         extra_args=[
-            "--planner-model", "claude-opus-4-7",
-            "--coder-model", "claude-haiku-4-5",
+            "--planner-model",
+            "claude-opus-4-7",
+            "--coder-model",
+            "claude-haiku-4-5",
         ],
     ),
     Condition(
@@ -68,7 +71,8 @@ CONDITIONS = [
         description="Enhanced prompt + strict journal validation",
         script="evolve.py",
         extra_args=[
-            "--prompt", str(REPO_ROOT / "prompts" / "evolve_ai_v2_structured.md"),
+            "--prompt",
+            str(REPO_ROOT / "prompts" / "evolve_ai_v2_structured.md"),
             "--strict-reflection",
         ],
     ),
@@ -100,13 +104,20 @@ def run_lineage(
     cmd = [
         sys.executable,
         str(script_path),
-        "--opponent", str(opponent),
-        "--as-team", "A",
-        "--generations", str(generations),
-        "--n-matches", str(n_matches),
-        "--seed", str(seed),
-        "--out-dir", str(lineage_dir),
-    ] + condition.extra_args
+        "--opponent",
+        str(opponent),
+        "--as-team",
+        "A",
+        "--generations",
+        str(generations),
+        "--n-matches",
+        str(n_matches),
+        "--seed",
+        str(seed),
+        "--out-dir",
+        str(lineage_dir),
+        *condition.extra_args,
+    ]
 
     # Run
     start_time = datetime.now()
@@ -136,7 +147,7 @@ def run_lineage(
         try:
             with journal_path.open() as f:
                 for line in f:
-                    entry = json.loads(line)
+                    json.loads(line)
                     # TODO: Score reflection with M17 rubric scorer
                     # For now, use placeholder
                     reflection_scores.append(3.0)  # Placeholder
@@ -144,9 +155,7 @@ def run_lineage(
             _LOG.warning("failed to read journal: %s", e)
 
     median_reflection = (
-        sorted(reflection_scores)[len(reflection_scores) // 2]
-        if reflection_scores
-        else None
+        sorted(reflection_scores)[len(reflection_scores) // 2] if reflection_scores else None
     )
 
     # Read final fitness
@@ -208,16 +217,19 @@ def run_ab_test(
     # Write results CSV
     results_csv = out_dir / "m21_results.csv"
     with results_csv.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            "condition",
-            "seed",
-            "success",
-            "error",
-            "wall_seconds",
-            "generations_completed",
-            "median_reflection_score",
-            "final_fitness",
-        ])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "condition",
+                "seed",
+                "success",
+                "error",
+                "wall_seconds",
+                "generations_completed",
+                "median_reflection_score",
+                "final_fitness",
+            ],
+        )
         writer.writeheader()
         writer.writerows(results)
 
@@ -258,15 +270,17 @@ def _generate_report(results: list[dict], report_path: Path) -> None:
         ]
 
         median_reflection = (
-            sorted(reflection_scores)[len(reflection_scores) // 2]
-            if reflection_scores
-            else None
+            sorted(reflection_scores)[len(reflection_scores) // 2] if reflection_scores else None
         )
 
         report_lines.append(f"### {cond_name}")
         report_lines.append(f"- Lineages: {len(cond_results)}")
         report_lines.append(f"- Successful: {len(successful)} / {len(cond_results)}")
-        report_lines.append(f"- Median reflection score: {median_reflection:.2f}" if median_reflection else "- Median reflection score: N/A")
+        report_lines.append(
+            f"- Median reflection score: {median_reflection:.2f}"
+            if median_reflection
+            else "- Median reflection score: N/A"
+        )
         report_lines.append("")
 
     # Decision
@@ -275,11 +289,9 @@ def _generate_report(results: list[dict], report_path: Path) -> None:
     best_cond = max(
         by_condition.items(),
         key=lambda x: (
-            sorted([
-                r["median_reflection_score"] or 0
-                for r in x[1]
-                if r["success"]
-            ])[len([r for r in x[1] if r["success"]]) // 2]
+            sorted([r["median_reflection_score"] or 0 for r in x[1] if r["success"]])[
+                len([r for r in x[1] if r["success"]]) // 2
+            ]
             if [r for r in x[1] if r["success"]]
             else 0
         ),

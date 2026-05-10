@@ -40,7 +40,6 @@ import os
 import platform
 import re
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any
@@ -92,7 +91,10 @@ def _git_sha() -> str | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=False, timeout=2.0,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=2.0,
         )
         return out.stdout.strip() or None if out.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
@@ -103,7 +105,10 @@ def _git_dirty() -> bool | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "status", "--porcelain"],
-            capture_output=True, text=True, check=False, timeout=2.0,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=2.0,
         )
         if out.returncode != 0:
             return None
@@ -184,7 +189,7 @@ class ExperimentLog:
 
     # -- context-manager plumbing -------------------------------------
 
-    def __enter__(self) -> "ExperimentLog":
+    def __enter__(self) -> ExperimentLog:
         self.open()
         return self
 
@@ -288,15 +293,13 @@ class ExperimentLog:
                 try:
                     events.append(json.loads(line))
                 except json.JSONDecodeError as exc:
-                    raise ValueError(
-                        f"malformed event at {path}:{lineno}: {exc}"
-                    ) from exc
+                    raise ValueError(f"malformed event at {path}:{lineno}: {exc}") from exc
         return events
 
 
 __all__ = [
-    "ExperimentLog",
     "REDACTED",
+    "ExperimentLog",
     "build_environment_snapshot",
     "redact",
 ]

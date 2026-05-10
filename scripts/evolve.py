@@ -117,7 +117,7 @@ class GenSummary:
     whether the challenger was accepted."""
 
     generation: int
-    status: str                   # see STATUS_* below
+    status: str  # see STATUS_* below
     reject_reason: str | None = None
     mean: float | None = None
     stdev: float | None = None
@@ -148,7 +148,7 @@ class GenSummary:
 
 
 STATUS_ACCEPTED = "accepted"
-STATUS_REJECTED = "rejected"        # compiled + evaluated but not better
+STATUS_REJECTED = "rejected"  # compiled + evaluated but not better
 STATUS_LLM_FAILED = "llm_failed"
 STATUS_PARSE_FAILED = "parse_failed"
 STATUS_LINT_FAILED = "lint_failed"
@@ -157,14 +157,16 @@ STATUS_COMPILE_FAILED = "compile_failed"
 STATUS_EVAL_FAILED = "eval_failed"
 
 # Statuses that count toward --max-compile-failures.
-COUNTS_AS_FAILURE = frozenset({
-    STATUS_LLM_FAILED,
-    STATUS_PARSE_FAILED,
-    STATUS_LINT_FAILED,
-    STATUS_INJECT_FAILED,
-    STATUS_COMPILE_FAILED,
-    STATUS_EVAL_FAILED,
-})
+COUNTS_AS_FAILURE = frozenset(
+    {
+        STATUS_LLM_FAILED,
+        STATUS_PARSE_FAILED,
+        STATUS_LINT_FAILED,
+        STATUS_INJECT_FAILED,
+        STATUS_COMPILE_FAILED,
+        STATUS_EVAL_FAILED,
+    }
+)
 
 
 # ------------------------------------------------------------------------
@@ -183,20 +185,20 @@ def _filter_fields(cls: Any, payload: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in payload.items() if k in known}
 
 
-def _loop_config_from_dict(payload: dict[str, Any]) -> "LoopConfig":
+def _loop_config_from_dict(payload: dict[str, Any]) -> LoopConfig:
     return LoopConfig(**_filter_fields(LoopConfig, payload))
 
 
-def _gen_summary_from_dict(payload: dict[str, Any]) -> "GenSummary":
+def _gen_summary_from_dict(payload: dict[str, Any]) -> GenSummary:
     return GenSummary(**_filter_fields(GenSummary, payload))
 
 
 @dataclass
 class LoopConfig:
     team_letter: str
-    opponent_path: str            # absolute path
+    opponent_path: str  # absolute path
     model: str
-    client_kind: str              # "anthropic" or "mock"
+    client_kind: str  # "anthropic" or "mock"
     generations: int
     n_matches: int
     workers: int
@@ -204,7 +206,7 @@ class LoopConfig:
     max_compile_failures: int
     checkpoint_every: int
     seed_base_root: int
-    seed_ai_path: str             # absolute path; initial champion
+    seed_ai_path: str  # absolute path; initial champion
     prompt_template_path: str
     mock_response_paths: list[str] = field(default_factory=list)
     recent_fitness_window: int = 5
@@ -229,10 +231,10 @@ class LoopConfig:
 class LoopState:
     run_id: str
     wall_start_iso: str
-    generation: int                # next gen number to run
+    generation: int  # next gen number to run
     champion_fitness: dict[str, Any] | None  # FitnessResult serialised, or None pre-bootstrap
-    champion_source_rel: str       # path relative to run_dir
-    champion_generation: int       # the gen that produced the champion (-1 for seed)
+    champion_source_rel: str  # path relative to run_dir
+    champion_generation: int  # the gen that produced the champion (-1 for seed)
     compile_failures: int
     tokens_input: int
     tokens_output: int
@@ -302,6 +304,7 @@ def _atomic_write_json(path: Path, payload: Any) -> None:
 
 def _sha256_file(path: Path) -> str:
     import hashlib
+
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -330,13 +333,14 @@ def _render_prompt(
     the prompt contract so tests can assert ablation took effect.
     """
     template = template_path.read_text()
-    base = (template
-            .replace("{TEAM_LETTER}", team_letter)
-            .replace("{NAMESPACE}", namespace)
-            .replace("{OPPONENT_NAME}", opponent_name)
-            .replace("{OPPONENT_SOURCE}", opponent_source.read_text())
-            .replace("{TYPES_HEADER}", TYPES_HEADER.read_text())
-            .replace("{ABI_HEADER}", ABI_HEADER.read_text()))
+    base = (
+        template.replace("{TEAM_LETTER}", team_letter)
+        .replace("{NAMESPACE}", namespace)
+        .replace("{OPPONENT_NAME}", opponent_name)
+        .replace("{OPPONENT_SOURCE}", opponent_source.read_text())
+        .replace("{TYPES_HEADER}", TYPES_HEADER.read_text())
+        .replace("{ABI_HEADER}", ABI_HEADER.read_text())
+    )
     substituted_aar = "{AAR}" in base
     substituted_lessons = "{PRIOR_LESSONS}" in base
     base = base.replace("{AAR}", aar_block).replace("{PRIOR_LESSONS}", prior_lessons_block)
@@ -362,12 +366,14 @@ def _recent_fitness_note(history: list[GenSummary], window: int) -> str:
             lines.append(
                 f"- gen {g.generation}: mean={g.mean:+.3f} "
                 f"ci=[{g.ci_low:+.3f},{g.ci_high:+.3f}] ({tag})"
-                if g.ci_low is not None and g.ci_high is not None else
-                f"- gen {g.generation}: mean={g.mean:+.3f} ({tag})"
+                if g.ci_low is not None and g.ci_high is not None
+                else f"- gen {g.generation}: mean={g.mean:+.3f} ({tag})"
             )
     if not lines:
-        return ("No prior generations yet; this is the first attempt. "
-                "Write the strongest opening you can.")
+        return (
+            "No prior generations yet; this is the first attempt. "
+            "Write the strongest opening you can."
+        )
     return "\n".join(lines)
 
 
@@ -432,9 +438,7 @@ def _journal_path(run_dir: Path) -> Path:
 
 def _aar_paths(gen_dir: Path) -> tuple[Path, Path, Path]:
     """Return (trace, markdown, structured_json) paths for this gen."""
-    return (gen_dir / "aar_trace.jsonl",
-            gen_dir / "aar.md",
-            gen_dir / "aar.json")
+    return (gen_dir / "aar_trace.jsonl", gen_dir / "aar.md", gen_dir / "aar.json")
 
 
 def _capture_aar(
@@ -463,11 +467,11 @@ def _capture_aar(
             ta, tb = opponent_path, injected_path
         work_dir = gen_dir / "aar_build"
         work_dir.mkdir(parents=True, exist_ok=True)
-        compiler = fitness_mod._find_compiler()  # noqa: SLF001 - reuse
+        compiler = fitness_mod._find_compiler()
         if not compiler:
             logger.warning("aar-compile-skipped gen=%s no-compiler", gen_dir.name)
             return None
-        binary = fitness_mod._compile(ta, tb, work_dir, compiler)  # noqa: SLF001
+        binary = fitness_mod._compile(ta, tb, work_dir, compiler)
     except Exception as exc:  # pragma: no cover - compile path exercised in M10 tests
         logger.warning("aar-compile-failed gen=%s err=%s", gen_dir.name, exc)
         return None
@@ -475,18 +479,31 @@ def _capture_aar(
     trace_path, md_path, json_path = _aar_paths(gen_dir)
     try:
         import subprocess
+
         proc = subprocess.run(
-            [str(binary),
-             "--seed", str(seed),
-             "--max-ticks", str(max_ticks),
-             "--record", str(trace_path),
-             "--record-actions"],
-            capture_output=True, text=True, timeout=timeout, check=False,
+            [
+                str(binary),
+                "--seed",
+                str(seed),
+                "--max-ticks",
+                str(max_ticks),
+                "--record",
+                str(trace_path),
+                "--record-actions",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
         # Outcome exit codes (0/1/2) are all valid terminations.
         if proc.returncode not in (0, 1, 2):
-            logger.warning("aar-engine-nonoutcome gen=%s rc=%d stderr=%r",
-                           gen_dir.name, proc.returncode, proc.stderr[:200])
+            logger.warning(
+                "aar-engine-nonoutcome gen=%s rc=%d stderr=%r",
+                gen_dir.name,
+                proc.returncode,
+                proc.stderr[:200],
+            )
             return None
     except Exception as exc:
         logger.warning("aar-engine-failed gen=%s err=%s", gen_dir.name, exc)
@@ -518,14 +535,16 @@ def _deterministic_journal_entry(
     M17 LLM-authored writer will replace this path for Track-C.
     """
     status = summary.status
-    ok = status == STATUS_ACCEPTED or status == STATUS_REJECTED
+    ok = status in (STATUS_ACCEPTED, STATUS_REJECTED)
     fitness = summary.mean
     parent_mean = None
     for prev in reversed(state.history):
         if prev.generation != summary.generation and prev.mean is not None:
             parent_mean = prev.mean
             break
-    fitness_delta = (fitness - parent_mean) if (fitness is not None and parent_mean is not None) else None
+    fitness_delta = (
+        (fitness - parent_mean) if (fitness is not None and parent_mean is not None) else None
+    )
 
     if not ok:
         verdict = "stalled"
@@ -546,8 +565,9 @@ def _deterministic_journal_entry(
             verdict = "partial"
         else:
             verdict = "rejected"
-        hypothesis = ("accept-if-better candidate; measure combat metrics "
-                      "and compare to prior champion")
+        hypothesis = (
+            "accept-if-better candidate; measure combat metrics and compare to prior champion"
+        )
         tags_set: list[str] = ["accept_if_better"]
         if aar_metrics:
             ff = aar_metrics.get("focus_fire_redundancy")
@@ -562,8 +582,9 @@ def _deterministic_journal_entry(
             elif isinstance(mpd, (int, float)) and mpd > 120:
                 tags_set.append("loose_formation")
         tags = tags_set[:6]
-        advice = ("carry forward" if summary.accepted else
-                  "try a different mechanism next generation")
+        advice = (
+            "carry forward" if summary.accepted else "try a different mechanism next generation"
+        )
         mech_expected = "mean score improves over champion"
         ci_s = ""
         if summary.ci_low is not None and summary.ci_high is not None:
@@ -577,9 +598,15 @@ def _deterministic_journal_entry(
         # Cite a small, deterministic subset of AAR numbers.
         cited = {}
         if aar_metrics:
-            for k in ("outcome", "ticks", "shots_fired_us", "shots_hit_us",
-                      "focus_fire_redundancy", "cooldown_utilization_us",
-                      "mean_pairwise_distance_us"):
+            for k in (
+                "outcome",
+                "ticks",
+                "shots_fired_us",
+                "shots_hit_us",
+                "focus_fire_redundancy",
+                "cooldown_utilization_us",
+                "mean_pairwise_distance_us",
+            ):
                 if k in aar_metrics:
                     cited[k] = aar_metrics[k]
         status_out = "ok"
@@ -631,7 +658,11 @@ def _build_context_blocks(
       can swap this in M17).
     """
     aar_block = "(disabled)" if not state.config.aar_enabled else "(none — no prior generation yet)"
-    lessons_block = "(disabled)" if not state.config.journal_enabled else "(none — first generation in this lineage.)"
+    lessons_block = (
+        "(disabled)"
+        if not state.config.journal_enabled
+        else "(none — first generation in this lineage.)"
+    )
 
     if state.config.aar_enabled:
         # Last generation that produced an AAR sidecar.
@@ -682,8 +713,10 @@ def _compose_retry_prompt(
     keep the instructions minimal and mechanical — no "please be more
     careful", no role-play — because the sandbox is the judge.
     """
-    clipped = diagnostic if len(diagnostic) <= _RETRY_STDERR_CLIP else (
-        diagnostic[:_RETRY_STDERR_CLIP] + "\n…[truncated]"
+    clipped = (
+        diagnostic
+        if len(diagnostic) <= _RETRY_STDERR_CLIP
+        else (diagnostic[:_RETRY_STDERR_CLIP] + "\n…[truncated]")
     )
     retry_note = (
         f"\n\n# Retry {attempt_index}/{max_retries}\n\n"
@@ -724,13 +757,20 @@ def _run_generation(
     t0 = time.monotonic()
 
     summary = GenSummary(generation=gen, status=STATUS_ACCEPTED, model=model)
-    log.write("gen_start", generation=gen, team_letter=team_letter,
-              opponent=str(opponent_path), model=model)
+    log.write(
+        "gen_start",
+        generation=gen,
+        team_letter=team_letter,
+        opponent=str(opponent_path),
+        model=model,
+    )
 
     # ---- Prompt -----------------------------------------------------
     note = _recent_fitness_note(state.history, cfg.recent_fitness_window)
     aar_block, lessons_block = _build_context_blocks(
-        run_dir=run_dir, state=state, logger=logger,
+        run_dir=run_dir,
+        state=state,
+        logger=logger,
     )
     try:
         prompt_text = _render_prompt(
@@ -748,8 +788,9 @@ def _run_generation(
         summary.status = STATUS_PARSE_FAILED
         summary.reject_reason = f"prompt render: {exc}"
         summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  wall_seconds=summary.wall_seconds)
+        log.write(
+            "gen_end", generation=gen, status=summary.status, wall_seconds=summary.wall_seconds
+        )
         return summary, mock_cursor
 
     (gen_dir / "prompt.md").write_text(prompt_text)
@@ -805,8 +846,13 @@ def _run_generation(
                 summary.final_attempt_status = STATUS_LLM_FAILED
             summary.n_attempts = attempt + 1
             summary.wall_seconds = time.monotonic() - t0
-            log.write("gen_end", generation=gen, status=summary.status,
-                      attempt=attempt, wall_seconds=summary.wall_seconds)
+            log.write(
+                "gen_end",
+                generation=gen,
+                status=summary.status,
+                attempt=attempt,
+                wall_seconds=summary.wall_seconds,
+            )
             return summary, mock_cursor
 
         summary.model = client.model
@@ -822,9 +868,14 @@ def _run_generation(
             summary.n_attempts = attempt + 1
             summary.final_attempt_status = STATUS_LLM_FAILED
             summary.wall_seconds = time.monotonic() - t0
-            log.write("gen_end", generation=gen, status=summary.status,
-                      attempt=attempt, wall_seconds=summary.wall_seconds,
-                      error=msg)
+            log.write(
+                "gen_end",
+                generation=gen,
+                status=summary.status,
+                attempt=attempt,
+                wall_seconds=summary.wall_seconds,
+                error=msg,
+            )
             return summary, mock_cursor
 
         (attempt_dir / "response.md").write_text(response.text)
@@ -832,11 +883,15 @@ def _run_generation(
         summary.llm_output_tokens += response.completion_tokens
         state.tokens_input += response.prompt_tokens
         state.tokens_output += response.completion_tokens
-        log.write("llm_response", generation=gen, attempt=attempt,
-                  response_chars=len(response.text),
-                  prompt_tokens=response.prompt_tokens,
-                  completion_tokens=response.completion_tokens,
-                  stop_reason=response.metadata.get("stop_reason", ""))
+        log.write(
+            "llm_response",
+            generation=gen,
+            attempt=attempt,
+            response_chars=len(response.text),
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            stop_reason=response.metadata.get("stop_reason", ""),
+        )
 
         # ---- Parse ------------------------------------------------
         cpp = llm_client.extract_cpp_block(response.text)
@@ -849,19 +904,25 @@ def _run_generation(
             summary.status = STATUS_PARSE_FAILED
             summary.reject_reason = "no fenced cpp block"
             if attempt < max_retries:
-                log.write("retry_attempt", generation=gen, attempt=attempt,
-                          stage="parse", reason="no fenced cpp block")
+                log.write(
+                    "retry_attempt",
+                    generation=gen,
+                    attempt=attempt,
+                    stage="parse",
+                    reason="no fenced cpp block",
+                )
                 # On parse failure we don't have a candidate to show;
                 # the retry prompt just repeats the ask with the stage.
                 current_prompt = _compose_retry_prompt(
                     base_prompt=prompt_text,
-                    last_candidate_cpp=(last_candidate_cpp
-                                        or "// (no candidate — parse failed)"),
+                    last_candidate_cpp=(last_candidate_cpp or "// (no candidate — parse failed)"),
                     failure_stage="parse",
-                    diagnostic=("Your previous response contained no fenced "
-                                "```cpp``` block. Return exactly one complete "
-                                "translation unit inside a single ```cpp``` "
-                                "fence, with no prose outside."),
+                    diagnostic=(
+                        "Your previous response contained no fenced "
+                        "```cpp``` block. Return exactly one complete "
+                        "translation unit inside a single ```cpp``` "
+                        "fence, with no prose outside."
+                    ),
                     attempt_index=attempt + 1,
                     max_retries=max_retries,
                 )
@@ -880,18 +941,23 @@ def _run_generation(
         # ---- Lint -------------------------------------------------
         violations = lint_ai_tokens.scan_file(candidate_path)
         if violations:
-            logger.warning("lint-failed generation=%d attempt=%d n=%d",
-                           gen, attempt, len(violations))
+            logger.warning(
+                "lint-failed generation=%d attempt=%d n=%d", gen, attempt, len(violations)
+            )
             final_attempt_status = STATUS_LINT_FAILED
             diag = "\n".join(
-                f"line {ln}: banned token {tok!r} ({r})"
-                for ln, tok, r in violations[:20]
+                f"line {ln}: banned token {tok!r} ({r})" for ln, tok, r in violations[:20]
             )
             summary.status = STATUS_LINT_FAILED
             summary.reject_reason = f"{len(violations)} banned-token violations"
             if attempt < max_retries:
-                log.write("retry_attempt", generation=gen, attempt=attempt,
-                          stage="lint", n_violations=len(violations))
+                log.write(
+                    "retry_attempt",
+                    generation=gen,
+                    attempt=attempt,
+                    stage="lint",
+                    n_violations=len(violations),
+                )
                 current_prompt = _compose_retry_prompt(
                     base_prompt=prompt_text,
                     last_candidate_cpp=last_candidate_cpp,
@@ -909,14 +975,18 @@ def _run_generation(
         try:
             injected_text = inject_guards.inject(candidate_path.read_text())
         except (inject_guards.InjectorError, ValueError) as exc:
-            logger.warning("inject-failed generation=%d attempt=%d err=%s",
-                           gen, attempt, exc)
+            logger.warning("inject-failed generation=%d attempt=%d err=%s", gen, attempt, exc)
             final_attempt_status = STATUS_INJECT_FAILED
             summary.status = STATUS_INJECT_FAILED
             summary.reject_reason = str(exc)
             if attempt < max_retries:
-                log.write("retry_attempt", generation=gen, attempt=attempt,
-                          stage="inject", error=str(exc)[:256])
+                log.write(
+                    "retry_attempt",
+                    generation=gen,
+                    attempt=attempt,
+                    stage="inject",
+                    error=str(exc)[:256],
+                )
                 current_prompt = _compose_retry_prompt(
                     base_prompt=prompt_text,
                     last_candidate_cpp=last_candidate_cpp,
@@ -938,20 +1008,25 @@ def _run_generation(
 
         try:
             result = fitness_mod.evaluate_fitness(
-                ta_src, tb_src,
+                ta_src,
+                tb_src,
                 n_matches=cfg.n_matches,
                 seed_base=seed_base,
                 workers=cfg.workers,
             )
         except fitness_mod.CompileError as exc:
-            logger.warning("compile-failed generation=%d attempt=%d",
-                           gen, attempt)
+            logger.warning("compile-failed generation=%d attempt=%d", gen, attempt)
             final_attempt_status = STATUS_COMPILE_FAILED
             summary.status = STATUS_COMPILE_FAILED
             summary.reject_reason = str(exc)[:512]
             if attempt < max_retries:
-                log.write("retry_attempt", generation=gen, attempt=attempt,
-                          stage="compile", error=str(exc)[:256])
+                log.write(
+                    "retry_attempt",
+                    generation=gen,
+                    attempt=attempt,
+                    stage="compile",
+                    error=str(exc)[:256],
+                )
                 current_prompt = _compose_retry_prompt(
                     base_prompt=prompt_text,
                     last_candidate_cpp=last_candidate_cpp,
@@ -966,16 +1041,20 @@ def _run_generation(
             # Evaluation errors (engine crash, timeout, etc.) are
             # *not* retryable by the LLM — the candidate compiled but
             # the runtime blew up. Treat as terminal for this gen.
-            logger.error("eval-failed generation=%d attempt=%d err=%s",
-                         gen, attempt, exc)
+            logger.error("eval-failed generation=%d attempt=%d err=%s", gen, attempt, exc)
             summary.status = STATUS_EVAL_FAILED
             summary.reject_reason = f"{type(exc).__name__}: {exc}"[:512]
             summary.n_attempts = attempt + 1
             summary.final_attempt_status = STATUS_EVAL_FAILED
             summary.wall_seconds = time.monotonic() - t0
-            log.write("gen_end", generation=gen, status=summary.status,
-                      attempt=attempt, wall_seconds=summary.wall_seconds,
-                      error=str(exc)[:512])
+            log.write(
+                "gen_end",
+                generation=gen,
+                status=summary.status,
+                attempt=attempt,
+                wall_seconds=summary.wall_seconds,
+                error=str(exc)[:512],
+            )
             return summary, mock_cursor
 
         # Success! Break out with ``result`` set; the accept-if-better
@@ -995,10 +1074,14 @@ def _run_generation(
         summary.n_attempts = max_retries + 1
         summary.final_attempt_status = final_attempt_status or summary.status
         summary.wall_seconds = time.monotonic() - t0
-        log.write("gen_end", generation=gen, status=summary.status,
-                  n_attempts=summary.n_attempts,
-                  wall_seconds=summary.wall_seconds,
-                  reject_reason=summary.reject_reason)
+        log.write(
+            "gen_end",
+            generation=gen,
+            status=summary.status,
+            n_attempts=summary.n_attempts,
+            wall_seconds=summary.wall_seconds,
+            reject_reason=summary.reject_reason,
+        )
         return summary, mock_cursor
 
     # Canonicalise the final (successful) response.md at the top level
@@ -1119,7 +1202,8 @@ def _write_checkpoint(run_dir: Path, state: LoopState, log: experiment_log.Exper
     ck_dir = run_dir / "checkpoints"
     ck_dir.mkdir(parents=True, exist_ok=True)
     env = experiment_log.build_environment_snapshot(
-        team_a_src=None, team_b_src=Path(state.config.opponent_path),
+        team_a_src=None,
+        team_b_src=Path(state.config.opponent_path),
         extra={"llm_model": state.config.model, "client": state.config.client_kind},
     )
     payload: dict[str, Any] = {
@@ -1152,8 +1236,7 @@ def _write_checkpoint(run_dir: Path, state: LoopState, log: experiment_log.Exper
     # latest.json is a regular file (not a symlink) so cross-machine
     # scp/rsync always copies it.
     _atomic_write_json(latest, payload)
-    log.write("checkpoint", path=str(ck_path.relative_to(run_dir)),
-              generation=state.generation)
+    log.write("checkpoint", path=str(ck_path.relative_to(run_dir)), generation=state.generation)
     return ck_path
 
 
@@ -1166,6 +1249,7 @@ def _write_fitness_plot(run_dir: Path, state: LoopState, logger: logging.Logger)
     matplotlib is unavailable."""
     try:
         import matplotlib
+
         matplotlib.use("Agg")  # headless — Spark, CI, Docker.
         import matplotlib.pyplot as plt
     except ImportError:
@@ -1191,12 +1275,9 @@ def _write_fitness_plot(run_dir: Path, state: LoopState, logger: logging.Logger)
     fig, ax = plt.subplots(figsize=(8, 4.5))
     # Challenger points: green if accepted, red if rejected/failed.
     acc_gens = [g for g, a in zip(gens, accepted, strict=True) if a]
-    acc_means = [m for m, a in zip(means, accepted, strict=True)
-                 if a and m is not None]
-    rej_gens = [g for g, a, m in zip(gens, accepted, means, strict=True)
-                if not a and m is not None]
-    rej_means = [m for a, m in zip(accepted, means, strict=True)
-                 if not a and m is not None]
+    acc_means = [m for m, a in zip(means, accepted, strict=True) if a and m is not None]
+    rej_gens = [g for g, a, m in zip(gens, accepted, means, strict=True) if not a and m is not None]
+    rej_means = [m for a, m in zip(accepted, means, strict=True) if not a and m is not None]
 
     # Error bars for challengers where CI is defined.
     ci_gens, ci_mids, ci_errs = [], [], []
@@ -1208,22 +1289,31 @@ def _write_fitness_plot(run_dir: Path, state: LoopState, logger: logging.Logger)
     if ci_gens:
         errs = list(zip(*ci_errs, strict=True)) if ci_errs else ([], [])
         ax.errorbar(
-            ci_gens, ci_mids,
+            ci_gens,
+            ci_mids,
             yerr=[list(errs[0]), list(errs[1])],
-            fmt="none", ecolor="#cccccc", alpha=0.8, capsize=2, zorder=1,
+            fmt="none",
+            ecolor="#cccccc",
+            alpha=0.8,
+            capsize=2,
+            zorder=1,
         )
-    ax.scatter(acc_gens, acc_means, c="#2a9d8f", s=40,
-               label="accepted", zorder=3)
-    ax.scatter(rej_gens, rej_means, c="#e76f51", s=28, marker="x",
-               label="rejected", zorder=3)
+    ax.scatter(acc_gens, acc_means, c="#2a9d8f", s=40, label="accepted", zorder=3)
+    ax.scatter(rej_gens, rej_means, c="#e76f51", s=28, marker="x", label="rejected", zorder=3)
 
     # Champion step line.
     if any(v is not None for v in champ_trace):
-        champ_gens = [g for g, v in zip(gens, champ_trace, strict=True)
-                      if v is not None]
+        champ_gens = [g for g, v in zip(gens, champ_trace, strict=True) if v is not None]
         champ_vals = [v for v in champ_trace if v is not None]
-        ax.step(champ_gens, champ_vals, where="post", color="#264653",
-                linewidth=2, label="champion", zorder=2)
+        ax.step(
+            champ_gens,
+            champ_vals,
+            where="post",
+            color="#264653",
+            linewidth=2,
+            label="champion",
+            zorder=2,
+        )
 
     ax.axhline(0.0, color="#999999", linewidth=0.75, linestyle=":")
     ax.set_xlabel("generation")
@@ -1268,19 +1358,20 @@ def _bootstrap_champion(
         shutil.copyfile(seed_src, champs / "best.cpp")
         shutil.copyfile(seed_src, champs / "gen_seed.cpp")
         state.champion_source_rel = "champions/gen_seed.cpp"
-        log.write("bootstrap", status="skipped_symmetric",
-                  seed_path=str(seed_src))
+        log.write("bootstrap", status="skipped_symmetric", seed_path=str(seed_src))
         return
 
     logger.info("bootstrap: evaluating seed ai vs opponent")
-    log.write("bootstrap", status="evaluating",
-              seed_path=str(seed_src), opponent_path=str(opponent_src))
+    log.write(
+        "bootstrap", status="evaluating", seed_path=str(seed_src), opponent_path=str(opponent_src)
+    )
     if state.config.team_letter == "A":
         ta, tb = seed_src, opponent_src
     else:
         ta, tb = opponent_src, seed_src
     result = fitness_mod.evaluate_fitness(
-        ta, tb,
+        ta,
+        tb,
         n_matches=state.config.n_matches,
         seed_base=state.config.seed_base_root,
         workers=state.config.workers,
@@ -1293,8 +1384,7 @@ def _bootstrap_champion(
     shutil.copyfile(seed_src, champs / "best.cpp")
     shutil.copyfile(seed_src, champs / "gen_seed.cpp")
     state.champion_source_rel = "champions/gen_seed.cpp"
-    log.write("bootstrap_done",
-              mean=result.mean, ci_low=result.ci_low, ci_high=result.ci_high)
+    log.write("bootstrap_done", mean=result.mean, ci_low=result.ci_low, ci_high=result.ci_high)
 
 
 # ------------------------------------------------------------------------
@@ -1313,22 +1403,32 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
         if is_fresh_start:
             log.write_start(
                 experiment_type="evolve",
-                team_a_src=(state.config.seed_ai_path if state.config.team_letter == "A"
-                            else state.config.opponent_path),
-                team_b_src=(state.config.opponent_path if state.config.team_letter == "A"
-                            else state.config.seed_ai_path),
+                team_a_src=(
+                    state.config.seed_ai_path
+                    if state.config.team_letter == "A"
+                    else state.config.opponent_path
+                ),
+                team_b_src=(
+                    state.config.opponent_path
+                    if state.config.team_letter == "A"
+                    else state.config.seed_ai_path
+                ),
                 config=asdict(state.config),
-                extra_env={"llm_model": state.config.model,
-                           "client": state.config.client_kind,
-                           "run_id": state.run_id},
+                extra_env={
+                    "llm_model": state.config.model,
+                    "client": state.config.client_kind,
+                    "run_id": state.run_id,
+                },
             )
             _bootstrap_champion(state=state, run_dir=run_dir, log=log, logger=logger)
         else:
-            log.write("resume",
-                      generation=state.generation,
-                      history_len=len(state.history),
-                      compile_failures=state.compile_failures,
-                      run_id=state.run_id)
+            log.write(
+                "resume",
+                generation=state.generation,
+                history_len=len(state.history),
+                compile_failures=state.compile_failures,
+                run_id=state.run_id,
+            )
 
         _write_state(run_dir, state)
 
@@ -1337,9 +1437,10 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
         # mock client always starts from the head of its own queue of
         # one, so cursor is advanced per gen that reached LLM stage.
         mock_cursor = sum(
-            1 for g in state.history
+            1
+            for g in state.history
             if g.status not in (STATUS_LLM_FAILED,)
-            or g.reject_reason is None   # llm_failed with None reason = client_build
+            or g.reject_reason is None  # llm_failed with None reason = client_build
         )
         # Cursor = total number of LLM calls already made across every
         # gen in history. With the retry loop each gen consumes
@@ -1351,8 +1452,11 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
         while state.generation < state.config.generations:
             try:
                 summary, mock_cursor = _run_generation(
-                    state=state, run_dir=run_dir, logger=logger,
-                    log=log, mock_cursor=mock_cursor,
+                    state=state,
+                    run_dir=run_dir,
+                    logger=logger,
+                    log=log,
+                    mock_cursor=mock_cursor,
                 )
             except KeyboardInterrupt:
                 logger.warning("interrupted at generation=%d", state.generation)
@@ -1378,8 +1482,9 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
                         try:
                             aar_metrics = json.loads(aar_json.read_text())
                         except Exception as exc:
-                            logger.warning("aar-json-reread-failed gen=%d err=%s",
-                                           summary.generation, exc)
+                            logger.warning(
+                                "aar-json-reread-failed gen=%d err=%s", summary.generation, exc
+                            )
                 parent_gen: int | None = None
                 for prev in reversed(state.history[:-1]):
                     if prev.status in (STATUS_ACCEPTED, STATUS_REJECTED):
@@ -1390,9 +1495,7 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
                     summary=summary,
                     aar_metrics=aar_metrics,
                     parent_generation=parent_gen,
-                    timestamp_utc=datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    ),
+                    timestamp_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 )
                 vr = journal_mod.append_entry(_journal_path(run_dir), entry, aar_metrics)
                 log.write(
@@ -1408,29 +1511,34 @@ def run_loop(state: LoopState, run_dir: Path, logger: logging.Logger) -> int:
             state.generation += 1
             _write_state(run_dir, state)
 
-            if (state.generation % state.config.checkpoint_every == 0
-                    or state.generation == state.config.generations):
+            if (
+                state.generation % state.config.checkpoint_every == 0
+                or state.generation == state.config.generations
+            ):
                 _write_checkpoint(run_dir, state, log)
                 _write_fitness_plot(run_dir, state, logger)
 
             if state.compile_failures >= state.config.max_compile_failures:
                 logger.error(
                     "aborting: compile_failures=%d >= max=%d",
-                    state.compile_failures, state.config.max_compile_failures,
+                    state.compile_failures,
+                    state.config.max_compile_failures,
                 )
-                log.write("loop_aborted",
-                          reason="max_compile_failures",
-                          failures=state.compile_failures)
+                log.write(
+                    "loop_aborted", reason="max_compile_failures", failures=state.compile_failures
+                )
                 exit_code = EXIT_LOOP_ABORTED_COMPILE_CAP
                 # Final checkpoint + plot before bailing.
                 _write_checkpoint(run_dir, state, log)
                 _write_fitness_plot(run_dir, state, logger)
                 break
 
-        log.write("loop_done",
-                  generations_completed=state.generation,
-                  compile_failures=state.compile_failures,
-                  exit_code=exit_code)
+        log.write(
+            "loop_done",
+            generations_completed=state.generation,
+            compile_failures=state.compile_failures,
+            exit_code=exit_code,
+        )
     return exit_code
 
 
@@ -1473,49 +1581,70 @@ def _collect_mock_responses(path: str | None) -> list[str]:
 
 def _build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="evolve", description=__doc__)
-    parser.add_argument("--opponent", default=None,
-                        help="path to frozen opponent AI source")
+    parser.add_argument("--opponent", default=None, help="path to frozen opponent AI source")
     parser.add_argument("--as-team", choices=("A", "B"), default="A")
     parser.add_argument("--generations", type=int, default=50)
     parser.add_argument("--n-matches", type=int, default=20)
-    parser.add_argument("--workers", type=int, default=None,
-                        help="parallel fitness workers (default: min(n_matches, nproc))")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="parallel fitness workers (default: min(n_matches, nproc))",
+    )
     parser.add_argument("--client", choices=("anthropic", "mock"), default="anthropic")
-    parser.add_argument("--mock-response-dir", default=None,
-                        help="when --client=mock: directory of *.md (or single file) "
-                             "providing LLM responses in sorted order")
-    parser.add_argument("--model", default=None,
-                        help="model id (default $ANTHROPIC_MODEL)")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="root seed (default: derived from time)")
+    parser.add_argument(
+        "--mock-response-dir",
+        default=None,
+        help="when --client=mock: directory of *.md (or single file) "
+        "providing LLM responses in sorted order",
+    )
+    parser.add_argument("--model", default=None, help="model id (default $ANTHROPIC_MODEL)")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="root seed (default: derived from time)"
+    )
     parser.add_argument("--accept-margin", type=float, default=0.0)
     parser.add_argument("--max-compile-failures", type=int, default=5)
     parser.add_argument(
-        "--max-compile-retries", type=int, default=10,
+        "--max-compile-retries",
+        type=int,
+        default=10,
         help="Within a single generation, retry the LLM this many times "
-             "on parse/lint/inject/compile failure, feeding the diagnostic "
-             "back into the prompt. 0 disables retries (single-shot).",
+        "on parse/lint/inject/compile failure, feeding the diagnostic "
+        "back into the prompt. 0 disables retries (single-shot).",
     )
     parser.add_argument("--checkpoint-every", type=int, default=10)
     parser.add_argument("--out-dir", default=None)
-    parser.add_argument("--resume", default=None,
-                        help="resume a previous run directory")
-    parser.add_argument("--seed-ai", default=None,
-                        help="initial champion AI (default: --opponent)")
+    parser.add_argument("--resume", default=None, help="resume a previous run directory")
+    parser.add_argument("--seed-ai", default=None, help="initial champion AI (default: --opponent)")
     parser.add_argument("--prompt", default=str(PROMPTS / "evolve_ai.md"))
     # M16 2x2 ablation flags. Paired --aar/--no-aar + --journal/--no-journal.
     aar_group = parser.add_mutually_exclusive_group()
-    aar_group.add_argument("--aar", dest="aar", action="store_true",
-                           help="render per-gen After-Action Report into the "
-                                "next prompt (default on)")
-    aar_group.add_argument("--no-aar", dest="aar", action="store_false",
-                           help="disable AAR capture + injection (ablation)")
+    aar_group.add_argument(
+        "--aar",
+        dest="aar",
+        action="store_true",
+        help="render per-gen After-Action Report into the next prompt (default on)",
+    )
+    aar_group.add_argument(
+        "--no-aar",
+        dest="aar",
+        action="store_false",
+        help="disable AAR capture + injection (ablation)",
+    )
     parser.set_defaults(aar=True)
     journal_group = parser.add_mutually_exclusive_group()
-    journal_group.add_argument("--journal", dest="journal", action="store_true",
-                               help="append + recall a learning journal (default on)")
-    journal_group.add_argument("--no-journal", dest="journal", action="store_false",
-                               help="disable journal append + recall (ablation)")
+    journal_group.add_argument(
+        "--journal",
+        dest="journal",
+        action="store_true",
+        help="append + recall a learning journal (default on)",
+    )
+    journal_group.add_argument(
+        "--no-journal",
+        dest="journal",
+        action="store_false",
+        help="disable journal append + recall (ablation)",
+    )
     parser.set_defaults(journal=True)
     parser.add_argument("-v", "--verbose", action="count", default=0)
     return parser
@@ -1527,9 +1656,7 @@ def _load_resume(run_dir: Path) -> LoopState:
         try:
             return LoopState.from_json(json.loads(state_path.read_text()))
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
-            raise SystemExit(
-                f"resume: state.json corrupt at {state_path}: {exc}"
-            ) from exc
+            raise SystemExit(f"resume: state.json corrupt at {state_path}: {exc}") from exc
     # Fallback: reconstruct from latest checkpoint (non-default path;
     # used if someone deletes state.json but keeps checkpoints).
     latest = run_dir / "checkpoints" / "latest.json"
@@ -1639,8 +1766,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     _rng = random.Random(seed_base_root)  # reserved for future jitter/exploration
     del _rng
-    logger.info("starting run=%s out=%s generations=%d client=%s model=%s",
-                state.run_id, run_dir, cfg.generations, cfg.client_kind, cfg.model)
+    logger.info(
+        "starting run=%s out=%s generations=%d client=%s model=%s",
+        state.run_id,
+        run_dir,
+        cfg.generations,
+        cfg.client_kind,
+        cfg.model,
+    )
     return run_loop(state, run_dir, logger)
 
 

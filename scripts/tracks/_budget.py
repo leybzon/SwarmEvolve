@@ -30,9 +30,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 _LOG = logging.getLogger("swarmevolve.tracks.budget")
 
@@ -45,10 +45,7 @@ class BudgetExceeded(RuntimeError):
     """
 
     def __init__(self, *, max_tokens: int, total_tokens: int, track_root: Path) -> None:
-        super().__init__(
-            f"token budget exceeded: {total_tokens} > {max_tokens} "
-            f"in {track_root}"
-        )
+        super().__init__(f"token budget exceeded: {total_tokens} > {max_tokens} in {track_root}")
         self.max_tokens = max_tokens
         self.total_tokens = total_tokens
         self.track_root = track_root
@@ -99,7 +96,10 @@ class TokenBudget:
             pct = 100.0 * total / self.max_tokens if self.max_tokens else 0.0
             log.info(
                 "budget: %d / %d tokens (%.1f%%) in %s",
-                total, self.max_tokens, pct, track_root,
+                total,
+                self.max_tokens,
+                pct,
+                track_root,
             )
         return total
 

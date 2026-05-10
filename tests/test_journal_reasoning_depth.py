@@ -48,7 +48,7 @@ def test_mechanism_no_metric_citation():
     """Reject entries where mechanism doesn't cite any metric."""
     entry = _make_entry(
         mechanism_observed="generic description with no metrics",
-        aar_metrics_cited={"cooldown_utilization_us": 0.5}
+        aar_metrics_cited={"cooldown_utilization_us": 0.5},
     )
     result = journal.validate_against_aar(entry, aar=None, strict_reflection=True)
     assert not result.ok
@@ -60,7 +60,7 @@ def test_mechanism_cites_metric_passes():
     entry = _make_entry(
         hypothesis_tested="testing whether message coordination improves targeting efficiency in drone formation tactics",  # 12 words
         mechanism_observed="cooldown_utilization_us improved from 0.3 to 0.5 in current generation",
-        aar_metrics_cited={"cooldown_utilization_us": 0.5}
+        aar_metrics_cited={"cooldown_utilization_us": 0.5},
     )
     result = journal.validate_against_aar(entry, aar=None, strict_reflection=True)
     assert result.ok, f"Errors: {result.errors}"
@@ -78,7 +78,7 @@ def test_carry_forward_low_win_rate():
     """Reject 'carry forward' with win rate < 0.8."""
     entry = _make_entry(
         advice_to_future_self="carry forward current approach",
-        outcome_summary="accepted: a=5 b=4 draws=1 invalid=0"  # 5/10 = 0.5
+        outcome_summary="accepted: a=5 b=4 draws=1 invalid=0",  # 5/10 = 0.5
     )
     result = journal.validate_against_aar(entry, aar=None, strict_reflection=True)
     assert not result.ok
@@ -92,7 +92,7 @@ def test_carry_forward_high_win_rate_passes():
         mechanism_observed="cooldown_utilization_us at 0.8 maintained parity with opponent performance",
         advice_to_future_self="carry forward current winning strategy",
         outcome_summary="accepted: a=9 b=1 draws=0 invalid=0",  # 9/10 = 0.9
-        aar_metrics_cited={"cooldown_utilization_us": 0.8}
+        aar_metrics_cited={"cooldown_utilization_us": 0.8},
     )
     result = journal.validate_against_aar(entry, aar=None, strict_reflection=True)
     assert result.ok, f"Errors: {result.errors}"
@@ -119,7 +119,7 @@ def test_strict_mode_off_bypasses():
     entry = _make_entry(
         hypothesis_tested="short",
         advice_to_future_self="try a different mechanism",
-        tactic_tags=["one"]
+        tactic_tags=["one"],
     )
     result = journal.validate_against_aar(entry, aar=None, strict_reflection=False)
     # Should pass because strict mode is off
@@ -145,8 +145,10 @@ def test_high_quality_entry_passes():
 if __name__ == "__main__":
     # Run all tests
     import inspect
+
     tests = [
-        obj for name, obj in globals().items()
+        obj
+        for name, obj in globals().items()
         if name.startswith("test_") and inspect.isfunction(obj)
     ]
 

@@ -31,7 +31,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from inject_guards import (  # noqa: E402
+from inject_guards import (
     GUARD_PREFIX,
     MARKER_COMMENT,
     MAX_ITERATIONS,
@@ -39,7 +39,7 @@ from inject_guards import (  # noqa: E402
     inject,
 )
 
-from tests._build_helper import CXX  # noqa: E402
+from tests._build_helper import CXX
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "inject"
 ADVERSARIAL = FIXTURES / "adversarial"
@@ -47,7 +47,9 @@ ADVERSARIAL = FIXTURES / "adversarial"
 _compiler_required = pytest.mark.skipif(CXX is None, reason="no C++17 compiler available")
 
 
-def _compile_and_run(source: str, tmp_path: Path, *, timeout_s: float = 1.0) -> tuple[int, str, str]:
+def _compile_and_run(
+    source: str, tmp_path: Path, *, timeout_s: float = 1.0
+) -> tuple[int, str, str]:
     """Compile ``source`` with the project flag set and run it; return
     ``(returncode, stdout, stderr)``. Raises ``subprocess.TimeoutExpired``
     if the binary takes longer than ``timeout_s`` — that's a test failure
@@ -118,14 +120,14 @@ def test_guard_count_matches_loop_count() -> None:
 
 
 def test_scrubs_comments_and_strings() -> None:
-    src = '''
+    src = """
     int main(){
         /* while (true) { } */
         // while (true) { }
         const char* s = "while (true) { }";
         return 0;
     }
-    '''
+    """
     out = inject(src)
     assert GUARD_PREFIX not in out, "false positive: guard injected for comment/string"
 
@@ -366,7 +368,8 @@ def test_cli_check_mode_exits_1_if_changes_needed(tmp_path: Path) -> None:
     src.write_text("int main(){ while(true){++x;} }")
     proc = subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "inject_guards.py"), "--check", str(src)],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 1
     assert "would-rewrite" in proc.stdout
@@ -377,6 +380,7 @@ def test_cli_check_mode_exits_0_if_clean(tmp_path: Path) -> None:
     src.write_text(MARKER_COMMENT + "\nint main(){ return 0; }\n")
     proc = subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "inject_guards.py"), "--check", str(src)],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 0, proc.stderr

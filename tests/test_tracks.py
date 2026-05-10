@@ -23,10 +23,13 @@ _TESTS = _REPO_ROOT / "tests"
 if str(_TESTS) not in sys.path:
     sys.path.insert(0, str(_TESTS))
 
-from _build_helper import CXX  # type: ignore  # noqa: E402
-
-from tracks import _common  # noqa: E402
-from tracks import track_a, track_b, track_c  # noqa: E402
+from _build_helper import CXX  # type: ignore
+from tracks import (
+    _common,
+    track_a,
+    track_b,
+    track_c,
+)
 
 BASELINES = _REPO_ROOT / "src" / "baselines"
 PURSUIT_V1 = BASELINES / "pursuit_v1.cpp"
@@ -59,29 +62,35 @@ def test_parsers_expose_expected_flags():
     assert args.aar is True and args.journal is True
     # Track B adds --rr-n-matches + --no-rr.
     pb = track_b.build_parser()
-    argb = pb.parse_args(["--seeds", "1", "--out-dir", "/tmp/y",
-                          "--no-rr", "--rr-n-matches", "7"])
+    argb = pb.parse_args(["--seeds", "1", "--out-dir", "/tmp/y", "--no-rr", "--rr-n-matches", "7"])
     assert argb.no_rr is True and argb.rr_n_matches == 7
     # Track C adds --seed-ai-a/-b + --yardstick-every.
     pc = track_c.build_parser()
-    argc = pc.parse_args(["--seeds", "1", "--out-dir", "/tmp/z",
-                          "--yardstick-every", "3"])
+    argc = pc.parse_args(["--seeds", "1", "--out-dir", "/tmp/z", "--yardstick-every", "3"])
     assert argc.yardstick_every == 3
 
 
 def test_forward_common_argv_translates_flags():
     parser = _common.build_common_parser("p", "d")
-    args = parser.parse_args([
-        "--model", "claude-mock",
-        "--client", "mock",
-        "--mock-response-dir", "/tmp/r",
-        "--n-matches", "3",
-        "--no-aar",
-        "--no-journal",
-        "--workers", "2",
-        "--out-dir", "/tmp/x",
-        "-vv",
-    ])
+    args = parser.parse_args(
+        [
+            "--model",
+            "claude-mock",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            "/tmp/r",
+            "--n-matches",
+            "3",
+            "--no-aar",
+            "--no-journal",
+            "--workers",
+            "2",
+            "--out-dir",
+            "/tmp/x",
+            "-vv",
+        ]
+    )
     argv = _common.forward_common_argv(args)
     assert "--model" in argv and "claude-mock" in argv
     assert "--client" in argv and "mock" in argv
@@ -110,7 +119,7 @@ def test_invoke_evolve_strict_raises(monkeypatch):
         return 11
 
     monkeypatch.setattr(_common.evolve, "main", fake_main)
-    with pytest.raises(RuntimeError, match="evolve.main exited 11"):
+    with pytest.raises(RuntimeError, match=r"evolve\.main exited 11"):
         _common.invoke_evolve(["--x"], strict=True)
 
 
@@ -132,6 +141,7 @@ def test_sha256_file_matches_hashlib(tmp_path: Path):
     p = tmp_path / "f.bin"
     p.write_bytes(b"hello swarm")
     import hashlib
+
     assert _common.sha256_file(p) == hashlib.sha256(b"hello swarm").hexdigest()
 
 
@@ -144,9 +154,13 @@ def test_read_champion_path_prefers_state(tmp_path: Path):
     champs.mkdir()
     snap = champs / "gen_0003.cpp"
     snap.write_text("// snap\n")
-    (tmp_path / "state.json").write_text(json.dumps({
-        "champion_source_rel": "champions/gen_0003.cpp",
-    }))
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {
+                "champion_source_rel": "champions/gen_0003.cpp",
+            }
+        )
+    )
     assert _common.read_champion_path(tmp_path) == snap.resolve()
 
 
@@ -174,18 +188,22 @@ def test_summarise_lineage_populated(tmp_path: Path):
     champs.mkdir()
     snap = champs / "gen_0002.cpp"
     snap.write_text("// gen 2\n")
-    (tmp_path / "state.json").write_text(json.dumps({
-        "champion_source_rel": "champions/gen_0002.cpp",
-        "champion_generation": 2,
-        "champion_fitness": {"mean": 0.375},
-        "tokens_input": 120,
-        "tokens_output": 80,
-        "history": [
-            {"status": "rejected"},
-            {"status": "accepted"},
-            {"status": "accepted"},
-        ],
-    }))
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {
+                "champion_source_rel": "champions/gen_0002.cpp",
+                "champion_generation": 2,
+                "champion_fitness": {"mean": 0.375},
+                "tokens_input": 120,
+                "tokens_output": 80,
+                "history": [
+                    {"status": "rejected"},
+                    {"status": "accepted"},
+                    {"status": "accepted"},
+                ],
+            }
+        )
+    )
     row = _common.summarise_lineage(tmp_path, seed=42)
     assert row.generations_run == 3
     assert row.generations_accepted == 2
@@ -198,15 +216,14 @@ def test_summarise_lineage_populated(tmp_path: Path):
 
 def test_write_manifest_schema_validates(tmp_path: Path):
     jsonschema = pytest.importorskip("jsonschema")
-    schema = json.loads(
-        (_REPO_ROOT / "docs" / "track_manifest_schema.json").read_text()
-    )
+    schema = json.loads((_REPO_ROOT / "docs" / "track_manifest_schema.json").read_text())
     # Synthesize a lineage row by summarising an empty dir.
     row = _common.summarise_lineage(tmp_path, seed=1)
     manifest = tmp_path / "manifest.json"
     _common.write_manifest(
         manifest,
-        track="A", model="m1",
+        track="A",
+        model="m1",
         lineages=[row],
         extra={"n_matches": 3, "generations_requested": 1},
     )
@@ -262,15 +279,24 @@ def mock_response_dir(tmp_path: Path) -> Path:
 @needs_cxx
 def test_track_a_multi_seed_smoke(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_a"
-    rc = track_a.main([
-        "--seeds", "1,2",
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-    ])
+    rc = track_a.main(
+        [
+            "--seeds",
+            "1,2",
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert rc == 0
     manifest = json.loads((out / "track_a_manifest.json").read_text())
     assert manifest["track"] == "A"
@@ -284,30 +310,48 @@ def test_track_a_multi_seed_smoke(tmp_path: Path, mock_response_dir: Path):
 def test_track_a_resume(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_a_resume"
     # First run: 1 generation.
-    rc = track_a.main([
-        "--seeds", "1",
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-    ])
+    rc = track_a.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert rc == 0
     state1 = json.loads((out / "seed1" / "state.json").read_text())
     assert state1["generation"] == 1
 
     # Second run: resume with --generations 2 (extend budget).
-    rc2 = track_a.main([
-        "--seeds", "1",
-        "--generations", "2",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-        "--resume",
-    ])
+    rc2 = track_a.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "2",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+            "--resume",
+        ]
+    )
     assert rc2 == 0
     state2 = json.loads((out / "seed1" / "state.json").read_text())
     assert state2["generation"] == 2
@@ -335,24 +379,36 @@ def test_track_a_continues_past_exhausted_lineage(tmp_path: Path, monkeypatch):
         seed_dir = Path(argv[argv.index("--out-dir") + 1])
         seed_dir.mkdir(parents=True, exist_ok=True)
         # Write a minimal state.json so summarise_lineage() has data.
-        (seed_dir / "state.json").write_text(json.dumps({
-            "generation": 0,
-            "history": [],
-            "tokens_input": 0,
-            "tokens_output": 0,
-        }))
+        (seed_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "generation": 0,
+                    "history": [],
+                    "tokens_input": 0,
+                    "tokens_output": 0,
+                }
+            )
+        )
         return rc_by_seed[seed]
 
     monkeypatch.setattr(_common.evolve, "main", fake_main)
 
-    rc = track_a.main([
-        "--seeds", "1,2",
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--out-dir", str(out),
-    ])
+    rc = track_a.main(
+        [
+            "--seeds",
+            "1,2",
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--out-dir",
+            str(out),
+        ]
+    )
     # The track itself exits 0 even though seed 1's lineage was exhausted.
     assert rc == 0
     assert calls == [1, 2]
@@ -368,16 +424,26 @@ def test_track_a_continues_past_exhausted_lineage(tmp_path: Path, monkeypatch):
 @needs_cxx
 def test_track_b_chain_with_rr(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_b"
-    rc = track_b.main([
-        "--seeds", "1",
-        "--generations", "2",
-        "--n-matches", "1",
-        "--rr-n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-    ])
+    rc = track_b.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "2",
+            "--n-matches",
+            "1",
+            "--rr-n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert rc == 0
     manifest = json.loads((out / "track_b_manifest.json").read_text())
     assert manifest["track"] == "B"
@@ -397,16 +463,25 @@ def test_track_b_chain_with_rr(tmp_path: Path, mock_response_dir: Path):
 @needs_cxx
 def test_track_b_no_rr_skips_tournament(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_b_nor"
-    rc = track_b.main([
-        "--seeds", "1",
-        "--generations", "1",
-        "--n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-        "--no-rr",
-    ])
+    rc = track_b.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+            "--no-rr",
+        ]
+    )
     assert rc == 0
     manifest = json.loads((out / "track_b_manifest.json").read_text())
     assert manifest["rr_enabled"] is False
@@ -416,17 +491,28 @@ def test_track_b_no_rr_skips_tournament(tmp_path: Path, mock_response_dir: Path)
 @needs_cxx
 def test_track_c_coevo_with_yardstick(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_c"
-    rc = track_c.main([
-        "--seeds", "1",
-        "--generations", "2",
-        "--n-matches", "1",
-        "--yardstick-every", "1",
-        "--yardstick-n-matches", "1",
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-    ])
+    rc = track_c.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "2",
+            "--n-matches",
+            "1",
+            "--yardstick-every",
+            "1",
+            "--yardstick-n-matches",
+            "1",
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert rc == 0
     manifest = json.loads((out / "track_c_manifest.json").read_text())
     assert manifest["track"] == "C"
@@ -448,15 +534,25 @@ def test_track_c_coevo_with_yardstick(tmp_path: Path, mock_response_dir: Path):
 @needs_cxx
 def test_track_c_yardstick_off(tmp_path: Path, mock_response_dir: Path):
     out = tmp_path / "track_c_ys_off"
-    rc = track_c.main([
-        "--seeds", "1",
-        "--generations", "1",
-        "--n-matches", "1",
-        "--yardstick-every", "0",  # disabled
-        "--workers", "1",
-        "--client", "mock",
-        "--mock-response-dir", str(mock_response_dir),
-        "--out-dir", str(out),
-    ])
+    rc = track_c.main(
+        [
+            "--seeds",
+            "1",
+            "--generations",
+            "1",
+            "--n-matches",
+            "1",
+            "--yardstick-every",
+            "0",  # disabled
+            "--workers",
+            "1",
+            "--client",
+            "mock",
+            "--mock-response-dir",
+            str(mock_response_dir),
+            "--out-dir",
+            str(out),
+        ]
+    )
     assert rc == 0
     assert not (out / "seed1" / "yardstick.jsonl").is_file()

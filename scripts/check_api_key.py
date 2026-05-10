@@ -94,7 +94,7 @@ def main() -> int:
     except urllib.error.URLError as exc:
         print(f"anthropic: transport-error ({exc.reason})", file=sys.stderr)
         return 4
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"anthropic: unexpected-error ({type(exc).__name__})", file=sys.stderr)
         return 4
 

@@ -14,8 +14,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import experiment_log as explog  # noqa: E402
-
+import experiment_log as explog
 
 # ---------------------------------------------------------------------------
 # redact()
@@ -90,8 +89,7 @@ def test_environment_snapshot_has_required_keys(tmp_path):
     a.write_text("// A\n")
     b.write_text("// B\n")
     snap = explog.build_environment_snapshot(team_a_src=a, team_b_src=b)
-    for key in ("python", "platform", "cpu_count", "hostname",
-                "team_a", "team_b"):
+    for key in ("python", "platform", "cpu_count", "hostname", "team_a", "team_b"):
         assert key in snap, key
     assert snap["team_a"]["sha256"] is not None
     assert len(snap["team_a"]["sha256"]) == 64
@@ -158,7 +156,8 @@ def test_log_writes_start_event_with_environment(tmp_path):
     with explog.ExperimentLog(tmp_path) as log:
         log.write_start(
             experiment_type="fitness",
-            team_a_src=a, team_b_src=b,
+            team_a_src=a,
+            team_b_src=b,
             config={"n_matches": 3},
         )
 
@@ -178,7 +177,7 @@ def test_log_read_raises_on_missing_file(tmp_path):
 
 
 def test_log_read_rejects_malformed(tmp_path):
-    (tmp_path / "events.jsonl").write_text("{\"ok\":1}\nnot-json\n")
+    (tmp_path / "events.jsonl").write_text('{"ok":1}\nnot-json\n')
     with pytest.raises(ValueError):
         explog.ExperimentLog.read(tmp_path)
 
@@ -187,10 +186,9 @@ def test_log_records_exception_and_end_on_exit(tmp_path):
     """If the `with` block raises, we should still record an
     experiment_error + experiment_end so the log reflects the failure
     mode rather than trailing silently."""
-    with pytest.raises(RuntimeError, match="deliberate"):
-        with explog.ExperimentLog(tmp_path) as log:
-            log.write("setup", step=1)
-            raise RuntimeError("deliberate")
+    with pytest.raises(RuntimeError, match="deliberate"), explog.ExperimentLog(tmp_path) as log:
+        log.write("setup", step=1)
+        raise RuntimeError("deliberate")
 
     events = explog.ExperimentLog.read(tmp_path)
     types = [e["type"] for e in events]

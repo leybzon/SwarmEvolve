@@ -8,28 +8,28 @@ Fix presentation layout issues:
 
 import re
 
+
 def fix_presentation():
-    with open('index.html', 'r') as f:
+    with open("index.html") as f:
         content = f.read()
 
     # 1. Add video modal (after image modal)
-    video_modal_html = '''
+    video_modal_html = """
     <!-- Video Modal -->
     <div id="videoModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); cursor: pointer;">
         <span style="position: absolute; top: 20px; right: 40px; color: white; font-size: 40px; font-weight: bold; cursor: pointer;">&times;</span>
         <video id="modalVideo" controls style="margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
         </video>
     </div>
-    '''
+    """
 
     # Insert video modal after image modal
     content = content.replace(
-        '    <!-- Image Modal -->',
-        '    <!-- Image Modal -->' + video_modal_html
+        "    <!-- Image Modal -->", "    <!-- Image Modal -->" + video_modal_html
     )
 
     # 2. Add video modal JavaScript (after image modal JS)
-    video_modal_js = '''
+    video_modal_js = """
 
             // Video modal functionality
             document.addEventListener('DOMContentLoaded', function() {
@@ -66,12 +66,11 @@ def fix_presentation():
                     }
                 });
             });
-'''
+"""
 
     # Insert after image modal JS (before the closing script tag)
     content = content.replace(
-        '        });\n    </script>',
-        video_modal_js + '        });\n    </script>'
+        "        });\n    </script>", video_modal_js + "        });\n    </script>"
     )
 
     # 3. Fix diagram cutoff issues by reducing sizes/margins on problematic slides
@@ -81,46 +80,46 @@ def fix_presentation():
         r'(<!-- SLIDE 4.*?)<img src="figures/fitness_timeline\.png"[^>]*style="max-height: 350px;"',
         r'\1<img src="figures/fitness_timeline.png" alt="Fitness over rounds" style="max-height: 300px;"',
         content,
-        flags=re.DOTALL
+        flags=re.DOTALL,
     )
 
     content = re.sub(
         r'<img src="figures/tactical_staircase\.png"[^>]*style="max-height: 350px;"',
         r'<img src="figures/tactical_staircase.png" alt="Tactical staircase" style="max-height: 300px;"',
-        content
+        content,
     )
 
     # Slide 6 (Code Growth) - reduce image size
     content = re.sub(
         r'<img src="figures/code_growth\.png"[^>]*style="max-height: 400px;"',
         r'<img src="figures/code_growth.png" alt="Code growth" style="max-height: 320px;"',
-        content
+        content,
     )
 
     # Slide 7 (Learning Speed) - reduce image size
     content = re.sub(
         r'<img src="figures/learning_speed_comparison\.png"[^>]*style="max-height: 350px;"',
         r'<img src="figures/learning_speed_comparison.png" alt="Learning speed" style="max-height: 300px;"',
-        content
+        content,
     )
 
     # Slide 8 (Team A Stagnation) - reduce image size
     content = re.sub(
         r'<img src="figures/team_a_stagnation\.png"[^>]*style="max-height: 350px;"',
         r'<img src="figures/team_a_stagnation.png" alt="Team A stagnation" style="max-height: 300px;"',
-        content
+        content,
     )
 
     # Slide 12 (Conclusion) - reduce margins and padding
     content = re.sub(
         r'(<!-- SLIDE 12.*?<div class="key-findings".*?margin-top:) 2rem;',
-        r'\1 1rem;',
+        r"\1 1rem;",
         content,
-        flags=re.DOTALL
+        flags=re.DOTALL,
     )
 
     # Also add CSS to ensure diagrams fit viewport
-    diagram_css = '''
+    diagram_css = """
         /* Ensure diagrams fit in viewport */
         .diagram-container {
             max-height: 75vh;
@@ -143,12 +142,12 @@ def fix_presentation():
             cursor: pointer;
         }
 
-'''
+"""
 
     # Insert CSS before closing </style> tag
-    content = content.replace('    </style>', diagram_css + '    </style>')
+    content = content.replace("    </style>", diagram_css + "    </style>")
 
-    with open('index.html', 'w') as f:
+    with open("index.html", "w") as f:
         f.write(content)
 
     print("✅ Fixed presentation layouts:")
@@ -158,5 +157,6 @@ def fix_presentation():
     print("  - Added diagram-container max-height constraints")
     print("  - All diagrams now fit within 75vh (75% viewport height)")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     fix_presentation()

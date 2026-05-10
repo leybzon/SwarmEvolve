@@ -68,6 +68,7 @@ EXIT_INTERNAL = 10
 # Logging
 # ------------------------------------------------------------------------
 
+
 class JsonFormatter(logging.Formatter):
     """One JSON object per log record; stable field ordering."""
 
@@ -105,6 +106,7 @@ def _configure_logging(verbosity: int) -> logging.Logger:
 # Compiler / platform discovery
 # ------------------------------------------------------------------------
 
+
 def detect_compiler() -> str | None:
     """Return a path to a working C++17 compiler, or None.
 
@@ -136,7 +138,10 @@ def _git_sha() -> str | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=False, timeout=2.0,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=2.0,
         )
         if out.returncode == 0:
             return out.stdout.strip() or None
@@ -154,6 +159,7 @@ def _sha256_file(path: Path) -> str:
 # ------------------------------------------------------------------------
 # Source rendering / compilation
 # ------------------------------------------------------------------------
+
 
 def render_ai_source(src_path: Path, namespace: str, dest: Path) -> Path:
     """Copy ``src_path`` into ``dest`` with ``TEAM_NS_PLACEHOLDER`` → ``namespace``.
@@ -256,6 +262,7 @@ def compile_matchup(
 # Match execution
 # ------------------------------------------------------------------------
 
+
 @dataclass
 class MatchResult:
     return_code: int
@@ -299,7 +306,10 @@ def run_match(
     try:
         proc = subprocess.run(
             [str(binary), *args],
-            capture_output=True, text=True, check=False, timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
         return MatchResult(
@@ -353,9 +363,12 @@ def run_match(
             stderr_tail=f"bad-summary={last!r}\n" + proc.stderr[-4096:],
         )
     expected = _OUTCOME_BY_RC[proc.returncode]
-    # If the engine's summary outcome disagrees with the rc, prefer the rc
-    # (since the exit code is what the pipeline branches on).
-    outcome = expected if outcome_tag == expected else expected
+    # We always trust the return code over the engine's textual summary
+    # tag (since the exit code is what the pipeline branches on, and a
+    # disagreement is not actionable here). `outcome_tag` is intentionally
+    # consumed only for parsing-side validation above.
+    del outcome_tag
+    outcome = expected
     return MatchResult(
         return_code=proc.returncode,
         outcome=outcome,
@@ -370,6 +383,7 @@ def run_match(
 # ------------------------------------------------------------------------
 # results.json assembly
 # ------------------------------------------------------------------------
+
 
 def build_results(
     *,
@@ -413,15 +427,19 @@ def build_results(
 
     match_payload: dict[str, Any] | None
     if match_result is None or match_result.outcome in ("TIMEOUT", "CRASH"):
-        match_payload = None if match_result is None else {
-            "return_code": match_result.return_code,
-            "outcome": "DRAW",  # placeholder; status carries the real tag
-            "ticks": match_result.ticks,
-            "a_alive": match_result.a_alive,
-            "b_alive": match_result.b_alive,
-            "wall_ms": match_result.wall_ms,
-            "stderr_tail": match_result.stderr_tail,
-        }
+        match_payload = (
+            None
+            if match_result is None
+            else {
+                "return_code": match_result.return_code,
+                "outcome": "DRAW",  # placeholder; status carries the real tag
+                "ticks": match_result.ticks,
+                "a_alive": match_result.a_alive,
+                "b_alive": match_result.b_alive,
+                "wall_ms": match_result.wall_ms,
+                "stderr_tail": match_result.stderr_tail,
+            }
+        )
         # For CRASH/TIMEOUT we set match=null so downstream consumers always
         # read `status` first.
         if match_result is not None and match_result.outcome in ("TIMEOUT", "CRASH"):
@@ -470,6 +488,7 @@ def _write_results(out_dir: Path, payload: dict[str, Any]) -> Path:
 # Sub-command: run
 # ------------------------------------------------------------------------
 
+
 def cmd_run(args: argparse.Namespace, logger: logging.Logger) -> int:
     team_a = Path(args.team_a).resolve()
     team_b = Path(args.team_b).resolve()
@@ -496,9 +515,15 @@ def cmd_run(args: argparse.Namespace, logger: logging.Logger) -> int:
     # Compile
     logger.info("compile-start", extra={"extra_fields": {"compiler": compiler}})
     compile_result = compile_matchup(out_dir, team_a, team_b, compiler)
-    logger.info("compile-done", extra={"extra_fields": {
-        "rc": compile_result.return_code, "wall_ms": compile_result.wall_ms,
-    }})
+    logger.info(
+        "compile-done",
+        extra={
+            "extra_fields": {
+                "rc": compile_result.return_code,
+                "wall_ms": compile_result.wall_ms,
+            }
+        },
+    )
 
     if compile_result.binary is None:
         payload = build_results(
@@ -530,13 +555,20 @@ def cmd_run(args: argparse.Namespace, logger: logging.Logger) -> int:
         drones_b=args.drones_b,
         timeout=args.timeout,
     )
-    logger.info("match-done", extra={"extra_fields": {
-        "outcome": match_result.outcome if match_result else None,
-        "ticks": match_result.ticks if match_result else None,
-    }})
+    logger.info(
+        "match-done",
+        extra={
+            "extra_fields": {
+                "outcome": match_result.outcome if match_result else None,
+                "ticks": match_result.ticks if match_result else None,
+            }
+        },
+    )
 
     if match_result is None or match_result.outcome in ("TIMEOUT", "CRASH"):
-        status = "timeout" if match_result and match_result.outcome == "TIMEOUT" else "engine_crashed"
+        status = (
+            "timeout" if match_result and match_result.outcome == "TIMEOUT" else "engine_crashed"
+        )
         payload = build_results(
             status=status,
             team_a_src=team_a,
@@ -559,8 +591,7 @@ def cmd_run(args: argparse.Namespace, logger: logging.Logger) -> int:
         try:
             _render_video(trace_path, video_path, logger)
         except Exception as exc:  # pragma: no cover - video is optional
-            logger.warning("video-render-failed",
-                           extra={"extra_fields": {"error": str(exc)}})
+            logger.warning("video-render-failed", extra={"extra_fields": {"error": str(exc)}})
             video_path = None
 
     payload = build_results(
@@ -581,18 +612,22 @@ def cmd_run(args: argparse.Namespace, logger: logging.Logger) -> int:
 
 def _render_video(trace_path: Path, video_path: Path, logger: logging.Logger) -> None:
     """Invoke scripts/visualizer.py via subprocess to keep cv2 optional."""
-    cmd = [sys.executable, str(REPO_ROOT / "scripts" / "visualizer.py"),
-           str(trace_path), str(video_path)]
+    cmd = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "visualizer.py"),
+        str(trace_path),
+        str(video_path),
+    ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"visualizer rc={proc.returncode} stderr={proc.stderr[-512:]}")
-    logger.info("video-rendered",
-                extra={"extra_fields": {"path": str(video_path)}})
+    logger.info("video-rendered", extra={"extra_fields": {"path": str(video_path)}})
 
 
 # ------------------------------------------------------------------------
 # Stub sub-commands (M9, M10, M12)
 # ------------------------------------------------------------------------
+
 
 def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
     """(M9) Run ``--n-matches`` seeded matches and emit fitness.json + events.jsonl.
@@ -605,18 +640,16 @@ def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
     # Local imports so fitness.py / experiment_log.py remain optional
     # for callers that only use `run`.
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
-    import fitness as _fitness  # noqa: PLC0415
-    import experiment_log as _explog  # noqa: PLC0415
+    import experiment_log as _explog
+    import fitness as _fitness
 
     team_a = Path(args.team_a).resolve()
     team_b = Path(args.team_b).resolve()
     if not team_a.is_file():
-        logger.error("missing-team-a-source",
-                     extra={"extra_fields": {"path": str(team_a)}})
+        logger.error("missing-team-a-source", extra={"extra_fields": {"path": str(team_a)}})
         return EXIT_INVALID_INPUT
     if not team_b.is_file():
-        logger.error("missing-team-b-source",
-                     extra={"extra_fields": {"path": str(team_b)}})
+        logger.error("missing-team-b-source", extra={"extra_fields": {"path": str(team_b)}})
         return EXIT_INVALID_INPUT
 
     if args.out_dir is None:
@@ -651,7 +684,8 @@ def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
             logger.info("evaluate-start", extra={"extra_fields": cfg})
             try:
                 result = _fitness.evaluate_fitness(
-                    team_a, team_b,
+                    team_a,
+                    team_b,
                     n_matches=args.n_matches,
                     seed_base=args.seed_base,
                     workers=args.workers,
@@ -662,13 +696,11 @@ def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
                 )
             except _fitness.CompileError as exc:
                 log.write("compile_failed", error=str(exc))
-                logger.error("compile-failed",
-                             extra={"extra_fields": {"error": str(exc)[:512]}})
+                logger.error("compile-failed", extra={"extra_fields": {"error": str(exc)[:512]}})
                 return EXIT_COMPILE_FAILED
             except (FileNotFoundError, ValueError, RuntimeError) as exc:
                 log.write("evaluate_failed", error=str(exc))
-                logger.error("evaluate-failed",
-                             extra={"extra_fields": {"error": str(exc)}})
+                logger.error("evaluate-failed", extra={"extra_fields": {"error": str(exc)}})
                 return EXIT_INVALID_INPUT
 
             # Record every match individually so replay can walk the log.
@@ -676,38 +708,49 @@ def cmd_evaluate(args: argparse.Namespace, logger: logging.Logger) -> int:
                 log.write("match_result", **match)
             log.write(
                 "fitness_summary",
-                wins_a=result.wins_a, wins_b=result.wins_b,
-                draws=result.draws, invalid=result.invalid,
-                mean=result.mean, stdev=result.stdev,
-                ci_low=result.ci_low, ci_high=result.ci_high,
+                wins_a=result.wins_a,
+                wins_b=result.wins_b,
+                draws=result.draws,
+                invalid=result.invalid,
+                mean=result.mean,
+                stdev=result.stdev,
+                ci_low=result.ci_low,
+                ci_high=result.ci_high,
                 wall_seconds=result.wall_seconds,
             )
 
         # Write fitness.json OUTSIDE the log ctx so the log is closed
         # before we touch the sibling file; avoids interleaving.
         fitness_path = out_dir / "fitness.json"
-        fitness_path.write_text(
-            json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n"
+        fitness_path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n")
+        logger.info(
+            "evaluate-done",
+            extra={
+                "extra_fields": {
+                    "wins_a": result.wins_a,
+                    "wins_b": result.wins_b,
+                    "draws": result.draws,
+                    "mean": result.mean,
+                    "fitness_path": str(fitness_path),
+                }
+            },
         )
-        logger.info("evaluate-done",
-                    extra={"extra_fields": {
-                        "wins_a": result.wins_a, "wins_b": result.wins_b,
-                        "draws": result.draws, "mean": result.mean,
-                        "fitness_path": str(fitness_path),
-                    }})
 
         # Guard: if more than half the matches crashed/timeout'd, surface
         # that as a pipeline error instead of silently returning 0.
         if result.n_matches > 0 and result.invalid * 2 > result.n_matches:
-            logger.error("too-many-invalid-matches",
-                         extra={"extra_fields": {
-                             "invalid": result.invalid,
-                             "n_matches": result.n_matches,
-                         }})
+            logger.error(
+                "too-many-invalid-matches",
+                extra={
+                    "extra_fields": {
+                        "invalid": result.invalid,
+                        "n_matches": result.n_matches,
+                    }
+                },
+            )
             return EXIT_RUN_FAILED
     except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("evaluate-internal-error",
-                         extra={"extra_fields": {"error": str(exc)}})
+        logger.exception("evaluate-internal-error", extra={"extra_fields": {"error": str(exc)}})
         return EXIT_INTERNAL
     return EXIT_OK
 
@@ -719,20 +762,18 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
     bit (mean, stdev, wins, draws). Any divergence exits 4.
     """
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
-    import fitness as _fitness  # noqa: PLC0415
-    import experiment_log as _explog  # noqa: PLC0415
+    import experiment_log as _explog
+    import fitness as _fitness
 
     run_dir = Path(args.run_dir).resolve()
     if not run_dir.is_dir():
-        logger.error("missing-run-dir",
-                     extra={"extra_fields": {"path": str(run_dir)}})
+        logger.error("missing-run-dir", extra={"extra_fields": {"path": str(run_dir)}})
         return EXIT_INVALID_INPUT
 
     try:
         events = _explog.ExperimentLog.read(run_dir)
     except (FileNotFoundError, ValueError) as exc:
-        logger.error("bad-events-log",
-                     extra={"extra_fields": {"error": str(exc)}})
+        logger.error("bad-events-log", extra={"extra_fields": {"error": str(exc)}})
         return EXIT_INVALID_INPUT
 
     start_ev = next((e for e in events if e.get("type") == "experiment_start"), None)
@@ -741,10 +782,14 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
         logger.error("events-missing-start-or-summary")
         return EXIT_INVALID_INPUT
     if start_ev.get("experiment_type") != "fitness":
-        logger.error("not-a-fitness-run",
-                     extra={"extra_fields": {
-                         "experiment_type": start_ev.get("experiment_type"),
-                     }})
+        logger.error(
+            "not-a-fitness-run",
+            extra={
+                "extra_fields": {
+                    "experiment_type": start_ev.get("experiment_type"),
+                }
+            },
+        )
         return EXIT_INVALID_INPUT
 
     env = start_ev.get("environment", {})
@@ -752,10 +797,15 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
     team_b = Path(env.get("team_b", {}).get("path", ""))
     cfg = start_ev.get("config", {})
     if not team_a.is_file() or not team_b.is_file():
-        logger.error("source-file-missing-for-replay",
-                     extra={"extra_fields": {
-                         "team_a": str(team_a), "team_b": str(team_b),
-                     }})
+        logger.error(
+            "source-file-missing-for-replay",
+            extra={
+                "extra_fields": {
+                    "team_a": str(team_a),
+                    "team_b": str(team_b),
+                }
+            },
+        )
         return EXIT_INVALID_INPUT
 
     # Compiler choice on replay: the recorded compiler pins what the
@@ -771,17 +821,23 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
     local_compiler = detect_compiler()
     resolved_compiler = local_compiler or recorded_compiler
     if recorded_compiler and resolved_compiler != recorded_compiler:
-        logger.info("replay-compiler-substitution",
-                    extra={"extra_fields": {
-                        "recorded": recorded_compiler,
-                        "resolved": resolved_compiler,
-                    }})
+        logger.info(
+            "replay-compiler-substitution",
+            extra={
+                "extra_fields": {
+                    "recorded": recorded_compiler,
+                    "resolved": resolved_compiler,
+                }
+            },
+        )
 
-    logger.info("replay-start",
-                extra={"extra_fields": {"run_dir": str(run_dir),
-                                         "n_matches": cfg.get("n_matches")}})
+    logger.info(
+        "replay-start",
+        extra={"extra_fields": {"run_dir": str(run_dir), "n_matches": cfg.get("n_matches")}},
+    )
     result = _fitness.evaluate_fitness(
-        team_a, team_b,
+        team_a,
+        team_b,
         n_matches=cfg.get("n_matches", 1),
         seed_base=cfg.get("seed_base", 0),
         workers=cfg.get("workers"),
@@ -793,20 +849,23 @@ def cmd_replay(args: argparse.Namespace, logger: logging.Logger) -> int:
 
     # Compare the reproducible subset of fields; ci/wall_seconds are
     # deterministic *given* the scores, so we check those too.
-    for key in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev",
-                "ci_low", "ci_high"):
+    for key in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev", "ci_low", "ci_high"):
         original = summary_ev.get(key)
         replayed = getattr(result, key)
         if original != replayed:
-            logger.error("replay-divergence",
-                         extra={"extra_fields": {
-                             "field": key, "original": original,
-                             "replayed": replayed,
-                         }})
+            logger.error(
+                "replay-divergence",
+                extra={
+                    "extra_fields": {
+                        "field": key,
+                        "original": original,
+                        "replayed": replayed,
+                    }
+                },
+            )
             return EXIT_RUN_FAILED
 
-    logger.info("replay-ok",
-                extra={"extra_fields": {"run_dir": str(run_dir)}})
+    logger.info("replay-ok", extra={"extra_fields": {"run_dir": str(run_dir)}})
     return EXIT_OK
 
 
@@ -850,20 +909,21 @@ def cmd_evolve(args: argparse.Namespace, logger: logging.Logger) -> int:
         if value is None:
             continue
         forwarded += [flag, str(value)]
-    logger.info("evolve-start",
-                extra={"extra_fields": {"argv": forwarded}})
+    logger.info("evolve-start", extra={"extra_fields": {"argv": forwarded}})
     return int(_evolve.main(forwarded))
 
 
 def cmd_tournament(args: argparse.Namespace, logger: logging.Logger) -> int:
-    logger.error("not-implemented",
-                 extra={"extra_fields": {"command": "tournament", "milestone": "M12"}})
+    logger.error(
+        "not-implemented", extra={"extra_fields": {"command": "tournament", "milestone": "M12"}}
+    )
     return EXIT_INVALID_INPUT
 
 
 # ------------------------------------------------------------------------
 # CLI entry
 # ------------------------------------------------------------------------
+
 
 def _positive_int(value: str) -> int:
     ivalue = int(value)
@@ -884,92 +944,127 @@ def build_parser() -> argparse.ArgumentParser:
         prog="orchestrator",
         description="SwarmEvolve orchestrator CLI (M7).",
     )
-    parser.add_argument("-v", "--verbose", action="count", default=0,
-                        help="increase verbosity; -v=info, -vv=debug")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="increase verbosity; -v=info, -vv=debug"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run", help="compile two AIs and run one match")
-    run.add_argument("--team-a", required=True,
-                     help="path to Team A AI source file")
-    run.add_argument("--team-b", required=True,
-                     help="path to Team B AI source file")
+    run.add_argument("--team-a", required=True, help="path to Team A AI source file")
+    run.add_argument("--team-b", required=True, help="path to Team B AI source file")
     run.add_argument("--seed", type=_non_negative_int, default=0)
     run.add_argument("--max-ticks", type=_positive_int, default=1000)
     run.add_argument("--drones-a", type=_positive_int, default=10)
     run.add_argument("--drones-b", type=_positive_int, default=10)
-    run.add_argument("--compiler", default=None,
-                     help="override C++ compiler; default: $CXX or auto-detect")
-    run.add_argument("--out-dir", default=None,
-                     help="where to write results.json + build/ + trace.jsonl")
-    run.add_argument("--record", action=argparse.BooleanOptionalAction, default=True,
-                     help="write JSONL trace (default: on)")
-    run.add_argument("--video", action=argparse.BooleanOptionalAction, default=False,
-                     help="render MP4 via visualizer (default: off)")
-    run.add_argument("--timeout", type=float, default=10.0,
-                     help="engine wall-clock timeout in seconds")
+    run.add_argument(
+        "--compiler", default=None, help="override C++ compiler; default: $CXX or auto-detect"
+    )
+    run.add_argument(
+        "--out-dir", default=None, help="where to write results.json + build/ + trace.jsonl"
+    )
+    run.add_argument(
+        "--record",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="write JSONL trace (default: on)",
+    )
+    run.add_argument(
+        "--video",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="render MP4 via visualizer (default: off)",
+    )
+    run.add_argument(
+        "--timeout", type=float, default=10.0, help="engine wall-clock timeout in seconds"
+    )
     run.set_defaults(func=cmd_run)
 
     evaluate = sub.add_parser(
         "evaluate",
         help="run N matches, compute fitness, and write events.jsonl + fitness.json",
     )
-    evaluate.add_argument("--team-a", required=True,
-                          help="path to Team A AI source file")
-    evaluate.add_argument("--team-b", required=True,
-                          help="path to Team B AI source file")
-    evaluate.add_argument("--n-matches", type=_positive_int, default=20,
-                          help="number of matches to run (default: 20)")
-    evaluate.add_argument("--seed-base", type=_non_negative_int, default=0,
-                          help="first seed; seeds are [seed_base, seed_base+n_matches)")
-    evaluate.add_argument("--workers", type=_positive_int, default=None,
-                          help="worker processes; default: min(cpu_count, n_matches)")
-    evaluate.add_argument("--max-ticks", type=_positive_int, default=1000,
-                          help="per-match tick cap (default: 1000)")
-    evaluate.add_argument("--timeout", type=float, default=10.0,
-                          help="per-match wall-clock timeout in seconds (default: 10)")
-    evaluate.add_argument("--compiler", default=None,
-                          help="override C++ compiler; default: $CXX or auto-detect")
-    evaluate.add_argument("--out-dir", default=None,
-                          help="where to write fitness.json + events.jsonl")
+    evaluate.add_argument("--team-a", required=True, help="path to Team A AI source file")
+    evaluate.add_argument("--team-b", required=True, help="path to Team B AI source file")
+    evaluate.add_argument(
+        "--n-matches", type=_positive_int, default=20, help="number of matches to run (default: 20)"
+    )
+    evaluate.add_argument(
+        "--seed-base",
+        type=_non_negative_int,
+        default=0,
+        help="first seed; seeds are [seed_base, seed_base+n_matches)",
+    )
+    evaluate.add_argument(
+        "--workers",
+        type=_positive_int,
+        default=None,
+        help="worker processes; default: min(cpu_count, n_matches)",
+    )
+    evaluate.add_argument(
+        "--max-ticks", type=_positive_int, default=1000, help="per-match tick cap (default: 1000)"
+    )
+    evaluate.add_argument(
+        "--timeout",
+        type=float,
+        default=10.0,
+        help="per-match wall-clock timeout in seconds (default: 10)",
+    )
+    evaluate.add_argument(
+        "--compiler", default=None, help="override C++ compiler; default: $CXX or auto-detect"
+    )
+    evaluate.add_argument(
+        "--out-dir", default=None, help="where to write fitness.json + events.jsonl"
+    )
     evaluate.set_defaults(func=cmd_evaluate)
 
     replay = sub.add_parser(
         "replay",
         help="re-run a previous fitness experiment and verify byte-identical summary",
     )
-    replay.add_argument("run_dir",
-                        help="path to a previous experiment directory (contains events.jsonl)")
+    replay.add_argument(
+        "run_dir", help="path to a previous experiment directory (contains events.jsonl)"
+    )
     replay.set_defaults(func=cmd_replay)
 
     evolve = sub.add_parser(
         "evolve",
         help="run closed-loop LLM evolution against a frozen opponent",
     )
-    evolve.add_argument("--opponent", default=None,
-                        help="path to frozen opponent AI source (required for fresh run)")
+    evolve.add_argument(
+        "--opponent",
+        default=None,
+        help="path to frozen opponent AI source (required for fresh run)",
+    )
     evolve.add_argument("--as-team", choices=("A", "B"), default="A")
     evolve.add_argument("--generations", type=_positive_int, default=50)
     evolve.add_argument("--n-matches", type=_positive_int, default=20)
     evolve.add_argument("--workers", type=_positive_int, default=None)
     evolve.add_argument("--client", choices=("anthropic", "mock"), default="anthropic")
-    evolve.add_argument("--mock-response-dir", default=None,
-                        help="directory of *.md responses when --client=mock")
-    evolve.add_argument("--model", default=None,
-                        help="override LLM model id (default: $ANTHROPIC_MODEL)")
-    evolve.add_argument("--seed", type=int, default=None,
-                        help="root seed for per-generation seed derivation")
-    evolve.add_argument("--accept-margin", type=float, default=0.0,
-                        help="challenger must beat champion mean by > margin")
+    evolve.add_argument(
+        "--mock-response-dir", default=None, help="directory of *.md responses when --client=mock"
+    )
+    evolve.add_argument(
+        "--model", default=None, help="override LLM model id (default: $ANTHROPIC_MODEL)"
+    )
+    evolve.add_argument(
+        "--seed", type=int, default=None, help="root seed for per-generation seed derivation"
+    )
+    evolve.add_argument(
+        "--accept-margin",
+        type=float,
+        default=0.0,
+        help="challenger must beat champion mean by > margin",
+    )
     evolve.add_argument("--max-compile-failures", type=_positive_int, default=5)
     evolve.add_argument("--checkpoint-every", type=_positive_int, default=10)
-    evolve.add_argument("--out-dir", default=None,
-                        help="run directory (default: data/experiments/<ts>)")
-    evolve.add_argument("--resume", default=None,
-                        help="resume an existing run directory")
-    evolve.add_argument("--seed-ai", default=None,
-                        help="initial champion (default: --opponent)")
-    evolve.add_argument("--prompt", default=None,
-                        help="prompt template path (default: prompts/evolve_ai.md)")
+    evolve.add_argument(
+        "--out-dir", default=None, help="run directory (default: data/experiments/<ts>)"
+    )
+    evolve.add_argument("--resume", default=None, help="resume an existing run directory")
+    evolve.add_argument("--seed-ai", default=None, help="initial champion (default: --opponent)")
+    evolve.add_argument(
+        "--prompt", default=None, help="prompt template path (default: prompts/evolve_ai.md)"
+    )
     evolve.set_defaults(func=cmd_evolve)
 
     tournament = sub.add_parser("tournament", help="(M12) round-robin tournament")
@@ -985,8 +1080,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args, logger))
     except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("internal-error",
-                         extra={"extra_fields": {"error": str(exc)}})
+        logger.exception("internal-error", extra={"extra_fields": {"error": str(exc)}})
         return EXIT_INTERNAL
 
 

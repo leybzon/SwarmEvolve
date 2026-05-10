@@ -35,7 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from telemetry_aar import (  # noqa: E402  (import-after-sys.path mutation)
+from telemetry_aar import (
     AARReport,
     compute_metrics,
     estimate_tokens,
@@ -44,29 +44,41 @@ from telemetry_aar import (  # noqa: E402  (import-after-sys.path mutation)
     render_markdown,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixture helpers
 # ---------------------------------------------------------------------------
+
 
 def _drone(did: int, x: float, y: float, cd: int = 0, alive: bool = True) -> dict:
     return {"id": did, "x": x, "y": y, "cooldown": cd, "alive": alive}
 
 
-def _action(did: int, alive: bool = True, vx: float = 0.0, vy: float = 0.0,
-            target_id: int = -1, msg=(0.0, 0.0, 0.0, 0.0)) -> dict:
+def _action(
+    did: int,
+    alive: bool = True,
+    vx: float = 0.0,
+    vy: float = 0.0,
+    target_id: int = -1,
+    msg=(0.0, 0.0, 0.0, 0.0),
+) -> dict:
     return {
-        "id": did, "alive": alive, "vx": vx, "vy": vy,
-        "target_id": target_id, "msg": list(msg),
+        "id": did,
+        "alive": alive,
+        "vx": vx,
+        "vy": vy,
+        "target_id": target_id,
+        "msg": list(msg),
     }
 
 
-def _attack(atk_team: int, atk_id: int, tgt_team: int, tgt_id: int,
-            hit: bool, dist: float) -> dict:
+def _attack(atk_team: int, atk_id: int, tgt_team: int, tgt_id: int, hit: bool, dist: float) -> dict:
     return {
-        "atk_team": atk_team, "atk_id": atk_id,
-        "tgt_team": tgt_team, "tgt_id": tgt_id,
-        "hit": hit, "dist": dist,
+        "atk_team": atk_team,
+        "atk_id": atk_id,
+        "tgt_team": tgt_team,
+        "tgt_id": tgt_id,
+        "hit": hit,
+        "dist": dist,
     }
 
 
@@ -105,8 +117,7 @@ def _build_fixture() -> list[dict]:
         "schema_version": 2,
         "tick": 1,
         "team_a": [_drone(0, 0, 0, cd=10), _drone(1, 10, 0, cd=10)],
-        "team_b": [_drone(0, 20, 0, cd=0, alive=False),
-                   _drone(1, 100, 0)],
+        "team_b": [_drone(0, 20, 0, cd=0, alive=False), _drone(1, 100, 0)],
         "actions_a": [_action(0, target_id=0), _action(1, target_id=0)],
         "actions_b": [_action(0, target_id=-1), _action(1, target_id=-1)],
         "attacks": [
@@ -119,8 +130,7 @@ def _build_fixture() -> list[dict]:
         "schema_version": 2,
         "tick": 2,
         "team_a": [_drone(0, 0, 0, cd=9), _drone(1, 10, 0, cd=9)],
-        "team_b": [_drone(0, 20, 0, alive=False),
-                   _drone(1, 100, 0)],
+        "team_b": [_drone(0, 20, 0, alive=False), _drone(1, 100, 0)],
         "actions_a": [_action(0, target_id=1), _action(1, target_id=-1)],
         "actions_b": [_action(0, target_id=-1), _action(1, target_id=-1)],
         # A0 has cooldown=9 > 0, so engine would NOT have recorded this
@@ -134,8 +144,7 @@ def _build_fixture() -> list[dict]:
         "schema_version": 2,
         "tick": 3,
         "team_a": [_drone(0, 0, 0, cd=0), _drone(1, 85, 0, cd=10)],
-        "team_b": [_drone(0, 20, 0, alive=False),
-                   _drone(1, 100, 0, alive=False)],
+        "team_b": [_drone(0, 20, 0, alive=False), _drone(1, 100, 0, alive=False)],
         "actions_a": [_action(0, target_id=-1), _action(1, target_id=1)],
         "actions_b": [_action(0, target_id=-1), _action(1, target_id=-1)],
         "attacks": [
@@ -149,6 +158,7 @@ def _build_fixture() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Layer 1: handcrafted fixture with known metrics
 # ---------------------------------------------------------------------------
+
 
 def test_handcrafted_metrics_exact() -> None:
     records = _build_fixture()
@@ -203,8 +213,10 @@ def test_handcrafted_perspective_b_flips() -> None:
 def test_load_v1_trace_rejected(tmp_path: Path) -> None:
     """Loading a v1 trace (no actions/attacks) must abort with a clear error."""
     v1 = tmp_path / "v1.jsonl"
-    v1.write_text('{"tick":0,"team_a":[{"id":0,"x":1,"y":2,"cooldown":0,"alive":true}],'
-                  '"team_b":[{"id":0,"x":3,"y":4,"cooldown":0,"alive":true}]}\n')
+    v1.write_text(
+        '{"tick":0,"team_a":[{"id":0,"x":1,"y":2,"cooldown":0,"alive":true}],'
+        '"team_b":[{"id":0,"x":3,"y":4,"cooldown":0,"alive":true}]}\n'
+    )
     with pytest.raises(ValueError, match="v1 trace detected"):
         load_v2_trace(v1)
 
@@ -226,13 +238,15 @@ def test_markdown_contains_key_numbers() -> None:
 # Layer 2: full baseline replay (requires compiler)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(CXX is None, reason="no C++17 compiler available")
 def test_baseline_replay_invariants(tmp_path: Path) -> None:
     binary = build_matchup(tmp_path, "pursuit_v1.cpp", "cluster_v1.cpp")
     trace = tmp_path / "v2.jsonl"
     subprocess.run(
         [str(binary), "--seed", "42", "--record", str(trace), "--record-actions"],
-        check=False, capture_output=True,
+        check=False,
+        capture_output=True,
     )
     report = render_aar(trace, perspective="A")
     m = report.structured
@@ -247,6 +261,7 @@ def test_baseline_replay_invariants(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Layer 3: determinism
 # ---------------------------------------------------------------------------
+
 
 def test_metrics_deterministic() -> None:
     records = _build_fixture()
@@ -278,6 +293,8 @@ def test_estimate_tokens_sane() -> None:
 
 def test_aar_report_is_frozen_dataclass() -> None:
     """AARReport is immutable; mutations must raise."""
+    from dataclasses import FrozenInstanceError
+
     report = AARReport(structured={"a": 1}, markdown="m", token_estimate=1)
-    with pytest.raises(Exception):  # dataclass frozen -> FrozenInstanceError
+    with pytest.raises(FrozenInstanceError):
         report.markdown = "other"  # type: ignore[misc]

@@ -18,15 +18,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import fitness  # noqa: E402
-from _build_helper import CXX  # noqa: E402
+import fitness
+from _build_helper import CXX
 
 BASELINES = REPO_ROOT / "src" / "baselines"
 
 # Every integration test in this file needs a working compiler. Skip
 # at collection time on CI images that don't have one.
 pytestmark = pytest.mark.skipif(
-    CXX is None, reason="no C++ compiler found on PATH",
+    CXX is None,
+    reason="no C++ compiler found on PATH",
 )
 
 
@@ -77,8 +78,10 @@ def test_evaluate_rejects_missing_team_a(tmp_path):
     b.write_text("//")
     with pytest.raises(FileNotFoundError):
         fitness.evaluate_fitness(
-            tmp_path / "does_not_exist.cpp", b,
-            n_matches=1, workers=1,
+            tmp_path / "does_not_exist.cpp",
+            b,
+            n_matches=1,
+            workers=1,
         )
 
 
@@ -106,7 +109,9 @@ def short_run(tmp_path_factory):
     return fitness.evaluate_fitness(
         BASELINES / "pursuit_v1.cpp",
         BASELINES / "cluster_v1.cpp",
-        n_matches=4, seed_base=0, workers=1,
+        n_matches=4,
+        seed_base=0,
+        workers=1,
         scratch_root=scratch,
     )
 
@@ -138,21 +143,27 @@ def test_same_inputs_produce_identical_result(tmp_path_factory):
     s1 = tmp_path_factory.mktemp("fit_a")
     s2 = tmp_path_factory.mktemp("fit_b")
     r1 = fitness.evaluate_fitness(
-        BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp",
-        n_matches=3, seed_base=7, workers=1, scratch_root=s1,
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "cluster_v1.cpp",
+        n_matches=3,
+        seed_base=7,
+        workers=1,
+        scratch_root=s1,
     )
     r2 = fitness.evaluate_fitness(
-        BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp",
-        n_matches=3, seed_base=7, workers=1, scratch_root=s2,
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "cluster_v1.cpp",
+        n_matches=3,
+        seed_base=7,
+        workers=1,
+        scratch_root=s2,
     )
     # wall_seconds varies run-to-run; everything else must match.
-    for field in ("wins_a", "wins_b", "draws", "invalid",
-                   "mean", "stdev", "ci_low", "ci_high"):
+    for field in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev", "ci_low", "ci_high"):
         assert getattr(r1, field) == getattr(r2, field), field
     # per_match is the strongest check: byte-identical except wall_ms.
-    for m1, m2 in zip(r1.per_match, r2.per_match):
-        for key in ("seed", "outcome", "score", "ticks",
-                    "a_alive", "b_alive", "return_code"):
+    for m1, m2 in zip(r1.per_match, r2.per_match, strict=False):
+        for key in ("seed", "outcome", "score", "ticks", "a_alive", "b_alive", "return_code"):
             assert m1[key] == m2[key], key
 
 
@@ -161,15 +172,22 @@ def test_workers_gt_1_produces_same_aggregates(tmp_path_factory):
     s1 = tmp_path_factory.mktemp("fit_seq")
     s2 = tmp_path_factory.mktemp("fit_par")
     r_seq = fitness.evaluate_fitness(
-        BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp",
-        n_matches=4, seed_base=0, workers=1, scratch_root=s1,
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "cluster_v1.cpp",
+        n_matches=4,
+        seed_base=0,
+        workers=1,
+        scratch_root=s1,
     )
     r_par = fitness.evaluate_fitness(
-        BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp",
-        n_matches=4, seed_base=0, workers=2, scratch_root=s2,
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "cluster_v1.cpp",
+        n_matches=4,
+        seed_base=0,
+        workers=2,
+        scratch_root=s2,
     )
-    for field in ("wins_a", "wins_b", "draws", "invalid",
-                   "mean", "stdev", "ci_low", "ci_high"):
+    for field in ("wins_a", "wins_b", "draws", "invalid", "mean", "stdev", "ci_low", "ci_high"):
         assert getattr(r_seq, field) == getattr(r_par, field), field
 
 
@@ -179,8 +197,12 @@ def test_self_play_mean_is_near_zero(tmp_path_factory):
     bound; 0.5 catches a regression that flips every outcome."""
     scratch = tmp_path_factory.mktemp("fit_self")
     r = fitness.evaluate_fitness(
-        BASELINES / "pursuit_v1.cpp", BASELINES / "pursuit_v1.cpp",
-        n_matches=4, seed_base=0, workers=1, scratch_root=scratch,
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "pursuit_v1.cpp",
+        n_matches=4,
+        seed_base=0,
+        workers=1,
+        scratch_root=scratch,
     )
     assert abs(r.mean) <= 0.5, r
     # A healthy self-play pairing should register at least one draw
@@ -190,6 +212,7 @@ def test_self_play_mean_is_near_zero(tmp_path_factory):
 
 def test_to_dict_is_json_serialisable(short_run):
     import json
+
     s = json.dumps(short_run.to_dict(), sort_keys=True)
     # Round-trip for structural equality.
     round_tripped = json.loads(s)
@@ -200,8 +223,7 @@ def test_to_dict_is_json_serialisable(short_run):
 def test_compile_error_propagates(tmp_path):
     """A broken AI must raise CompileError, not a silent zero fitness."""
     # Render a valid opponent ...
-    b_src = (BASELINES / "cluster_v1.cpp").read_text().replace(
-        "TEAM_NS_PLACEHOLDER", "TeamB")
+    b_src = (BASELINES / "cluster_v1.cpp").read_text().replace("TEAM_NS_PLACEHOLDER", "TeamB")
     b = tmp_path / "b.cpp"
     b.write_text(b_src)
     # ... and a candidate with a missing closing brace.
@@ -209,13 +231,17 @@ def test_compile_error_propagates(tmp_path):
     a.write_text(
         '#include "ai_abi.h"\n'
         '#include "types.h"\n'
-        'namespace TeamA {\n'
-        '// missing close brace on purpose\n'
-        'void drone_ai(int, const GameParams*, const AllyState*,\n'
-        '              const EnemyState*, const float[][MSG_SIZE],\n'
-        '              float*, Action* out) { out->target_id = -1; }\n'
+        "namespace TeamA {\n"
+        "// missing close brace on purpose\n"
+        "void drone_ai(int, const GameParams*, const AllyState*,\n"
+        "              const EnemyState*, const float[][MSG_SIZE],\n"
+        "              float*, Action* out) { out->target_id = -1; }\n"
     )
     with pytest.raises(fitness.CompileError):
         fitness.evaluate_fitness(
-            a, b, n_matches=1, workers=1, scratch_root=tmp_path / "scratch",
+            a,
+            b,
+            n_matches=1,
+            workers=1,
+            scratch_root=tmp_path / "scratch",
         )

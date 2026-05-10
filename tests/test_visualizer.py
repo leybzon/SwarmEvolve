@@ -35,7 +35,7 @@ VISUALIZER = REPO_ROOT / "scripts" / "visualizer.py"
 # Make scripts/ importable for direct function calls.
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from visualizer import RenderConfig, _render_frame, render_trace  # noqa: E402, PLC0415
+from visualizer import RenderConfig, _render_frame, render_trace
 
 
 def _read_frame_count(mp4_path: Path) -> int:
@@ -49,8 +49,7 @@ def _read_frame_count(mp4_path: Path) -> int:
 def _read_frame_size(mp4_path: Path) -> tuple[int, int]:
     cap = cv2.VideoCapture(str(mp4_path))
     try:
-        return (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        return (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
     finally:
         cap.release()
 
@@ -117,8 +116,7 @@ def test_ydown_drone_near_top_renders_in_top_half() -> None:
 
 def test_team_colors_are_distinct() -> None:
     cfg = RenderConfig(width=200, height=200)
-    line = _make_line(team_a=[_drone(0, x=250.0, y=500.0)],
-                      team_b=[_drone(0, x=750.0, y=500.0)])
+    line = _make_line(team_a=[_drone(0, x=250.0, y=500.0)], team_b=[_drone(0, x=750.0, y=500.0)])
     frame = _render_frame(line, cfg)
 
     # Left quarter: Team A (blue-dominant). Right quarter: Team B (red-dominant).
@@ -141,10 +139,14 @@ def test_dead_drone_does_not_draw_range_ring() -> None:
     pixels (faint grey, COLOR_RANGE) than the dead one.
     """
     cfg = RenderConfig(width=400, height=400)
-    alive_line = _make_line(team_a=[_drone(0, x=500.0, y=500.0, alive=True)],
-                            team_b=[_drone(0, x=10.0, y=10.0, alive=False)])
-    dead_line = _make_line(team_a=[_drone(0, x=500.0, y=500.0, alive=False)],
-                           team_b=[_drone(0, x=10.0, y=10.0, alive=False)])
+    alive_line = _make_line(
+        team_a=[_drone(0, x=500.0, y=500.0, alive=True)],
+        team_b=[_drone(0, x=10.0, y=10.0, alive=False)],
+    )
+    dead_line = _make_line(
+        team_a=[_drone(0, x=500.0, y=500.0, alive=False)],
+        team_b=[_drone(0, x=10.0, y=10.0, alive=False)],
+    )
     f_alive = _render_frame(alive_line, cfg)
     f_dead = _render_frame(dead_line, cfg)
 
@@ -162,9 +164,13 @@ def test_cooldown_bar_scales_with_cooldown() -> None:
     cyan = (0, 220, 220)
 
     def cyan_pixels(frame: np.ndarray) -> int:
-        return int(np.sum((frame[:, :, 0] == cyan[0]) &
-                          (frame[:, :, 1] == cyan[1]) &
-                          (frame[:, :, 2] == cyan[2])))
+        return int(
+            np.sum(
+                (frame[:, :, 0] == cyan[0])
+                & (frame[:, :, 1] == cyan[1])
+                & (frame[:, :, 2] == cyan[2])
+            )
+        )
 
     f_zero = _render_frame(_make_line([_drone(0, 500, 500, cooldown=0)], []), cfg)
     f_half = _render_frame(_make_line([_drone(0, 500, 500, cooldown=5)], []), cfg)
@@ -184,7 +190,8 @@ def test_cli_rejects_missing_trace(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist.jsonl"
     proc = subprocess.run(
         [sys.executable, str(VISUALIZER), str(missing), str(tmp_path / "out.mp4")],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     assert proc.returncode == 2
     assert "trace-not-found" in proc.stderr

@@ -62,46 +62,77 @@ def build_common_parser(prog: str, description: str) -> argparse.ArgumentParser:
     are added by the callers on top of the returned parser.
     """
     p = argparse.ArgumentParser(prog=prog, description=description)
-    p.add_argument("--model", default=None,
-                   help="Model id forwarded to evolve (overrides $ANTHROPIC_MODEL)")
-    p.add_argument("--generations", type=int, default=5,
-                   help="Generations per lineage")
-    p.add_argument("--n-matches", type=int, default=10,
-                   help="Matches per generation (and per tournament pairing)")
-    p.add_argument("--workers", type=int, default=None,
-                   help="Parallel match workers (defaults to evolve's default)")
-    p.add_argument("--client", choices=("anthropic", "mock"), default="anthropic",
-                   help="LLM client kind forwarded to evolve")
-    p.add_argument("--mock-response-dir", default=None,
-                   help="Directory (or single .md file) of canned responses "
-                        "when --client=mock")
-    p.add_argument("--out-dir", required=True, type=Path,
-                   help="Track root; each lineage/step is a subdirectory")
-    p.add_argument("--resume", action="store_true",
-                   help="Resume from checkpoints already present in --out-dir "
-                        "(missing subdirs are started fresh)")
-    p.add_argument("--aar", dest="aar", action="store_true",
-                   help="Enable AARs (default on)")
-    p.add_argument("--no-aar", dest="aar", action="store_false",
-                   help="Disable AARs")
-    p.add_argument("--journal", dest="journal", action="store_true",
-                   help="Enable learning journal (default on)")
-    p.add_argument("--no-journal", dest="journal", action="store_false",
-                   help="Disable learning journal")
+    p.add_argument(
+        "--model", default=None, help="Model id forwarded to evolve (overrides $ANTHROPIC_MODEL)"
+    )
+    p.add_argument("--generations", type=int, default=5, help="Generations per lineage")
+    p.add_argument(
+        "--n-matches",
+        type=int,
+        default=10,
+        help="Matches per generation (and per tournament pairing)",
+    )
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Parallel match workers (defaults to evolve's default)",
+    )
+    p.add_argument(
+        "--client",
+        choices=("anthropic", "mock"),
+        default="anthropic",
+        help="LLM client kind forwarded to evolve",
+    )
+    p.add_argument(
+        "--mock-response-dir",
+        default=None,
+        help="Directory (or single .md file) of canned responses when --client=mock",
+    )
+    p.add_argument(
+        "--out-dir",
+        required=True,
+        type=Path,
+        help="Track root; each lineage/step is a subdirectory",
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoints already present in --out-dir "
+        "(missing subdirs are started fresh)",
+    )
+    p.add_argument("--aar", dest="aar", action="store_true", help="Enable AARs (default on)")
+    p.add_argument("--no-aar", dest="aar", action="store_false", help="Disable AARs")
+    p.add_argument(
+        "--journal",
+        dest="journal",
+        action="store_true",
+        help="Enable learning journal (default on)",
+    )
+    p.add_argument(
+        "--no-journal", dest="journal", action="store_false", help="Disable learning journal"
+    )
     p.set_defaults(aar=True, journal=True)
-    p.add_argument("--checkpoint-every", type=int, default=1,
-                   help="evolve checkpoint cadence (generations)")
+    p.add_argument(
+        "--checkpoint-every", type=int, default=1, help="evolve checkpoint cadence (generations)"
+    )
     p.add_argument("--max-compile-failures", type=int, default=5)
     p.add_argument(
-        "--max-compile-retries", type=int, default=10,
+        "--max-compile-retries",
+        type=int,
+        default=10,
         help="Per-generation retry budget when the LLM's candidate "
-             "fails parse/lint/inject/compile. Forwarded to evolve.",
+        "fails parse/lint/inject/compile. Forwarded to evolve.",
     )
     p.add_argument("--accept-margin", type=float, default=0.0)
-    p.add_argument("--max-tokens", type=int, default=0,
-                   help="Hard cap on cumulative LLM tokens (input+output) "
-                        "summed across every state.json under --out-dir. "
-                        "0 disables enforcement.")
+    p.add_argument(
+        "--max-tokens",
+        type=int,
+        default=0,
+        help="Hard cap on cumulative LLM tokens (input+output) "
+        "summed across every state.json under --out-dir. "
+        "0 disables enforcement.",
+    )
     p.add_argument("-v", "--verbose", action="count", default=0)
     return p
 
@@ -142,9 +173,7 @@ def invoke_evolve(argv: list[str], *, strict: bool = True) -> int:
     """
     rc = evolve.main(argv)
     if strict and rc != EXIT_OK:
-        raise RuntimeError(
-            f"evolve.main exited {rc} (argv={argv!r})"
-        )
+        raise RuntimeError(f"evolve.main exited {rc} (argv={argv!r})")
     return rc
 
 
@@ -164,8 +193,7 @@ def sha256_file(path: Path) -> str:
 def atomic_write_json(path: Path, data: Any) -> None:
     """Write ``data`` as sorted-keys pretty JSON atomically (same FS)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".manifest.",
-                               suffix=".tmp")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".manifest.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, sort_keys=True)
@@ -234,9 +262,7 @@ def neutralise_namespace(source_text: str) -> str:
     # both ``namespace TeamA`` (decl/open) and ``// namespace TeamA``
     # (close marker) since that's the canonical layout emitted by evolve.
     for team in ("TeamA", "TeamB"):
-        replaced = replaced.replace(
-            f"namespace {team}", f"namespace {PLACEHOLDER_TOKEN}"
-        )
+        replaced = replaced.replace(f"namespace {team}", f"namespace {PLACEHOLDER_TOKEN}")
     return replaced
 
 
@@ -258,8 +284,9 @@ def neutralised_copy(src: Path, dst: Path) -> Path:
 @dataclass
 class LineageSummary:
     """One row of a track manifest: one lineage's final state."""
+
     seed: int
-    run_dir: str                         # absolute path
+    run_dir: str  # absolute path
     generations_run: int
     generations_accepted: int
     champion_generation: int
@@ -289,7 +316,10 @@ class LineageSummary:
 
 
 def summarise_lineage(
-    run_dir: Path, *, seed: int, exit_code: int | None = None,
+    run_dir: Path,
+    *,
+    seed: int,
+    exit_code: int | None = None,
 ) -> LineageSummary:
     """Build a :class:`LineageSummary` from a completed (or partial) run dir.
 
@@ -347,16 +377,30 @@ EXIT_BUDGET_EXCEEDED = 40  # track runner aborted because --max-tokens was cross
 
 
 __all__ = [
-    "PURSUIT_V1", "REPO_ROOT",
-    "EXIT_OK", "EXIT_INVALID_INPUT", "EXIT_RESUME_FAILED", "EXIT_EVOLVE_FAILED",
     "EXIT_BUDGET_EXCEEDED",
-    "TRACK_MANIFEST_SCHEMA_VERSION",
-    "build_common_parser", "forward_common_argv",
-    "invoke_evolve",
-    "sha256_file", "atomic_write_json", "read_state", "read_champion_path",
-    "copy_snapshot", "neutralise_namespace", "neutralised_copy",
+    "EXIT_EVOLVE_FAILED",
+    "EXIT_INVALID_INPUT",
+    "EXIT_OK",
+    "EXIT_RESUME_FAILED",
     "PLACEHOLDER_TOKEN",
-    "LineageSummary", "summarise_lineage", "write_manifest",
-    "BudgetExceeded", "TokenBudget",
-    "tournament", "evolve",
+    "PURSUIT_V1",
+    "REPO_ROOT",
+    "TRACK_MANIFEST_SCHEMA_VERSION",
+    "BudgetExceeded",
+    "LineageSummary",
+    "TokenBudget",
+    "atomic_write_json",
+    "build_common_parser",
+    "copy_snapshot",
+    "evolve",
+    "forward_common_argv",
+    "invoke_evolve",
+    "neutralise_namespace",
+    "neutralised_copy",
+    "read_champion_path",
+    "read_state",
+    "sha256_file",
+    "summarise_lineage",
+    "tournament",
+    "write_manifest",
 ]

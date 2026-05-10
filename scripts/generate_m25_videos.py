@@ -46,8 +46,7 @@ def _render_team_source(src_path: Path, namespace: str, dest: Path) -> None:
     dest.write_text(text)
 
 
-def generate_trace(team_a_path: Path, team_b_path: Path,
-                   trace_path: Path, seed: int) -> None:
+def generate_trace(team_a_path: Path, team_b_path: Path, trace_path: Path, seed: int) -> None:
     """Generate a single match trace file."""
     LOG.info("Generating trace: %s (A) vs %s (B)", team_a_path.stem, team_b_path.stem)
 
@@ -77,9 +76,12 @@ def generate_trace(team_a_path: Path, team_b_path: Path,
 
         compiler = "/opt/homebrew/opt/llvm/bin/clang++"
         compile_cmd = [
-            compiler, "-std=c++17", "-O3",
+            compiler,
+            "-std=c++17",
+            "-O3",
             f"-I{REPO_ROOT / 'src'}",
-            "-o", str(binary),
+            "-o",
+            str(binary),
             "src/engine.cpp",
             "src/a/team_a_ai.cpp",
             "src/b/team_b_ai.cpp",
@@ -98,8 +100,10 @@ def generate_trace(team_a_path: Path, team_b_path: Path,
         trace_path.parent.mkdir(parents=True, exist_ok=True)
         run_cmd = [
             str(binary),
-            "--record", str(trace_path),
-            "--seed", str(seed),
+            "--record",
+            str(trace_path),
+            "--seed",
+            str(seed),
         ]
         result = subprocess.run(run_cmd, cwd=REPO_ROOT, capture_output=True, text=True)
         LOG.info("Match result: %s", result.stdout.strip())
@@ -125,7 +129,8 @@ def generate_video(trace_path: Path, video_path: Path, intro_text: str) -> None:
         str(_HERE / "visualizer.py"),
         str(trace_path),
         str(video_path),
-        "--intro-text", intro_text,
+        "--intro-text",
+        intro_text,
         "-v",
     ]
 
@@ -141,10 +146,22 @@ def main() -> int:
     # Round 31: Team B BREAKTHROUGH (+0.9)
     # Round 41: Team B final champion (+0.9)
     key_rounds = [
-        (1, "M25 Round 1: Baseline\\nTeam B (pursuit_v1) vs Team A (M22 gen 33 champion)\\nFitness: -0.8 (Team B losing)"),
-        (13, "M25 Round 13: Reaching Parity\\nTeam B (Predictive Intercept Swarm) vs Team A\\nFitness: 0.0 (competitive balance achieved)"),
-        (31, "M25 Round 31: BREAKTHROUGH\\nTeam B (Formation Spread) vs Team A\\nFitness: +0.9 (Team B dominant)"),
-        (41, "M25 Round 41: Final Champion\\nTeam B (Zone Control with Baiting) vs Team A\\nFitness: +0.9 (sustained dominance)"),
+        (
+            1,
+            "M25 Round 1: Baseline\\nTeam B (pursuit_v1) vs Team A (M22 gen 33 champion)\\nFitness: -0.8 (Team B losing)",
+        ),
+        (
+            13,
+            "M25 Round 13: Reaching Parity\\nTeam B (Predictive Intercept Swarm) vs Team A\\nFitness: 0.0 (competitive balance achieved)",
+        ),
+        (
+            31,
+            "M25 Round 31: BREAKTHROUGH\\nTeam B (Formation Spread) vs Team A\\nFitness: +0.9 (Team B dominant)",
+        ),
+        (
+            41,
+            "M25 Round 41: Final Champion\\nTeam B (Zone Control with Baiting) vs Team A\\nFitness: +0.9 (sustained dominance)",
+        ),
     ]
 
     LOG.info("Generating M25 visualizations for %d key rounds", len(key_rounds))

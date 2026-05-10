@@ -19,13 +19,15 @@ ORCHESTRATOR = REPO_ROOT / "scripts" / "orchestrator.py"
 
 # Import the module directly for in-process parser tests.
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-import orchestrator  # noqa: E402
+import orchestrator
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(ORCHESTRATOR), *args],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
@@ -63,20 +65,17 @@ def test_run_requires_team_a():
 
 
 def test_run_rejects_negative_seed():
-    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp",
-                   "--seed", "-1"])
+    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp", "--seed", "-1"])
     assert result.returncode != 0
 
 
 def test_run_rejects_zero_max_ticks():
-    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp",
-                   "--max-ticks", "0"])
+    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp", "--max-ticks", "0"])
     assert result.returncode != 0
 
 
 def test_run_rejects_zero_drones():
-    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp",
-                   "--drones-a", "0"])
+    result = _run(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp", "--drones-a", "0"])
     assert result.returncode != 0
 
 
@@ -107,11 +106,10 @@ def test_tournament_stub_returns_invalid_input():
 # In-process tests for helper functions
 # -----------------------------------------------------------------------
 
+
 def test_parser_builds_without_error():
     parser = orchestrator.build_parser()
-    ns = parser.parse_args(["run",
-                            "--team-a", "/tmp/a.cpp",
-                            "--team-b", "/tmp/b.cpp"])
+    ns = parser.parse_args(["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp"])
     assert ns.command == "run"
     assert ns.seed == 0
     assert ns.max_ticks == 1000
@@ -123,10 +121,9 @@ def test_parser_builds_without_error():
 
 def test_parser_no_record_flag():
     parser = orchestrator.build_parser()
-    ns = parser.parse_args(["run",
-                            "--team-a", "/tmp/a.cpp",
-                            "--team-b", "/tmp/b.cpp",
-                            "--no-record"])
+    ns = parser.parse_args(
+        ["run", "--team-a", "/tmp/a.cpp", "--team-b", "/tmp/b.cpp", "--no-record"]
+    )
     assert ns.record is False
 
 
@@ -143,8 +140,9 @@ def test_detect_compiler_returns_none_when_nothing_available(monkeypatch):
     # Force every candidate lookup to miss. ``detect_compiler`` uses both
     # ``shutil.which`` (absolute candidates and bare names) and
     # ``Path.is_file`` (absolute Homebrew paths) — stub both.
-    import shutil as _sh
     import pathlib as _pl
+    import shutil as _sh
+
     original_is_file = _pl.Path.is_file
 
     def _never_file(self):
@@ -179,7 +177,7 @@ def test_json_formatter_emits_single_line():
 
 
 def test_stubs_raise_not_implemented():
-    import llm_client as _llm  # noqa: E402 — scripts/ on sys.path above
+    import llm_client as _llm
 
     with pytest.raises(NotImplementedError):
         _llm.StubClient().generate("hi")
@@ -188,12 +186,14 @@ def test_stubs_raise_not_implemented():
 
 
 def test_mock_llm_client_returns_queued_responses():
-    import llm_client as _llm  # noqa: E402
+    import llm_client as _llm
 
-    client = _llm.MockClient([
-        _llm.LLMResponse(text="first", model="mock"),
-        _llm.LLMResponse(text="second", model="mock"),
-    ])
+    client = _llm.MockClient(
+        [
+            _llm.LLMResponse(text="first", model="mock"),
+            _llm.LLMResponse(text="second", model="mock"),
+        ]
+    )
     assert client.generate("p1").text == "first"
     assert client.generate("p2").text == "second"
     assert client.calls == ["p1", "p2"]

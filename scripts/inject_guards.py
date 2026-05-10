@@ -89,6 +89,7 @@ def _scrub(source: str) -> str:
     """Return ``source`` with comments and literals replaced by whitespace
     of the same length. Newlines are preserved so line numbers match.
     """
+
     def repl(match: re.Match[str]) -> str:
         span = match.group(0)
         return "".join(ch if ch == "\n" else " " for ch in span)
@@ -112,7 +113,8 @@ _GOTO_BACK = re.compile(r"\bgoto\b")
 @dataclass
 class Loop:
     """A detected loop header ready for guard injection."""
-    kind: str       # "while", "for", "do"
+
+    kind: str  # "while", "for", "do"
     kw_offset: int  # offset of the loop keyword in the original source
     body_open: int  # offset of the '{' that opens the loop body
     body_close: int  # offset of the matching '}' (exclusive end)
@@ -209,8 +211,9 @@ def _detect_loops(source: str) -> list[Loop]:
 
         body_open = _find_loop_body_brace(scrubbed, after_kw, kind)
         body_close = _find_matching_brace(scrubbed, body_open)
-        loops.append(Loop(kind=kind, kw_offset=kw_offset,
-                           body_open=body_open, body_close=body_close))
+        loops.append(
+            Loop(kind=kind, kw_offset=kw_offset, body_open=body_open, body_close=body_close)
+        )
     return loops
 
 
@@ -333,18 +336,36 @@ def _inject_one(source: str, loop: Loop, guard_name: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Inject per-loop iteration guards into C++ source.")
+    parser = argparse.ArgumentParser(
+        description="Inject per-loop iteration guards into C++ source."
+    )
     parser.add_argument("files", nargs="+", type=Path, help="C++ source files to rewrite in place")
-    parser.add_argument("--check", action="store_true",
-                        help="print what would change but do not write files; exit 1 if any file would change")
-    parser.add_argument("--stdout", action="store_true",
-                        help="print rewritten source(s) to stdout and skip in-place writes")
-    parser.add_argument("--backend", choices=["regex", "libclang"], default="regex",
-                        help="parser backend (libclang is not yet implemented; regex is the default)")
-    parser.add_argument("--allow-regex", action="store_true",
-                        help="(compat flag; regex is currently the default backend)")
-    parser.add_argument("--fail-on-macro-loops", action="store_true",
-                        help="fail loudly on macro-expanded loop-like constructs (CI-safe default)")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="print what would change but do not write files; exit 1 if any file would change",
+    )
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="print rewritten source(s) to stdout and skip in-place writes",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["regex", "libclang"],
+        default="regex",
+        help="parser backend (libclang is not yet implemented; regex is the default)",
+    )
+    parser.add_argument(
+        "--allow-regex",
+        action="store_true",
+        help="(compat flag; regex is currently the default backend)",
+    )
+    parser.add_argument(
+        "--fail-on-macro-loops",
+        action="store_true",
+        help="fail loudly on macro-expanded loop-like constructs (CI-safe default)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 

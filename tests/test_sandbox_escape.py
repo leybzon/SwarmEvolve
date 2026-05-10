@@ -32,7 +32,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import sandbox  # noqa: E402
+import sandbox
 
 BASELINES = REPO_ROOT / "src" / "baselines"
 IMAGE = os.environ.get("SANDBOX_IMAGE", sandbox.DEFAULT_IMAGE)
@@ -63,8 +63,7 @@ def colima_safe_tmp() -> Path:
 
 def _good_opponent_b(dst: Path) -> Path:
     """Frozen cluster_v1 rendered into TeamB, saved to ``dst/b.cpp``."""
-    src = (BASELINES / "cluster_v1.cpp").read_text().replace(
-        "TEAM_NS_PLACEHOLDER", "TeamB")
+    src = (BASELINES / "cluster_v1.cpp").read_text().replace("TEAM_NS_PLACEHOLDER", "TeamB")
     p = dst / "b.cpp"
     p.write_text(src)
     return p
@@ -87,8 +86,8 @@ def _good_opponent_b(dst: Path) -> Path:
 # sandbox.
 
 _COMMON_HEADER = (
-    "#include \"../ai_abi.h\"\n"
-    "#include \"../types.h\"\n"
+    '#include "../ai_abi.h"\n'
+    '#include "../types.h"\n'
     "#include <sys/types.h>\n"
     "#include <sys/socket.h>\n"
     "#include <netinet/in.h>\n"
@@ -126,6 +125,7 @@ def _write_adversary(dst_dir: Path, body: str) -> Path:
 # 1. network egress blocked
 # -----------------------------------------------------------------------
 
+
 def test_network_egress_blocked(colima_safe_tmp):
     rt = _runtime_or_skip()
     _image_or_skip(rt)
@@ -153,7 +153,12 @@ def test_network_egress_blocked(colima_safe_tmp):
 
     t0 = time.monotonic()
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir, image=IMAGE, runtime=rt, timeout=15.0,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=15.0,
         engine_args=["--seed", "0", "--max-ticks", "50"],
     )
     elapsed = time.monotonic() - t0
@@ -162,8 +167,7 @@ def test_network_egress_blocked(colima_safe_tmp):
     # ENETUNREACH and was ignored) or the process terminated with a
     # structured non-ok status. Either way we must not have timed out.
     assert elapsed < 15.0
-    assert result.status.get("status") in {"ok", "compile_failed",
-                                            "engine_crashed"}, result.status
+    assert result.status.get("status") in {"ok", "compile_failed", "engine_crashed"}, result.status
     # Network-none must hold: no interface other than `lo` should have
     # produced a successful packet. We can't directly observe the
     # container's routing table post-run, but absence of a timeout + a
@@ -174,6 +178,7 @@ def test_network_egress_blocked(colima_safe_tmp):
 # 2. read-only rootfs blocks host-directory writes
 # -----------------------------------------------------------------------
 
+
 def test_readonly_rootfs_blocks_writes(colima_safe_tmp):
     rt = _runtime_or_skip()
     _image_or_skip(rt)
@@ -183,14 +188,14 @@ def test_readonly_rootfs_blocks_writes(colima_safe_tmp):
     # We record whether the write "succeeded" in out->message_out[0] so
     # a post-run inspection can confirm the syscall was rejected.
     body = (
-        "    int fd = open(\"/etc/evil\", O_CREAT | O_WRONLY, 0600);\n"
+        '    int fd = open("/etc/evil", O_CREAT | O_WRONLY, 0600);\n'
         "    if (fd >= 0) {\n"
-        "        const char* msg = \"pwned\";\n"
+        '        const char* msg = "pwned";\n'
         "        (void)write(fd, msg, 5);\n"
         "        close(fd);\n"
         "    }\n"
         "    // Best-effort: also assert that a write outside /work/out fails.\n"
-        "    int fd2 = open(\"/opt/swarmevolve/hijacked\", O_CREAT | O_WRONLY, 0600);\n"
+        '    int fd2 = open("/opt/swarmevolve/hijacked", O_CREAT | O_WRONLY, 0600);\n'
         "    if (fd2 >= 0) { close(fd2); }\n"
     )
     a = _write_adversary(colima_safe_tmp / "ro", body)
@@ -198,7 +203,12 @@ def test_readonly_rootfs_blocks_writes(colima_safe_tmp):
     out_dir = colima_safe_tmp / "ro_out"
 
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir, image=IMAGE, runtime=rt, timeout=15.0,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=15.0,
         engine_args=["--seed", "0", "--max-ticks", "20"],
     )
     # The attack is swallowed; the match completes. The canonical proof
@@ -206,7 +216,9 @@ def test_readonly_rootfs_blocks_writes(colima_safe_tmp):
     # container filesystem anyway, which is ephemeral). We assert
     # completion + no host-side breach.
     assert result.status.get("status") in {
-        "ok", "engine_crashed", "compile_failed",
+        "ok",
+        "engine_crashed",
+        "compile_failed",
     }, result.status
     # Host-side: the read-only rootfs means no file escaped to the host
     # filesystem outside the bind-mounted out_dir. In particular /etc
@@ -220,6 +232,7 @@ def test_readonly_rootfs_blocks_writes(colima_safe_tmp):
 # -----------------------------------------------------------------------
 # 3. pids limit stops a fork bomb
 # -----------------------------------------------------------------------
+
 
 def test_pid_limit_contains_fork_bomb(colima_safe_tmp):
     rt = _runtime_or_skip()
@@ -247,7 +260,12 @@ def test_pid_limit_contains_fork_bomb(colima_safe_tmp):
 
     t0 = time.monotonic()
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir, image=IMAGE, runtime=rt, timeout=15.0,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=15.0,
         engine_args=["--seed", "0", "--max-ticks", "50"],
     )
     elapsed = time.monotonic() - t0
@@ -258,13 +276,17 @@ def test_pid_limit_contains_fork_bomb(colima_safe_tmp):
     # The container terminated (ok, engine_crashed, or timeout with a
     # status written). The only unacceptable outcome is a runaway host.
     assert result.status.get("status") in {
-        "ok", "engine_crashed", "timeout", "no_status_written",
+        "ok",
+        "engine_crashed",
+        "timeout",
+        "no_status_written",
     }, result.status
 
 
 # -----------------------------------------------------------------------
 # 4. host wall-clock timeout fires on an infinite match
 # -----------------------------------------------------------------------
+
 
 def test_wallclock_timeout_kills_infinite_engine(colima_safe_tmp):
     rt = _runtime_or_skip()
@@ -287,7 +309,12 @@ def test_wallclock_timeout_kills_infinite_engine(colima_safe_tmp):
 
     t0 = time.monotonic()
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir, image=IMAGE, runtime=rt, timeout=5.0,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=5.0,
         engine_args=["--seed", "0", "--max-ticks", "1000"],
     )
     elapsed = time.monotonic() - t0
@@ -304,6 +331,7 @@ def test_wallclock_timeout_kills_infinite_engine(colima_safe_tmp):
 # -----------------------------------------------------------------------
 # 5. memory cgroup OOM-kills a big allocation
 # -----------------------------------------------------------------------
+
 
 def test_memory_cgroup_oom_kills_large_alloc(colima_safe_tmp):
     rt = _runtime_or_skip()
@@ -331,7 +359,9 @@ def test_memory_cgroup_oom_kills_large_alloc(colima_safe_tmp):
         _COMMON_HEADER.replace(
             "#include <sys/types.h>\n",
             "#include <sys/types.h>\n#include <sys/mman.h>\n",
-        ) + body + _COMMON_FOOTER
+        )
+        + body
+        + _COMMON_FOOTER
     )
     a = src_dir / "a.cpp"
     b = _good_opponent_b(src_dir)
@@ -339,7 +369,12 @@ def test_memory_cgroup_oom_kills_large_alloc(colima_safe_tmp):
 
     t0 = time.monotonic()
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir, image=IMAGE, runtime=rt, timeout=15.0,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=15.0,
         engine_args=["--seed", "0", "--max-ticks", "50"],
     )
     elapsed = time.monotonic() - t0
@@ -350,5 +385,6 @@ def test_memory_cgroup_oom_kills_large_alloc(colima_safe_tmp):
     # containment outcomes. The critical assertion is that the host
     # didn't swap-storm or lock up.
     status = result.status.get("status")
-    assert status in {"ok", "engine_crashed", "timeout",
-                      "no_status_written", "compile_failed"}, result.status
+    assert status in {"ok", "engine_crashed", "timeout", "no_status_written", "compile_failed"}, (
+        result.status
+    )

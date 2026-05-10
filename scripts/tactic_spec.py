@@ -36,6 +36,7 @@ VALID_AAR_METRICS = {
 @dataclass
 class MetricChange:
     """Predicted change to a single AAR metric."""
+
     metric: str
     old_value: float | str
     target_value: float | str
@@ -127,10 +128,7 @@ class TacticSpec:
             tactic_name=str(decide.get("tactic_name", "")),
             mechanism=str(decide.get("mechanism", "")),
             why_this_counters_failure=str(decide.get("why_this_counters_failure", "")),
-            expected_changes=[
-                MetricChange.from_dict(c)
-                for c in act.get("expected_changes", [])
-            ],
+            expected_changes=[MetricChange.from_dict(c) for c in act.get("expected_changes", [])],
             message_protocol=str(impl.get("message_protocol", "")),
             memory_layout=str(impl.get("memory_layout", "")),
             special_cases=str(impl.get("special_cases", "")),
@@ -139,6 +137,7 @@ class TacticSpec:
 
 class TacticSpecValidationError(ValueError):
     """Raised when a TacticSpec fails validation."""
+
     pass
 
 
@@ -151,9 +150,7 @@ def validate_tactic_spec(spec: TacticSpec) -> None:
 
     # Rule 1: key_metrics must have 5–8 entries
     if not (5 <= len(spec.key_metrics) <= 8):
-        errors.append(
-            f"key_metrics must have 5–8 entries, got {len(spec.key_metrics)}"
-        )
+        errors.append(f"key_metrics must have 5–8 entries, got {len(spec.key_metrics)}")
 
     # Rule 2: All orient fields must be present and non-empty
     for field_name in ["why_we_failed", "what_enemy_exploited", "constraints_violated"]:
@@ -164,9 +161,7 @@ def validate_tactic_spec(spec: TacticSpec) -> None:
     # Rule 3: mechanism must be >= 20 words (forces specificity)
     mechanism_words = len(spec.mechanism.split())
     if mechanism_words < 20:
-        errors.append(
-            f"decide.mechanism must be >=20 words, got {mechanism_words}"
-        )
+        errors.append(f"decide.mechanism must be >=20 words, got {mechanism_words}")
 
     # Rule 4: expected_changes must have >= 2 entries
     if len(spec.expected_changes) < 2:
@@ -215,6 +210,7 @@ def parse_and_validate_tactic_spec(json_text: str) -> TacticSpec:
 if __name__ == "__main__":
     # Self-test fixture
     import sys
+
     fixture = {
         "observe": {
             "key_metrics": [

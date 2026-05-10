@@ -25,10 +25,10 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import tournament as t  # noqa: E402
-from experiment_log import ExperimentLog  # noqa: E402
+import tournament as t
+from experiment_log import ExperimentLog
 
-from tests._build_helper import CXX  # noqa: E402
+from tests._build_helper import CXX
 
 pytestmark = pytest.mark.skipif(
     CXX is None, reason="no C++ compiler on this host; tournament tests need a compiler"

@@ -19,6 +19,15 @@ PYTHON     ?= python3
 # pragmas and never warns on them) so CXXFLAGS_GPU omits it.
 CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
 CXXFLAGS_GPU    = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
+# g++-only suppressions. GCC 13 (Ubuntu 24.04 default) emits a false-positive
+# -Wstringop-overflow at -O2 on memset/memcpy calls whose length is a
+# runtime-computed value the optimizer can't bound (e.g.
+# `sizeof(int) * w.params.num_drones_a` in src/engine.cpp). The same code
+# compiles cleanly under Apple clang and nvc++. Suppress for g++ only —
+# applied to build-linux-cpu/-cpu-omp below — so other toolchains keep the
+# extra coverage. Same workaround already exists for bench builds (see
+# BENCH_GCC_EXTRA below).
+LINUX_GCC_EXTRA = -Wno-stringop-overflow
 # Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
 # the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
 # Linux CI sets SANITIZE=1 to exercise the sanitized build.
@@ -76,10 +85,10 @@ build-macos: $(BUILD_DIR)
 	$(CXX_MACOS) $(CXXFLAGS_COMMON) $(SRC_ALL) -o $(TARGET)
 
 build-linux-cpu: $(BUILD_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(SRC_ALL) -o $(TARGET)
+	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(LINUX_GCC_EXTRA) $(SRC_ALL) -o $(TARGET)
 
 build-linux-cpu-omp: $(BUILD_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) -fopenmp $(SRC_ALL) -o $(TARGET)
+	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(LINUX_GCC_EXTRA) -fopenmp $(SRC_ALL) -o $(TARGET)
 
 build-linux-gpu: $(BUILD_DIR)
 	$(CXX_GPU) $(CXXFLAGS_GPU) $(ACCFLAGS) $(SRC_ALL) -o $(TARGET)

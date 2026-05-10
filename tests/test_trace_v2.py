@@ -44,9 +44,7 @@ def _run(binary: Path, *args: str) -> subprocess.CompletedProcess:
     proc = subprocess.run([str(binary), *args], capture_output=True, text=True)
     # Outcome exit codes (0/1/2) are all valid match terminations.
     if proc.returncode not in (0, 1, 2, 10, 11):
-        raise AssertionError(
-            f"engine crashed: rc={proc.returncode} stderr={proc.stderr!r}"
-        )
+        raise AssertionError(f"engine crashed: rc={proc.returncode} stderr={proc.stderr!r}")
     return proc
 
 
@@ -108,9 +106,9 @@ def test_v2_trace_deterministic(binary: Path, tmp_path: Path) -> None:
         hashes.append(trace.read_bytes().hex()[:16] + f":{trace.stat().st_size}")
         # Exact-bytes comparison is stricter than hashing for diagnostics.
         if i > 0:
-            prev = (tmp_path / f"v2_{i-1}.jsonl").read_bytes()
+            prev = (tmp_path / f"v2_{i - 1}.jsonl").read_bytes()
             cur = trace.read_bytes()
-            assert prev == cur, f"run {i} diverged from run {i-1}"
+            assert prev == cur, f"run {i} diverged from run {i - 1}"
     assert len(set(hashes)) == 1
 
 
@@ -133,7 +131,7 @@ def test_v2_does_not_perturb_simulation(binary: Path, tmp_path: Path) -> None:
     lines_v1 = v1.read_text().splitlines()
     lines_v2 = v2.read_text().splitlines()
     assert len(lines_v1) == len(lines_v2)
-    for i, (l1, l2) in enumerate(zip(lines_v1, lines_v2)):
+    for i, (l1, l2) in enumerate(zip(lines_v1, lines_v2, strict=False)):
         o1, o2 = json.loads(l1), json.loads(l2)
         assert o1["tick"] == o2["tick"], f"tick mismatch at line {i}"
         assert o1["team_a"] == o2["team_a"], f"team_a mismatch at tick {o1['tick']}"

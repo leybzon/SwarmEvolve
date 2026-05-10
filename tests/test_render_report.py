@@ -21,7 +21,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import render_report as rr  # noqa: E402
+import render_report as rr
 
 
 def _write_tournament_json(dir_: Path) -> None:

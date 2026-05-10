@@ -28,12 +28,16 @@ pytestmark = pytest.mark.skipif(CXX is None, reason="no C++ compiler available")
 
 def _run(args, env_cxx=CXX):
     import os as _os
+
     env = dict(_os.environ)
     if env_cxx is not None:
         env["CXX"] = env_cxx
     return subprocess.run(
         [sys.executable, str(EVOLVE_ONCE), *args],
-        capture_output=True, text=True, check=False, env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
 
 
@@ -48,11 +52,15 @@ def _make_fenced_response(src_path: Path, namespace: str, tmp_path: Path) -> Pat
 
 def test_dry_run_produces_prompt_only(tmp_path):
     out_dir = tmp_path / "dry"
-    result = _run([
-        "--opponent", str(BASELINES / "stationary_v1.cpp"),
-        "--dry-run",
-        "--out-dir", str(out_dir),
-    ])
+    result = _run(
+        [
+            "--opponent",
+            str(BASELINES / "stationary_v1.cpp"),
+            "--dry-run",
+            "--out-dir",
+            str(out_dir),
+        ]
+    )
     assert result.returncode == 0, result.stderr
     assert (out_dir / "prompt.md").is_file()
     summary = json.loads((out_dir / "evolve_once.json").read_text())
@@ -62,18 +70,26 @@ def test_dry_run_produces_prompt_only(tmp_path):
 def test_mock_pipeline_end_to_end(tmp_path):
     """Pursuit (mocked) vs stationary should win — validates the whole
     chain without touching the network."""
-    mock_resp = _make_fenced_response(BASELINES / "pursuit_v1.cpp",
-                                       "TeamA", tmp_path)
+    mock_resp = _make_fenced_response(BASELINES / "pursuit_v1.cpp", "TeamA", tmp_path)
     out_dir = tmp_path / "mock_run"
-    result = _run([
-        "--opponent", str(BASELINES / "stationary_v1.cpp"),
-        "--as-team", "A",
-        "--seed", "0",
-        "--max-ticks", "1000",
-        "--client", "mock",
-        "--mock-response-path", str(mock_resp),
-        "--out-dir", str(out_dir),
-    ])
+    result = _run(
+        [
+            "--opponent",
+            str(BASELINES / "stationary_v1.cpp"),
+            "--as-team",
+            "A",
+            "--seed",
+            "0",
+            "--max-ticks",
+            "1000",
+            "--client",
+            "mock",
+            "--mock-response-path",
+            str(mock_resp),
+            "--out-dir",
+            str(out_dir),
+        ]
+    )
     assert result.returncode == 0, result.stderr
 
     summary = json.loads((out_dir / "evolve_once.json").read_text())
@@ -95,8 +111,8 @@ def test_mock_pipeline_lint_rejects_banned_tokens(tmp_path):
     dirty = tmp_path / "dirty_response.md"
     dirty.write_text(
         "```cpp\n"
-        "#include \"../ai_abi.h\"\n"
-        "#include \"../types.h\"\n"
+        '#include "../ai_abi.h"\n'
+        '#include "../types.h"\n'
         "#include <vector>\n"  # banned
         "namespace TeamA {\n"
         "#pragma acc routine seq\n"
@@ -111,12 +127,18 @@ def test_mock_pipeline_lint_rejects_banned_tokens(tmp_path):
         "```\n"
     )
     out_dir = tmp_path / "lint_fail"
-    result = _run([
-        "--opponent", str(BASELINES / "stationary_v1.cpp"),
-        "--client", "mock",
-        "--mock-response-path", str(dirty),
-        "--out-dir", str(out_dir),
-    ])
+    result = _run(
+        [
+            "--opponent",
+            str(BASELINES / "stationary_v1.cpp"),
+            "--client",
+            "mock",
+            "--mock-response-path",
+            str(dirty),
+            "--out-dir",
+            str(out_dir),
+        ]
+    )
     # evolve_once returns its own EXIT_LINT_FAILED=22.
     assert result.returncode == 22
     summary = json.loads((out_dir / "evolve_once.json").read_text())
@@ -130,12 +152,18 @@ def test_mock_pipeline_parse_fail_when_no_fence(tmp_path):
     noresp = tmp_path / "no_fence.md"
     noresp.write_text("sorry i have no cpp for you today")
     out_dir = tmp_path / "parse_fail"
-    result = _run([
-        "--opponent", str(BASELINES / "stationary_v1.cpp"),
-        "--client", "mock",
-        "--mock-response-path", str(noresp),
-        "--out-dir", str(out_dir),
-    ])
+    result = _run(
+        [
+            "--opponent",
+            str(BASELINES / "stationary_v1.cpp"),
+            "--client",
+            "mock",
+            "--mock-response-path",
+            str(noresp),
+            "--out-dir",
+            str(out_dir),
+        ]
+    )
     assert result.returncode == 21  # EXIT_PARSE_FAILED
     summary = json.loads((out_dir / "evolve_once.json").read_text())
     assert summary["status"] == "parse_failed"

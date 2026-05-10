@@ -34,7 +34,7 @@ import argparse
 import json
 import math
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -54,9 +54,11 @@ METRICS_SCHEMA_VERSION = 1
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class AARReport:
     """Container bundling the three output surfaces."""
+
     structured: dict[str, Any]
     markdown: str
     token_estimate: int
@@ -65,6 +67,7 @@ class AARReport:
 # ---------------------------------------------------------------------------
 # Trace loading / validation
 # ---------------------------------------------------------------------------
+
 
 def load_v2_trace(path: Path) -> list[dict[str, Any]]:
     """Load a schema-v2 trace into memory and validate its presence.
@@ -87,9 +90,7 @@ def load_v2_trace(path: Path) -> list[dict[str, Any]]:
     # fields introduced in M15a. Otherwise the caller almost certainly
     # forgot `--record-actions` when generating the trace.
     first = records[0]
-    has_v2_fields = all(
-        k in first for k in ("actions_a", "actions_b", "attacks")
-    )
+    has_v2_fields = all(k in first for k in ("actions_a", "actions_b", "attacks"))
     if not has_v2_fields:
         raise ValueError(
             f"{path}: v1 trace detected (missing actions_a/actions_b/attacks). "
@@ -101,6 +102,7 @@ def load_v2_trace(path: Path) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Metric computations
 # ---------------------------------------------------------------------------
+
 
 def _team_key(team_id: int) -> str:
     """0 -> 'a', 1 -> 'b'. We use lowercase to keep JSON keys uniform."""
@@ -189,7 +191,7 @@ def _message_bus_stats(
         return False, 0.0
     # Quantize each axis independently into 8 bins.
     n_bins = 8
-    axes = list(zip(*samples))  # 4 tuples, one per component
+    axes = list(zip(*samples, strict=False))  # 4 tuples, one per component
     bucketed: list[list[int]] = []
     for ax in axes:
         lo, hi = min(ax), max(ax)
@@ -197,10 +199,7 @@ def _message_bus_stats(
             bucketed.append([0] * len(ax))
             continue
         span = hi - lo
-        bucketed.append([
-            min(n_bins - 1, int((v - lo) / span * n_bins))
-            for v in ax
-        ])
+        bucketed.append([min(n_bins - 1, int((v - lo) / span * n_bins)) for v in ax])
     # Build joint-tuple frequency distribution.
     joint_counts: dict[tuple[int, int, int, int], int] = {}
     total = len(samples)
@@ -217,6 +216,7 @@ def _message_bus_stats(
 # ---------------------------------------------------------------------------
 # Top-level metric assembly
 # ---------------------------------------------------------------------------
+
 
 def compute_metrics(
     records: list[dict[str, Any]],
@@ -258,13 +258,9 @@ def compute_metrics(
                     shots_hit_them += 1
                 if ev["dist"] > 0.8 * disable_range:
                     kiting_from_them += 1
-    kiting_score_them = (
-        kiting_from_them / shots_fired_them if shots_fired_them > 0 else 0.0
-    )
+    kiting_score_them = kiting_from_them / shots_fired_them if shots_fired_them > 0 else 0.0
     engagement_range_mean = (
-        sum(engagement_dists_hit) / len(engagement_dists_hit)
-        if engagement_dists_hit
-        else 0.0
+        sum(engagement_dists_hit) / len(engagement_dists_hit) if engagement_dists_hit else 0.0
     )
 
     # Focus-fire redundancy: number of "extra" shots (beyond the first) at
@@ -284,9 +280,7 @@ def compute_metrics(
             focus_fire_attempts += count
             focus_fire_extras += max(0, count - 1)
     focus_fire_redundancy = (
-        focus_fire_extras / focus_fire_attempts
-        if focus_fire_attempts > 0
-        else 0.0
+        focus_fire_extras / focus_fire_attempts if focus_fire_attempts > 0 else 0.0
     )
 
     # Formation / dispersion: mean-of-means over ticks where team is alive.
@@ -297,6 +291,7 @@ def compute_metrics(
         them_dists.append(_mean_pairwise_distance(rec[f"team_{them_key}"]))
     mean_pd_us = sum(us_dists) / len(us_dists) if us_dists else 0.0
     mean_pd_them = sum(them_dists) / len(them_dists) if them_dists else 0.0
+
     # Dispersion index: stddev / mean. 0 means perfectly steady formation
     # distance across the match; large values mean the team spread and
     # regrouped repeatedly.
@@ -306,16 +301,13 @@ def compute_metrics(
         m = sum(xs) / len(xs)
         var = sum((x - m) ** 2 for x in xs) / len(xs)
         return math.sqrt(var)
+
     disp_us = (_stddev(us_dists) / mean_pd_us) if mean_pd_us > 0 else 0.0
     disp_them = (_stddev(them_dists) / mean_pd_them) if mean_pd_them > 0 else 0.0
 
     # Cooldown utilization — fraction of alive-ticks with cooldown==0.
-    cd_util_us = _cooldown_utilization(
-        [rec[f"team_{us_key}"] for rec in records]
-    )
-    cd_util_them = _cooldown_utilization(
-        [rec[f"team_{them_key}"] for rec in records]
-    )
+    cd_util_us = _cooldown_utilization([rec[f"team_{us_key}"] for rec in records])
+    cd_util_them = _cooldown_utilization([rec[f"team_{them_key}"] for rec in records])
 
     # Message-bus signals. Limited to our own team because we only have
     # access to outgoing messages for our team in the perspective model.
@@ -352,18 +344,15 @@ def compute_metrics(
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
+
 def render_markdown(m: dict[str, Any]) -> str:
     """Deterministic markdown renderer. Field order is fixed.
 
     The LLM sees this directly; keep it concise and single-scan.
     """
-    hit_rate_us = (
-        m["shots_hit_us"] / m["shots_fired_us"]
-        if m["shots_fired_us"] > 0 else 0.0
-    )
+    hit_rate_us = m["shots_hit_us"] / m["shots_fired_us"] if m["shots_fired_us"] > 0 else 0.0
     hit_rate_them = (
-        m["shots_hit_them"] / m["shots_fired_them"]
-        if m["shots_fired_them"] > 0 else 0.0
+        m["shots_hit_them"] / m["shots_fired_them"] if m["shots_fired_them"] > 0 else 0.0
     )
     lines = [
         f"# After-Action Report (perspective: Team {m['perspective']})",
@@ -388,7 +377,7 @@ def render_markdown(m: dict[str, Any]) -> str:
         f"them={m['mean_pairwise_distance_them']:.2f}",
         f"- Dispersion index: us={m['dispersion_index_us']:.3f} | "
         f"them={m['dispersion_index_them']:.3f}  (std/mean over ticks)",
-        f"- Message bus: "
+        "- Message bus: "
         + (
             f"active, entropy={m['message_bus_entropy']:.2f} bits"
             if m["message_bus_used"]
@@ -412,6 +401,7 @@ def estimate_tokens(text: str) -> int:
 # Top-level API
 # ---------------------------------------------------------------------------
 
+
 def render_aar(
     trace_path: Path,
     *,
@@ -423,10 +413,7 @@ def render_aar(
     records = load_v2_trace(trace_path)
     structured = compute_metrics(records, perspective, disable_range)
     markdown = render_markdown(structured) if fmt in ("markdown", "both", "json") else ""
-    if fmt == "json":
-        markdown_out = ""
-    else:
-        markdown_out = markdown
+    markdown_out = "" if fmt == "json" else markdown
     return AARReport(
         structured=structured,
         markdown=markdown_out,
@@ -438,19 +425,33 @@ def render_aar(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Generate an After-Action Report from a schema-v2 trace."
     )
-    p.add_argument("--trace", required=True, type=Path,
-                   help="Path to schema-v2 trace (produced with --record-actions).")
-    p.add_argument("--perspective", required=True, choices=["A", "B"],
-                   help="Which team is 'us' in the report.")
-    p.add_argument("--format", choices=["markdown", "json", "both"], default="both",
-                   help="Output format (default: both).")
-    p.add_argument("--json-out", type=Path, default=None,
-                   help="Write structured JSON sidecar to PATH. "
-                        "Defaults to <trace>.aar.json when --format=both.")
+    p.add_argument(
+        "--trace",
+        required=True,
+        type=Path,
+        help="Path to schema-v2 trace (produced with --record-actions).",
+    )
+    p.add_argument(
+        "--perspective", required=True, choices=["A", "B"], help="Which team is 'us' in the report."
+    )
+    p.add_argument(
+        "--format",
+        choices=["markdown", "json", "both"],
+        default="both",
+        help="Output format (default: both).",
+    )
+    p.add_argument(
+        "--json-out",
+        type=Path,
+        default=None,
+        help="Write structured JSON sidecar to PATH. "
+        "Defaults to <trace>.aar.json when --format=both.",
+    )
     return p
 
 

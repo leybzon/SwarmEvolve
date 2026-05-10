@@ -23,7 +23,6 @@ step as done; otherwise we re-enter it via ``evolve --resume``.
 
 from __future__ import annotations
 
-import json
 import logging
 import shutil
 import sys
@@ -34,17 +33,25 @@ _SCRIPTS = _THIS.parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
+    EXIT_BUDGET_EXCEEDED,
+    EXIT_INVALID_INPUT,
+    EXIT_OK,
     PURSUIT_V1,
-    build_common_parser, forward_common_argv,
+    BudgetExceeded,
+    TokenBudget,
+    atomic_write_json,
+    build_common_parser,
+    copy_snapshot,
+    forward_common_argv,
     invoke_evolve,
-    read_state, read_champion_path, sha256_file, copy_snapshot,
     neutralised_copy,
-    summarise_lineage, write_manifest, atomic_write_json,
-    BudgetExceeded, TokenBudget,
+    read_champion_path,
+    read_state,
+    sha256_file,
+    summarise_lineage,
     tournament,
+    write_manifest,
 )
 
 TRACK = "B"
@@ -66,17 +73,20 @@ def build_parser():
         prog="track_b",
         description="Track B: monotonic self-play (Gen N vs. Gen N-1).",
     )
-    p.add_argument("--seeds", required=True,
-                   help="Seeds to run (independent self-play chains)")
-    p.add_argument("--as-team", choices=("A", "B"), default="A",
-                   help="Which team slot each challenger plays")
-    p.add_argument("--seed-ai", default=None,
-                   help="Initial champion for generation 0 (defaults to pursuit_v1)")
-    p.add_argument("--rr-n-matches", type=int, default=None,
-                   help="Per-pair matches in the final round-robin "
-                        "(defaults to --n-matches)")
-    p.add_argument("--no-rr", action="store_true",
-                   help="Skip the final round-robin tournament")
+    p.add_argument("--seeds", required=True, help="Seeds to run (independent self-play chains)")
+    p.add_argument(
+        "--as-team", choices=("A", "B"), default="A", help="Which team slot each challenger plays"
+    )
+    p.add_argument(
+        "--seed-ai", default=None, help="Initial champion for generation 0 (defaults to pursuit_v1)"
+    )
+    p.add_argument(
+        "--rr-n-matches",
+        type=int,
+        default=None,
+        help="Per-pair matches in the final round-robin (defaults to --n-matches)",
+    )
+    p.add_argument("--no-rr", action="store_true", help="Skip the final round-robin tournament")
     return p
 
 
@@ -95,42 +105,68 @@ def _step_complete(step_dir: Path) -> bool:
 
 
 def _run_one_step(
-    *, seed: int, step_dir: Path,
-    seed_ai: Path, opponent: Path,
-    as_team: str, common_argv: list[str], resume: bool,
+    *,
+    seed: int,
+    step_dir: Path,
+    seed_ai: Path,
+    opponent: Path,
+    as_team: str,
+    common_argv: list[str],
+    resume: bool,
 ) -> None:
     """Evolve exactly one generation into ``step_dir``."""
     step_state = step_dir / "state.json"
     if resume and step_state.is_file() and _step_complete(step_dir):
-        _LOG.info("seed=%d step=%s: already complete, skipping",
-                  seed, step_dir.name)
+        _LOG.info("seed=%d step=%s: already complete, skipping", seed, step_dir.name)
         return
     if resume and step_state.is_file():
         # Partial state: resume.
-        invoke_evolve([
-            "--resume", str(step_dir),
-            "--generations", "1",
-        ])
+        invoke_evolve(
+            [
+                "--resume",
+                str(step_dir),
+                "--generations",
+                "1",
+            ]
+        )
         return
     step_dir.mkdir(parents=True, exist_ok=True)
     argv = [
-        "--opponent", str(opponent),
-        "--as-team", as_team,
-        "--seed", str(seed),
-        "--generations", "1",
-        "--out-dir", str(step_dir),
-        "--seed-ai", str(seed_ai),
+        "--opponent",
+        str(opponent),
+        "--as-team",
+        as_team,
+        "--seed",
+        str(seed),
+        "--generations",
+        "1",
+        "--out-dir",
+        str(step_dir),
+        "--seed-ai",
+        str(seed_ai),
     ]
     argv += common_argv
-    _LOG.info("seed=%d step=%s: fresh (seed-ai=%s opponent=%s)",
-              seed, step_dir.name, seed_ai.name, opponent.name)
+    _LOG.info(
+        "seed=%d step=%s: fresh (seed-ai=%s opponent=%s)",
+        seed,
+        step_dir.name,
+        seed_ai.name,
+        opponent.name,
+    )
     invoke_evolve(argv)
 
 
 def _run_chain(
-    *, seed: int, lineage_dir: Path, initial_seed_ai: Path,
-    as_team: str, generations: int, common_argv: list[str],
-    resume: bool, budget: TokenBudget, track_root: Path,
+    *,
+    seed: int,
+    lineage_dir: Path,
+    initial_seed_ai: Path,
+    as_team: str,
+    generations: int,
+    common_argv: list[str],
+    resume: bool,
+    budget: TokenBudget,
+    track_root: Path,
 ) -> tuple[list[Path], bool]:
     """Run ``generations`` sequential 1-generation steps. Returns the
     list of champion snapshots (one per completed step, may include
@@ -153,9 +189,13 @@ def _run_chain(
             return champion_snapshots, True
         step_dir = _step_dir(lineage_dir, gen_idx)
         _run_one_step(
-            seed=seed, step_dir=step_dir,
-            seed_ai=current_champ, opponent=current_champ,
-            as_team=as_team, common_argv=common_argv, resume=resume,
+            seed=seed,
+            step_dir=step_dir,
+            seed_ai=current_champ,
+            opponent=current_champ,
+            as_team=as_team,
+            common_argv=common_argv,
+            resume=resume,
         )
         # The step produced either an accepted snapshot (champions/gen_0000.cpp
         # inside step_dir) or no snapshot (rejected). In either case the
@@ -163,8 +203,12 @@ def _run_chain(
         # step_dir's best.cpp, or the previous champion.
         new_champ = read_champion_path(step_dir)
         if new_champ is None:
-            _LOG.info("seed=%d gen=%d: no champion snapshot, keeping %s",
-                      seed, gen_idx, current_champ.name)
+            _LOG.info(
+                "seed=%d gen=%d: no champion snapshot, keeping %s",
+                seed,
+                gen_idx,
+                current_champ.name,
+            )
         else:
             # Promote into lineage-level champion history.
             promoted = lineage_dir / "champions" / f"gen_{gen_idx:04d}.cpp"
@@ -175,8 +219,11 @@ def _run_chain(
 
 
 def _final_round_robin(
-    *, lineage_dir: Path, champion_paths: list[Path],
-    n_matches: int, workers: int | None,
+    *,
+    lineage_dir: Path,
+    champion_paths: list[Path],
+    n_matches: int,
+    workers: int | None,
 ) -> dict:
     """Run the final round-robin and write ``tournament.json`` in
     ``lineage_dir``. Returns a small summary dict for the manifest."""
@@ -212,6 +259,7 @@ def _final_round_robin(
         payload = result.to_json()
     elif hasattr(result, "__dict__"):
         import dataclasses
+
         payload = dataclasses.asdict(result)
     else:
         payload = {"repr": repr(result)}
@@ -236,9 +284,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose >= 2
-              else logging.INFO if args.verbose == 1
-              else logging.WARNING,
+        level=logging.DEBUG
+        if args.verbose >= 2
+        else logging.INFO
+        if args.verbose == 1
+        else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
@@ -247,9 +297,7 @@ def main(argv: list[str] | None = None) -> int:
         _LOG.error("--seeds produced an empty list")
         return EXIT_INVALID_INPUT
 
-    initial_seed_ai = (
-        Path(args.seed_ai).resolve() if args.seed_ai else PURSUIT_V1.resolve()
-    )
+    initial_seed_ai = Path(args.seed_ai).resolve() if args.seed_ai else PURSUIT_V1.resolve()
     if not initial_seed_ai.is_file():
         _LOG.error("seed-ai not found: %s", initial_seed_ai)
         return EXIT_INVALID_INPUT
@@ -267,20 +315,26 @@ def main(argv: list[str] | None = None) -> int:
     for seed in seeds:
         lineage_dir = _lineage_dir(track_root, seed)
         champions, tripped = _run_chain(
-            seed=seed, lineage_dir=lineage_dir,
+            seed=seed,
+            lineage_dir=lineage_dir,
             initial_seed_ai=initial_seed_ai,
-            as_team=args.as_team, generations=args.generations,
-            common_argv=common_argv, resume=args.resume,
-            budget=budget, track_root=track_root,
+            as_team=args.as_team,
+            generations=args.generations,
+            common_argv=common_argv,
+            resume=args.resume,
+            budget=budget,
+            track_root=track_root,
         )
         # Summarise the *last* step's state.json as the lineage summary
         # (that's the "current" champion and the largest cumulative token
         # count).
         last_step = _step_dir(lineage_dir, args.generations - 1)
-        lineages.append(summarise_lineage(
-            last_step if last_step.is_dir() else lineage_dir,
-            seed=seed,
-        ))
+        lineages.append(
+            summarise_lineage(
+                last_step if last_step.is_dir() else lineage_dir,
+                seed=seed,
+            )
+        )
         if tripped:
             budget_exceeded = True
             break
@@ -313,8 +367,7 @@ def main(argv: list[str] | None = None) -> int:
             "budget_exceeded": budget_exceeded,
         },
     )
-    _LOG.info("Track B manifest: %s (%d lineages)",
-              manifest_path, len(lineages))
+    _LOG.info("Track B manifest: %s (%d lineages)", manifest_path, len(lineages))
     return EXIT_BUDGET_EXCEEDED if budget_exceeded else EXIT_OK
 
 

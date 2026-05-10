@@ -51,17 +51,20 @@ SANDBOX_FLAGS: tuple[str, ...] = (
     "--rm",
     "--network=none",
     "--cap-drop=ALL",
-    "--security-opt", "no-new-privileges",
+    "--security-opt",
+    "no-new-privileges",
     "--read-only",
     # /tmp must be exec because the entrypoint compiles the engine there
     # and then runs it. nosuid+nodev still hold (Docker defaults); exec is
     # scoped to /tmp only — the root filesystem stays --read-only and
     # no-new-privileges blocks setuid escalation anyway.
-    "--tmpfs", "/tmp:size=64m,mode=1777,exec,nosuid,nodev",
+    "--tmpfs",
+    "/tmp:size=64m,mode=1777,exec,nosuid,nodev",
     "--memory=512m",
     "--pids-limit=64",
     "--cpus=2",
-    "--user", "65534:65534",
+    "--user",
+    "65534:65534",
 )
 
 
@@ -77,10 +80,10 @@ class SandboxUnavailableError(SandboxError):
 class SandboxResult:
     """Structured outcome of one :func:`run_match_in_sandbox` call."""
 
-    runtime: str               # "docker" or "podman"
+    runtime: str  # "docker" or "podman"
     image: str
-    returncode: int            # container exit code (entrypoint.sh)
-    status: dict               # parsed sandbox_status.json (or {})
+    returncode: int  # container exit code (entrypoint.sh)
+    status: dict  # parsed sandbox_status.json (or {})
     stdout: str
     stderr: str
     wall_seconds: float
@@ -93,6 +96,7 @@ class SandboxResult:
 # ---------------------------------------------------------------------------
 # runtime detection
 # ---------------------------------------------------------------------------
+
 
 def detect_runtime() -> str:
     """Return ``"docker"`` or ``"podman"``.
@@ -127,7 +131,9 @@ def image_present(image: str = DEFAULT_IMAGE, runtime: str | None = None) -> boo
     rt = runtime or detect_runtime()
     proc = subprocess.run(
         [rt, "image", "inspect", image],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return proc.returncode == 0
 
@@ -135,6 +141,7 @@ def image_present(image: str = DEFAULT_IMAGE, runtime: str | None = None) -> boo
 # ---------------------------------------------------------------------------
 # Command construction
 # ---------------------------------------------------------------------------
+
 
 def build_command(
     *,
@@ -184,10 +191,14 @@ def build_command(
 
     cmd: list[str] = [runtime, "run"]
     cmd.extend(SANDBOX_FLAGS)
-    cmd.extend([
-        "-v", f"{staging}:/work/src:ro",
-        "-v", f"{out_dir}:/work/out",
-    ])
+    cmd.extend(
+        [
+            "-v",
+            f"{staging}:/work/src:ro",
+            "-v",
+            f"{out_dir}:/work/out",
+        ]
+    )
     cmd.append(image)
     if engine_args:
         cmd.extend(engine_args)
@@ -201,6 +212,7 @@ def build_command(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def run_match_in_sandbox(
     team_a_src: Path,
@@ -235,10 +247,14 @@ def run_match_in_sandbox(
     )
 
     import time
+
     t0 = time.monotonic()
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, check=False,
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
             timeout=timeout,
         )
         stdout = proc.stdout
@@ -270,9 +286,13 @@ def run_match_in_sandbox(
         status_path.write_text(json.dumps(status) + "\n")
 
     return SandboxResult(
-        runtime=rt, image=image,
-        returncode=rc, status=status,
-        stdout=stdout, stderr=stderr, wall_seconds=wall,
+        runtime=rt,
+        image=image,
+        returncode=rc,
+        status=status,
+        stdout=stdout,
+        stderr=stderr,
+        wall_seconds=wall,
     )
 
 
@@ -280,8 +300,10 @@ def run_match_in_sandbox(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _main(argv: list[str] | None = None) -> int:
     import argparse
+
     p = argparse.ArgumentParser(
         prog="sandbox",
         description="Run a SwarmEvolve match inside the M8 Docker sandbox.",
@@ -290,11 +312,16 @@ def _main(argv: list[str] | None = None) -> int:
     p.add_argument("--team-b", required=True, type=Path)
     p.add_argument("--out-dir", required=True, type=Path)
     p.add_argument("--image", default=DEFAULT_IMAGE)
-    p.add_argument("--timeout", type=float, default=30.0,
-                   help="host wall-clock timeout in seconds (default: 30)")
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=30.0,
+        help="host wall-clock timeout in seconds (default: 30)",
+    )
     p.add_argument("--runtime", choices=["docker", "podman"], default=None)
-    p.add_argument("engine_args", nargs=argparse.REMAINDER,
-                   help="pass everything after `--` to the engine")
+    p.add_argument(
+        "engine_args", nargs=argparse.REMAINDER, help="pass everything after `--` to the engine"
+    )
     args = p.parse_args(argv)
 
     eng_args = args.engine_args
@@ -304,9 +331,13 @@ def _main(argv: list[str] | None = None) -> int:
 
     try:
         result = run_match_in_sandbox(
-            args.team_a, args.team_b, args.out_dir,
-            image=args.image, engine_args=eng_args,
-            timeout=args.timeout, runtime=args.runtime,
+            args.team_a,
+            args.team_b,
+            args.out_dir,
+            image=args.image,
+            engine_args=eng_args,
+            timeout=args.timeout,
+            runtime=args.runtime,
         )
     except SandboxUnavailableError as exc:
         print(f"sandbox unavailable: {exc}", flush=True)
@@ -315,13 +346,18 @@ def _main(argv: list[str] | None = None) -> int:
         print(f"sandbox error: {exc}", flush=True)
         return 21
 
-    print(json.dumps({
-        "runtime": result.runtime,
-        "image": result.image,
-        "returncode": result.returncode,
-        "status": result.status,
-        "wall_seconds": round(result.wall_seconds, 3),
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "runtime": result.runtime,
+                "image": result.image,
+                "returncode": result.returncode,
+                "status": result.status,
+                "wall_seconds": round(result.wall_seconds, 3),
+            },
+            indent=2,
+        )
+    )
     return 0 if result.ok else (result.returncode or 1)
 
 

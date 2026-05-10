@@ -30,7 +30,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-
 # ------------------------------------------------------------------------
 # Response / protocol shapes
 # ------------------------------------------------------------------------
@@ -39,6 +38,7 @@ from typing import Any, Protocol
 @dataclass(frozen=True)
 class LLMResponse:
     """A normalized response shape produced by every client."""
+
     text: str
     model: str
     prompt_tokens: int = 0
@@ -153,14 +153,11 @@ class AnthropicClient:
 
         key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not key:
-            raise LLMError(
-                "ANTHROPIC_API_KEY is not set. Export the key or pass api_key=."
-            )
+            raise LLMError("ANTHROPIC_API_KEY is not set. Export the key or pass api_key=.")
 
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(api_key=key, timeout=request_timeout)
-        self.model = model or os.environ.get("ANTHROPIC_MODEL") \
-            or "claude-3-5-sonnet-latest"
+        self.model = model or os.environ.get("ANTHROPIC_MODEL") or "claude-3-5-sonnet-latest"
         self._system = system
         self._max_retries = max(1, int(max_retries))
         self._log = logging.getLogger("swarmevolve.llm.anthropic")
@@ -183,10 +180,12 @@ class AnthropicClient:
                 break
             except self._transient_errors() as exc:
                 last_exc = exc
-                sleep = min(2.0 ** attempt, 30.0)
+                sleep = min(2.0**attempt, 30.0)
                 self._log.warning(
                     "anthropic-retry attempt=%d sleep=%.1fs err=%s",
-                    attempt, sleep, redact_secrets(str(exc)),
+                    attempt,
+                    sleep,
+                    redact_secrets(str(exc)),
                 )
                 time.sleep(sleep)
             except Exception as exc:
@@ -217,8 +216,10 @@ class AnthropicClient:
     def _transient_errors(self) -> tuple[type[Exception], ...]:
         errs: list[type[Exception]] = []
         for name in (
-            "APIConnectionError", "APITimeoutError",
-            "RateLimitError", "InternalServerError",
+            "APIConnectionError",
+            "APITimeoutError",
+            "RateLimitError",
+            "InternalServerError",
         ):
             cls = getattr(self._anthropic, name, None)
             if isinstance(cls, type) and issubclass(cls, Exception):
@@ -254,7 +255,8 @@ def extract_cpp_block(text: str) -> str | None:
     for lang in ("cpp", "c++"):
         tagged = re.search(
             rf"```{re.escape(lang)}\s*\n(?P<body>.*?)\n```",
-            text, re.DOTALL | re.IGNORECASE,
+            text,
+            re.DOTALL | re.IGNORECASE,
         )
         if tagged:
             return tagged.group("body")
@@ -265,7 +267,12 @@ def extract_cpp_block(text: str) -> str | None:
 
 
 __all__ = [
-    "LLMClient", "LLMResponse", "LLMError",
-    "StubClient", "MockClient", "AnthropicClient",
-    "extract_cpp_block", "redact_secrets",
+    "AnthropicClient",
+    "LLMClient",
+    "LLMError",
+    "LLMResponse",
+    "MockClient",
+    "StubClient",
+    "extract_cpp_block",
+    "redact_secrets",
 ]

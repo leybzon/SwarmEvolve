@@ -32,7 +32,6 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -42,17 +41,24 @@ _SCRIPTS = _THIS.parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
+    EXIT_BUDGET_EXCEEDED,
+    EXIT_INVALID_INPUT,
+    EXIT_OK,
     PURSUIT_V1,
-    build_common_parser, forward_common_argv,
+    BudgetExceeded,
+    TokenBudget,
+    build_common_parser,
+    copy_snapshot,
+    forward_common_argv,
     invoke_evolve,
-    read_state, read_champion_path, sha256_file, copy_snapshot,
     neutralised_copy,
-    summarise_lineage, write_manifest, atomic_write_json,
-    BudgetExceeded, TokenBudget,
+    read_champion_path,
+    read_state,
+    sha256_file,
+    summarise_lineage,
     tournament,
+    write_manifest,
 )
 
 TRACK = "C"
@@ -76,16 +82,25 @@ def build_parser():
         prog="track_c",
         description="Track C: A-vs-B co-evolution with yardstick.",
     )
-    p.add_argument("--seeds", required=True,
-                   help="Seeds to run (independent co-evolution runs)")
-    p.add_argument("--seed-ai-a", default=None,
-                   help="Initial champion for lineage A (defaults to pursuit_v1)")
-    p.add_argument("--seed-ai-b", default=None,
-                   help="Initial champion for lineage B (defaults to pursuit_v1)")
-    p.add_argument("--yardstick-every", type=int, default=5,
-                   help="Play yardstick matches every K generations (0=off)")
-    p.add_argument("--yardstick-n-matches", type=int, default=None,
-                   help="Matches per yardstick pairing (defaults to --n-matches)")
+    p.add_argument("--seeds", required=True, help="Seeds to run (independent co-evolution runs)")
+    p.add_argument(
+        "--seed-ai-a", default=None, help="Initial champion for lineage A (defaults to pursuit_v1)"
+    )
+    p.add_argument(
+        "--seed-ai-b", default=None, help="Initial champion for lineage B (defaults to pursuit_v1)"
+    )
+    p.add_argument(
+        "--yardstick-every",
+        type=int,
+        default=5,
+        help="Play yardstick matches every K generations (0=off)",
+    )
+    p.add_argument(
+        "--yardstick-n-matches",
+        type=int,
+        default=None,
+        help="Matches per yardstick pairing (defaults to --n-matches)",
+    )
     return p
 
 
@@ -111,39 +126,62 @@ def _step_complete(step_dir: Path) -> bool:
 
 
 def _run_one_step(
-    *, seed: int, lineage_label: str, step_dir: Path,
-    seed_ai: Path, opponent: Path,
-    as_team: str, common_argv: list[str], resume: bool,
+    *,
+    seed: int,
+    lineage_label: str,
+    step_dir: Path,
+    seed_ai: Path,
+    opponent: Path,
+    as_team: str,
+    common_argv: list[str],
+    resume: bool,
 ) -> None:
     step_state = step_dir / "state.json"
     if resume and step_state.is_file() and _step_complete(step_dir):
-        _LOG.info("seed=%d %s step=%s: already complete",
-                  seed, lineage_label, step_dir.name)
+        _LOG.info("seed=%d %s step=%s: already complete", seed, lineage_label, step_dir.name)
         return
     if resume and step_state.is_file():
-        invoke_evolve([
-            "--resume", str(step_dir),
-            "--generations", "1",
-        ])
+        invoke_evolve(
+            [
+                "--resume",
+                str(step_dir),
+                "--generations",
+                "1",
+            ]
+        )
         return
     step_dir.mkdir(parents=True, exist_ok=True)
     argv = [
-        "--opponent", str(opponent),
-        "--as-team", as_team,
-        "--seed", str(seed),
-        "--generations", "1",
-        "--out-dir", str(step_dir),
-        "--seed-ai", str(seed_ai),
+        "--opponent",
+        str(opponent),
+        "--as-team",
+        as_team,
+        "--seed",
+        str(seed),
+        "--generations",
+        "1",
+        "--out-dir",
+        str(step_dir),
+        "--seed-ai",
+        str(seed_ai),
     ]
     argv += common_argv
-    _LOG.info("seed=%d %s step=%s: fresh (seed-ai=%s opponent=%s)",
-              seed, lineage_label, step_dir.name,
-              seed_ai.name, opponent.name)
+    _LOG.info(
+        "seed=%d %s step=%s: fresh (seed-ai=%s opponent=%s)",
+        seed,
+        lineage_label,
+        step_dir.name,
+        seed_ai.name,
+        opponent.name,
+    )
     invoke_evolve(argv)
 
 
 def _promote_champion(
-    *, step_dir: Path, champions_dir: Path, gen_idx: int,
+    *,
+    step_dir: Path,
+    champions_dir: Path,
+    gen_idx: int,
     fallback: Path,
 ) -> Path:
     """Copy the step's champion (or the fallback) into the coevo
@@ -163,9 +201,13 @@ def _promote_champion(
 
 
 def _run_yardstick(
-    *, coevo_dir: Path, gen_idx: int,
+    *,
+    coevo_dir: Path,
+    gen_idx: int,
     champion_paths: dict[str, Path],
-    yardstick_opponent: Path, n_matches: int, workers: int | None,
+    yardstick_opponent: Path,
+    n_matches: int,
+    workers: int | None,
 ) -> dict[str, Any]:
     """Play ``n_matches`` games between each champion and
     ``yardstick_opponent`` (in both team-slot orientations); append one
@@ -177,9 +219,7 @@ def _run_yardstick(
     staging = coevo_dir / "_yardstick_staging"
     entries: dict[str, tournament.AIEntry] = {}
     for lab, p in champion_paths.items():
-        staged = neutralised_copy(
-            p, staging / f"{lab}_gen{gen_idx:04d}.cpp"
-        )
+        staged = neutralised_copy(p, staging / f"{lab}_gen{gen_idx:04d}.cpp")
         entries[lab] = tournament.AIEntry(
             name=f"{lab}_gen{gen_idx:04d}",
             path=str(staged),
@@ -250,11 +290,19 @@ def _read_yardstick_generations(path: Path) -> set[int]:
 
 
 def _run_coevo(
-    *, seed: int, coevo_dir: Path,
-    seed_ai_a: Path, seed_ai_b: Path,
-    generations: int, yardstick_every: int, yardstick_n_matches: int,
-    common_argv: list[str], resume: bool, workers: int | None,
-    budget: TokenBudget, track_root: Path,
+    *,
+    seed: int,
+    coevo_dir: Path,
+    seed_ai_a: Path,
+    seed_ai_b: Path,
+    generations: int,
+    yardstick_every: int,
+    yardstick_n_matches: int,
+    common_argv: list[str],
+    resume: bool,
+    workers: int | None,
+    budget: TokenBudget,
+    track_root: Path,
 ) -> tuple[dict[str, Path], bool]:
     """Drive the two lineages in lock-step. Returns the final champion
     path for each lineage and a flag that is True iff the budget
@@ -262,12 +310,8 @@ def _run_coevo(
     coevo_dir.mkdir(parents=True, exist_ok=True)
 
     # Seed snapshots.
-    champion_a = copy_snapshot(
-        seed_ai_a, _champions_dir(coevo_dir, "A") / "gen_seed.cpp"
-    )
-    champion_b = copy_snapshot(
-        seed_ai_b, _champions_dir(coevo_dir, "B") / "gen_seed.cpp"
-    )
+    champion_a = copy_snapshot(seed_ai_a, _champions_dir(coevo_dir, "A") / "gen_seed.cpp")
+    champion_b = copy_snapshot(seed_ai_b, _champions_dir(coevo_dir, "B") / "gen_seed.cpp")
 
     lineage_roots = {lab: _lineage_root(coevo_dir, lab) for lab in _LINEAGES}
     for r in lineage_roots.values():
@@ -288,28 +332,39 @@ def _run_coevo(
         # A-step: opponent = opp_snapshots["B"]
         step_a = _step_dir(lineage_roots["A"], gen_idx)
         _run_one_step(
-            seed=seed, lineage_label="A", step_dir=step_a,
-            seed_ai=current["A"], opponent=opp_snapshots["B"],
-            as_team="A", common_argv=common_argv, resume=resume,
+            seed=seed,
+            lineage_label="A",
+            step_dir=step_a,
+            seed_ai=current["A"],
+            opponent=opp_snapshots["B"],
+            as_team="A",
+            common_argv=common_argv,
+            resume=resume,
         )
         new_a = _promote_champion(
             step_dir=step_a,
             champions_dir=_champions_dir(coevo_dir, "A"),
-            gen_idx=gen_idx, fallback=current["A"],
+            gen_idx=gen_idx,
+            fallback=current["A"],
         )
 
         # B-step: opponent = opp_snapshots["A"] (original, not new_a)
         step_b = _step_dir(lineage_roots["B"], gen_idx)
         _run_one_step(
-            seed=seed, lineage_label="B", step_dir=step_b,
-            seed_ai=current["B"], opponent=opp_snapshots["A"],
+            seed=seed,
+            lineage_label="B",
+            step_dir=step_b,
+            seed_ai=current["B"],
+            opponent=opp_snapshots["A"],
             as_team="A",  # each lineage plays the A slot locally
-            common_argv=common_argv, resume=resume,
+            common_argv=common_argv,
+            resume=resume,
         )
         new_b = _promote_champion(
             step_dir=step_b,
             champions_dir=_champions_dir(coevo_dir, "B"),
-            gen_idx=gen_idx, fallback=current["B"],
+            gen_idx=gen_idx,
+            fallback=current["B"],
         )
 
         current = {"A": new_a, "B": new_b}
@@ -332,9 +387,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose >= 2
-              else logging.INFO if args.verbose == 1
-              else logging.WARNING,
+        level=logging.DEBUG
+        if args.verbose >= 2
+        else logging.INFO
+        if args.verbose == 1
+        else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
@@ -343,12 +400,8 @@ def main(argv: list[str] | None = None) -> int:
         _LOG.error("--seeds produced an empty list")
         return EXIT_INVALID_INPUT
 
-    seed_ai_a = (
-        Path(args.seed_ai_a).resolve() if args.seed_ai_a else PURSUIT_V1.resolve()
-    )
-    seed_ai_b = (
-        Path(args.seed_ai_b).resolve() if args.seed_ai_b else PURSUIT_V1.resolve()
-    )
+    seed_ai_a = Path(args.seed_ai_a).resolve() if args.seed_ai_a else PURSUIT_V1.resolve()
+    seed_ai_b = Path(args.seed_ai_b).resolve() if args.seed_ai_b else PURSUIT_V1.resolve()
     for p in (seed_ai_a, seed_ai_b):
         if not p.is_file():
             _LOG.error("seed-ai not found: %s", p)
@@ -366,21 +419,23 @@ def main(argv: list[str] | None = None) -> int:
     budget_exceeded = False
     for seed in seeds:
         coevo_dir = _coevo_dir(track_root, seed)
-        final, tripped = _run_coevo(
-            seed=seed, coevo_dir=coevo_dir,
-            seed_ai_a=seed_ai_a, seed_ai_b=seed_ai_b,
+        _final, tripped = _run_coevo(
+            seed=seed,
+            coevo_dir=coevo_dir,
+            seed_ai_a=seed_ai_a,
+            seed_ai_b=seed_ai_b,
             generations=args.generations,
             yardstick_every=ys_every,
             yardstick_n_matches=ys_n,
-            common_argv=common_argv, resume=args.resume,
+            common_argv=common_argv,
+            resume=args.resume,
             workers=args.workers,
-            budget=budget, track_root=track_root,
+            budget=budget,
+            track_root=track_root,
         )
         # One manifest row per (seed, lineage).
         for lab in _LINEAGES:
-            last_step = _step_dir(
-                _lineage_root(coevo_dir, lab), args.generations - 1
-            )
+            last_step = _step_dir(_lineage_root(coevo_dir, lab), args.generations - 1)
             row = summarise_lineage(
                 last_step if last_step.is_dir() else coevo_dir,
                 seed=seed,
@@ -412,8 +467,7 @@ def main(argv: list[str] | None = None) -> int:
             "budget_exceeded": budget_exceeded,
         },
     )
-    _LOG.info("Track C manifest: %s (%d lineage rows)",
-              manifest_path, len(lineages))
+    _LOG.info("Track C manifest: %s (%d lineage rows)", manifest_path, len(lineages))
     return EXIT_BUDGET_EXCEEDED if budget_exceeded else EXIT_OK
 
 

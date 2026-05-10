@@ -64,7 +64,10 @@ _UNSTABLE_MANIFEST_KEYS = {"run_dir"}
 # (mean, stdev, wins, per-match seeds, deterministic per-match scores)
 # is the whole point of the fingerprint.
 _UNSTABLE_FITNESS_KEYS = {
-    "wall_seconds", "team_a_path", "team_b_path", "compiler",
+    "wall_seconds",
+    "team_a_path",
+    "team_b_path",
+    "compiler",
 }
 _UNSTABLE_PER_MATCH_KEYS = {"wall_ms"}
 
@@ -98,9 +101,9 @@ def _normalise_fitness(fit: dict[str, Any] | None) -> dict[str, Any] | None:
             continue
         if k == "per_match" and isinstance(v, list):
             out[k] = [
-                {kk: vv for kk, vv in sorted(m.items())
-                 if kk not in _UNSTABLE_PER_MATCH_KEYS}
-                for m in v if isinstance(m, dict)
+                {kk: vv for kk, vv in sorted(m.items()) if kk not in _UNSTABLE_PER_MATCH_KEYS}
+                for m in v
+                if isinstance(m, dict)
             ]
         else:
             out[k] = v
@@ -115,13 +118,11 @@ def _normalise_state(state: dict[str, Any]) -> dict[str, Any]:
     extent that it controls semantic output (templates, flags).
     """
     out: dict[str, Any] = {
-        k: v for k, v in sorted(state.items())
-        if k not in _UNSTABLE_STATE_KEYS
-           and k not in {"history", "config", "champion_fitness"}
+        k: v
+        for k, v in sorted(state.items())
+        if k not in _UNSTABLE_STATE_KEYS and k not in {"history", "config", "champion_fitness"}
     }
-    out["history"] = [
-        _normalise_history_row(r) for r in state.get("history", [])
-    ]
+    out["history"] = [_normalise_history_row(r) for r in state.get("history", [])]
     out["champion_fitness"] = _normalise_fitness(state.get("champion_fitness"))
     # LoopConfig is kept as-is (it's pure config); but drop the absolute
     # mock_response_paths if present since they're filesystem-dependent.
@@ -150,16 +151,12 @@ def fingerprint_run(track_root: Path) -> dict[str, Any]:
     fp: dict[str, Any] = {"states": {}, "champions": {}, "manifest": None}
     for sp in sorted(track_root.rglob("state.json")):
         rel = sp.relative_to(track_root).as_posix()
-        fp["states"][rel] = _normalise_state(
-            json.loads(sp.read_text(encoding="utf-8"))
-        )
+        fp["states"][rel] = _normalise_state(json.loads(sp.read_text(encoding="utf-8")))
     for cp in sorted(track_root.rglob("champions/*.cpp")):
         rel = cp.relative_to(track_root).as_posix()
         fp["champions"][rel] = _sha256_file(cp)
     for mp in sorted(track_root.glob("track_*_manifest.json")):
-        fp["manifest"] = _normalise_manifest(
-            json.loads(mp.read_text(encoding="utf-8"))
-        )
+        fp["manifest"] = _normalise_manifest(json.loads(mp.read_text(encoding="utf-8")))
         break  # only one manifest per track root
     return fp
 
@@ -185,9 +182,7 @@ def _materialise_mock_dir(template_dir: Path, staging: Path, count: int = 40) ->
     """
     src = template_dir / "response.md"
     if not src.is_file():
-        raise FileNotFoundError(
-            f"mini-config missing response.md: {src}"
-        )
+        raise FileNotFoundError(f"mini-config missing response.md: {src}")
     staging.mkdir(parents=True, exist_ok=True)
     body = src.read_text(encoding="utf-8")
     for i in range(count):
@@ -196,20 +191,34 @@ def _materialise_mock_dir(template_dir: Path, staging: Path, count: int = 40) ->
 
 
 def _run_track_a(
-    *, out_dir: Path, mock_dir: Path, seeds: str, generations: int,
-    n_matches: int, extra_argv: list[str] | None = None,
+    *,
+    out_dir: Path,
+    mock_dir: Path,
+    seeds: str,
+    generations: int,
+    n_matches: int,
+    extra_argv: list[str] | None = None,
 ) -> int:
     """Invoke track_a.main against the mock LLM."""
-    import tracks.track_a as track_a  # noqa: E402  (late import)
+    import tracks.track_a as track_a
+
     argv = [
-        "--seeds", seeds,
-        "--out-dir", str(out_dir),
-        "--generations", str(generations),
-        "--n-matches", str(n_matches),
-        "--client", "mock",
-        "--mock-response-dir", str(mock_dir),
-        "--no-aar", "--no-journal",
-        "--checkpoint-every", "1",
+        "--seeds",
+        seeds,
+        "--out-dir",
+        str(out_dir),
+        "--generations",
+        str(generations),
+        "--n-matches",
+        str(n_matches),
+        "--client",
+        "mock",
+        "--mock-response-dir",
+        str(mock_dir),
+        "--no-aar",
+        "--no-journal",
+        "--checkpoint-every",
+        "1",
     ]
     if extra_argv:
         argv += extra_argv
@@ -218,8 +227,12 @@ def _run_track_a(
 
 
 def run_and_compare(
-    *, mini_config: Path, out_root: Path, seeds: str,
-    generations: int, n_matches: int,
+    *,
+    mini_config: Path,
+    out_root: Path,
+    seeds: str,
+    generations: int,
+    n_matches: int,
 ) -> int:
     """Run the mini-track twice; fail with :data:`EXIT_DIVERGED` if the
     two fingerprints disagree."""
@@ -232,16 +245,23 @@ def run_and_compare(
 
     # Expand the 1-template mini-config into a dir of canned responses.
     mock_dir = _materialise_mock_dir(
-        mini_config, out_root / "_mock_responses",
+        mini_config,
+        out_root / "_mock_responses",
     )
 
     rc_a = _run_track_a(
-        out_dir=run_a, mock_dir=mock_dir,
-        seeds=seeds, generations=generations, n_matches=n_matches,
+        out_dir=run_a,
+        mock_dir=mock_dir,
+        seeds=seeds,
+        generations=generations,
+        n_matches=n_matches,
     )
     rc_b = _run_track_a(
-        out_dir=run_b, mock_dir=mock_dir,
-        seeds=seeds, generations=generations, n_matches=n_matches,
+        out_dir=run_b,
+        mock_dir=mock_dir,
+        seeds=seeds,
+        generations=generations,
+        n_matches=n_matches,
     )
     if rc_a != 0 or rc_b != 0:
         _LOG.error("track_a exited non-zero: rc_a=%d rc_b=%d", rc_a, rc_b)
@@ -283,13 +303,19 @@ def build_parser() -> argparse.ArgumentParser:
         prog="reproduce",
         description="Byte-identical mini-track smoke test (M20).",
     )
-    p.add_argument("--mini-config", type=Path, required=True,
-                   help="Directory of canned mock responses (.md files)")
-    p.add_argument("--out-root", type=Path, required=True,
-                   help="Scratch root; both runs land under <out-root>/run_a/ "
-                        "and <out-root>/run_b/")
-    p.add_argument("--seeds", default="1,2",
-                   help="Track-A --seeds value (default '1,2')")
+    p.add_argument(
+        "--mini-config",
+        type=Path,
+        required=True,
+        help="Directory of canned mock responses (.md files)",
+    )
+    p.add_argument(
+        "--out-root",
+        type=Path,
+        required=True,
+        help="Scratch root; both runs land under <out-root>/run_a/ and <out-root>/run_b/",
+    )
+    p.add_argument("--seeds", default="1,2", help="Track-A --seeds value (default '1,2')")
     p.add_argument("--generations", type=int, default=2)
     p.add_argument("--n-matches", type=int, default=3)
     p.add_argument("-v", "--verbose", action="count", default=0)
@@ -299,9 +325,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose >= 2
-              else logging.INFO if args.verbose == 1
-              else logging.WARNING,
+        level=logging.DEBUG
+        if args.verbose >= 2
+        else logging.INFO
+        if args.verbose == 1
+        else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     if not args.mini_config.is_dir():

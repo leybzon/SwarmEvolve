@@ -17,7 +17,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import analysis as a  # noqa: E402
+import analysis as a
 
 try:
     import matplotlib  # noqa: F401

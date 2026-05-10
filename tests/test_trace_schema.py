@@ -76,7 +76,10 @@ _VALID_DRONE = {"id": 0, "x": 1.0, "y": 2.0, "cooldown": 0, "alive": True}
     [
         ({"tick": -1, "team_a": [_VALID_DRONE], "team_b": [_VALID_DRONE]}, "negative tick"),
         ({"tick": 0, "team_b": [_VALID_DRONE]}, "missing team_a"),
-        ({"tick": 0, "team_a": [_VALID_DRONE], "team_b": [_VALID_DRONE], "extra": 1}, "additional property"),
+        (
+            {"tick": 0, "team_a": [_VALID_DRONE], "team_b": [_VALID_DRONE], "extra": 1},
+            "additional property",
+        ),
         ({"tick": 0, "team_a": [], "team_b": [_VALID_DRONE]}, "empty team"),
         (
             {

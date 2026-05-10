@@ -173,18 +173,38 @@ def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) 
     #     LLM-driven retry loop + prompt guidance instead.
     cmd = [
         compiler,
-        "-std=c++17", "-O2",
-        "-Wall", "-Wextra", "-Wshadow", "-Wpedantic", "-Werror",
+        "-std=c++17",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Wshadow",
+        "-Wpedantic",
+        "-Werror",
         "-Wno-unknown-pragmas",
-        "-Wno-unused-variable", "-Wno-unused-parameter",
-        "-Wno-unused-function", "-Wno-unused-but-set-variable",
+        "-Wno-unused-variable",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-but-set-variable",
         "-Wno-unused-const-variable",
         f"-I{REPO_ROOT / 'src'}",
         str(ENGINE_SRC),
         str(a_dir / "ai.cpp"),
         str(b_dir / "ai.cpp"),
-        "-o", str(binary),
+        "-o",
+        str(binary),
     ]
+    # GCC 13 (Ubuntu 24.04 default) emits a false-positive
+    # -Wstringop-overflow at -O2 on memset calls in src/engine.cpp whose
+    # length is `sizeof(T) * w.params.num_drones_*` (a runtime-bounded int
+    # the optimizer can't prove is non-negative). The same code compiles
+    # cleanly under Apple clang, nvc++ and earlier g++ versions. Suppress
+    # for g++ only — Apple clang doesn't recognize this flag without
+    # -Wno-unknown-warning-option, and we want to keep the warning active
+    # everywhere else. Same workaround already exists in the Makefile
+    # (LINUX_GCC_EXTRA, BENCH_GCC_EXTRA).
+    compiler_basename = Path(compiler).name
+    if "g++" in compiler_basename and "clang" not in compiler_basename:
+        cmd.insert(cmd.index("-Werror") + 1, "-Wno-stringop-overflow")
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise CompileError(
@@ -205,22 +225,35 @@ def _run_one_match(binary: Path, seed: int, max_ticks: int, timeout: float) -> d
     try:
         proc = subprocess.run(
             [str(binary), "--seed", str(seed), "--max-ticks", str(max_ticks)],
-            capture_output=True, text=True, check=False, timeout=timeout,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return {
-            "seed": seed, "outcome": "TIMEOUT", "score": 0.0,
-            "ticks": 0, "wall_ms": int(timeout * 1000),
-            "a_alive": 0, "b_alive": 0, "return_code": -1,
+            "seed": seed,
+            "outcome": "TIMEOUT",
+            "score": 0.0,
+            "ticks": 0,
+            "wall_ms": int(timeout * 1000),
+            "a_alive": 0,
+            "b_alive": 0,
+            "return_code": -1,
         }
     wall_ms = int((time.monotonic() - t0) * 1000)
 
     rc = proc.returncode
     if rc not in _OUTCOME_BY_RC:
         return {
-            "seed": seed, "outcome": "CRASH", "score": 0.0,
-            "ticks": 0, "wall_ms": wall_ms,
-            "a_alive": 0, "b_alive": 0, "return_code": rc,
+            "seed": seed,
+            "outcome": "CRASH",
+            "score": 0.0,
+            "ticks": 0,
+            "wall_ms": wall_ms,
+            "a_alive": 0,
+            "b_alive": 0,
+            "return_code": rc,
         }
 
     ticks = 0
@@ -300,8 +333,8 @@ def _bootstrap_ci(
             resample_sum += scores[rng.randrange(n)]
         means.append(resample_sum / n)
     means.sort()
-    lo_idx = int(math.floor((alpha / 2) * iterations))
-    hi_idx = int(math.ceil((1 - alpha / 2) * iterations)) - 1
+    lo_idx = math.floor((alpha / 2) * iterations)
+    hi_idx = math.ceil((1 - alpha / 2) * iterations) - 1
     hi_idx = max(0, min(iterations - 1, hi_idx))
     return means[lo_idx], means[hi_idx]
 
@@ -386,8 +419,7 @@ def evaluate_fitness(
 
     if scratch_root is None:
         scratch_root_path = Path(
-            os.environ.get("SWARM_FITNESS_SCRATCH")
-            or (Path.home() / ".pytest-sandbox" / "fitness")
+            os.environ.get("SWARM_FITNESS_SCRATCH") or (Path.home() / ".pytest-sandbox" / "fitness")
         )
     else:
         scratch_root_path = Path(scratch_root)
@@ -410,16 +442,25 @@ def evaluate_fitness(
         # ProcessPoolExecutor pickle boundary entirely).
         wd = scratch_root_path / f"w0_{os.getpid()}"
         results = _worker_batch(
-            str(team_a), str(team_b), partitions[0], cxx,
-            max_ticks, timeout, str(wd),
+            str(team_a),
+            str(team_b),
+            partitions[0],
+            cxx,
+            max_ticks,
+            timeout,
+            str(wd),
         )
     else:
         with _futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
             futures = [
                 pool.submit(
                     _worker_batch,
-                    str(team_a), str(team_b), part, cxx,
-                    max_ticks, timeout,
+                    str(team_a),
+                    str(team_b),
+                    part,
+                    cxx,
+                    max_ticks,
+                    timeout,
                     str(scratch_root_path / f"w{i}_{os.getpid()}"),
                 )
                 for i, part in enumerate(partitions)
@@ -450,7 +491,9 @@ def evaluate_fitness(
             16,
         )
         ci_low, ci_high = _bootstrap_ci(
-            scores, iterations=bootstrap_iterations, ci_seed=ci_seed,
+            scores,
+            iterations=bootstrap_iterations,
+            ci_seed=ci_seed,
         )
 
     wall = time.monotonic() - t0
@@ -481,6 +524,7 @@ def evaluate_fitness(
 
 def _main(argv: list[str] | None = None) -> int:
     import argparse
+
     p = argparse.ArgumentParser(prog="fitness", description=__doc__.splitlines()[0])
     p.add_argument("--team-a", required=True, type=Path)
     p.add_argument("--team-b", required=True, type=Path)
@@ -492,7 +536,8 @@ def _main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     try:
         result = evaluate_fitness(
-            args.team_a, args.team_b,
+            args.team_a,
+            args.team_b,
             n_matches=args.n_matches,
             seed_base=args.seed_base,
             workers=args.workers,
@@ -512,7 +557,7 @@ def _main(argv: list[str] | None = None) -> int:
     return 0
 
 
-__all__ = ["FitnessResult", "CompileError", "evaluate_fitness"]
+__all__ = ["CompileError", "FitnessResult", "evaluate_fitness"]
 
 
 if __name__ == "__main__":  # pragma: no cover

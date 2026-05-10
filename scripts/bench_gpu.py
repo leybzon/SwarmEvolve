@@ -529,7 +529,7 @@ def _cmd_all(args: argparse.Namespace) -> int:
         from scripts import bench_plot  # type: ignore[import-not-found]
 
         bench_plot.render_all(args.out)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"bench_gpu.py: bench_plot failed ({type(exc).__name__}: {exc})")
 
     if any_success and args.report:
@@ -538,7 +538,7 @@ def _cmd_all(args: argparse.Namespace) -> int:
 
             # Deferred import: report renderer lives near the plotter.
             _regenerate_report(args.out, args.report)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"bench_gpu.py: report regeneration failed ({type(exc).__name__}: {exc})")
 
     return EXIT_OK if any_success else EXIT_NO_OUTPUT
@@ -557,8 +557,11 @@ def _regenerate_report(bench_dir: Path, report_path: Path) -> None:
     data = json.loads(results_path.read_text())
     summary = data.get("summary", [])
 
-    lines = ["", "| Backend | N | Repeats | Wall ms (median) | Wall ms (p25–p75) | µs / tick |",
-             "|---------|--:|--------:|-----------------:|------------------:|---------:|"]
+    lines = [
+        "",
+        "| Backend | N | Repeats | Wall ms (median) | Wall ms (p25–p75) | µs / tick |",
+        "|---------|--:|--------:|-----------------:|------------------:|---------:|",
+    ]
     for row in summary:
         lines.append(
             f"| `{row['backend']}` | {row['n']} | {row['repeats']} | "

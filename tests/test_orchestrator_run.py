@@ -38,12 +38,16 @@ jsonschema = pytest.importorskip("jsonschema")
 
 def _run(args: list[str], env_cxx: str | None = None) -> subprocess.CompletedProcess:
     import os as _os
+
     env = dict(_os.environ)
     if env_cxx is not None:
         env["CXX"] = env_cxx
     return subprocess.run(
         [sys.executable, str(ORCHESTRATOR), *args],
-        capture_output=True, text=True, check=False, env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
 
 
@@ -58,13 +62,20 @@ def test_schema_is_well_formed():
 
 def test_run_happy_path(tmp_path):
     out = tmp_path / "run_ok"
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "42",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "42",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 0, result.stderr
 
     results_path = out / "results.json"
@@ -89,13 +100,20 @@ def test_run_happy_path(tmp_path):
 
 def test_run_matches_golden_outcome_seed42(tmp_path):
     out = tmp_path / "run_golden"
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "42",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "42",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 0, result.stderr
 
     payload = json.loads((out / "results.json").read_text())
@@ -106,14 +124,21 @@ def test_run_matches_golden_outcome_seed42(tmp_path):
 
 def test_run_no_record_no_trace(tmp_path):
     out = tmp_path / "no_record"
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "stationary_v1.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-        "--no-record",
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "stationary_v1.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+            "--no-record",
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 0, result.stderr
     payload = json.loads((out / "results.json").read_text())
     assert payload["status"] == "ok"
@@ -122,13 +147,20 @@ def test_run_no_record_no_trace(tmp_path):
 
 def test_run_missing_team_a_exits_2(tmp_path):
     out = tmp_path / "missing"
-    result = _run([
-        "run",
-        "--team-a", str(tmp_path / "does_not_exist.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(tmp_path / "does_not_exist.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 2
     # Structured JSON error on stderr.
     assert "missing-team-a-source" in result.stderr
@@ -138,13 +170,20 @@ def test_run_missing_team_a_exits_2(tmp_path):
 
 def test_run_missing_team_b_exits_2(tmp_path):
     out = tmp_path / "missing_b"
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(tmp_path / "nope.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(tmp_path / "nope.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 2
     assert "missing-team-b-source" in result.stderr
 
@@ -158,13 +197,20 @@ def test_run_compile_failure_exits_3_and_writes_results(tmp_path):
         "}\n"
     )
     out = tmp_path / "compile_fail"
-    result = _run([
-        "run",
-        "--team-a", str(broken),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(broken),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 3
     payload = json.loads((out / "results.json").read_text())
     jsonschema.validate(payload, _load_schema())
@@ -178,14 +224,22 @@ def test_run_compile_failure_exits_3_and_writes_results(tmp_path):
 def test_run_timeout_exits_4(tmp_path):
     out = tmp_path / "timeout"
     # Force a timeout by setting it absurdly small; compile still succeeds.
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-        "--timeout", "0.001",
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+            "--timeout",
+            "0.001",
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 4
     payload = json.loads((out / "results.json").read_text())
     jsonschema.validate(payload, _load_schema())
@@ -195,13 +249,20 @@ def test_run_timeout_exits_4(tmp_path):
 
 def test_run_writes_only_inside_out_dir(tmp_path):
     out = tmp_path / "isolation"
-    result = _run([
-        "run",
-        "--team-a", str(BASELINES / "pursuit_v1.cpp"),
-        "--team-b", str(BASELINES / "cluster_v1.cpp"),
-        "--seed", "0",
-        "--out-dir", str(out),
-    ], env_cxx=CXX)
+    result = _run(
+        [
+            "run",
+            "--team-a",
+            str(BASELINES / "pursuit_v1.cpp"),
+            "--team-b",
+            str(BASELINES / "cluster_v1.cpp"),
+            "--seed",
+            "0",
+            "--out-dir",
+            str(out),
+        ],
+        env_cxx=CXX,
+    )
     assert result.returncode == 0
     # Every artifact mentioned in results.json must live inside out_dir
     # (resolved, to dodge symlink tricks).

@@ -25,14 +25,18 @@ _SCRIPTS = _THIS.parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from tracks import _common  # noqa: E402
 from tracks._common import (  # noqa: E402
-    EXIT_OK, EXIT_INVALID_INPUT, EXIT_BUDGET_EXCEEDED,
+    EXIT_BUDGET_EXCEEDED,
+    EXIT_INVALID_INPUT,
+    EXIT_OK,
     PURSUIT_V1,
-    build_common_parser, forward_common_argv,
+    BudgetExceeded,
+    TokenBudget,
+    build_common_parser,
+    forward_common_argv,
     invoke_evolve,
-    read_state, summarise_lineage, write_manifest,
-    BudgetExceeded, TokenBudget,
+    summarise_lineage,
+    write_manifest,
 )
 
 TRACK = "A"
@@ -57,21 +61,32 @@ def build_parser():
         prog="track_a",
         description="Track A: LLM vs. frozen pursuit_v1, multi-seed.",
     )
-    p.add_argument("--seeds", required=True,
-                   help="Comma- or space-separated list of seeds (e.g. '1,2,3')")
-    p.add_argument("--as-team", choices=("A", "B"), default="A",
-                   help="Which team slot the LLM plays (default A)")
-    p.add_argument("--seed-ai", default=None,
-                   help="Initial champion source (defaults to opponent=pursuit_v1)")
-    p.add_argument("--opponent", default=None,
-                   help=f"Opponent AI (.cpp). Defaults to {PURSUIT_V1}")
+    p.add_argument(
+        "--seeds", required=True, help="Comma- or space-separated list of seeds (e.g. '1,2,3')"
+    )
+    p.add_argument(
+        "--as-team",
+        choices=("A", "B"),
+        default="A",
+        help="Which team slot the LLM plays (default A)",
+    )
+    p.add_argument(
+        "--seed-ai", default=None, help="Initial champion source (defaults to opponent=pursuit_v1)"
+    )
+    p.add_argument("--opponent", default=None, help=f"Opponent AI (.cpp). Defaults to {PURSUIT_V1}")
     return p
 
 
 def _run_one_lineage(
-    *, seed: int, seed_dir: Path, resume: bool,
-    common_argv: list[str], opponent: Path, seed_ai: Path | None,
-    as_team: str, generations: int,
+    *,
+    seed: int,
+    seed_dir: Path,
+    resume: bool,
+    common_argv: list[str],
+    opponent: Path,
+    seed_ai: Path | None,
+    as_team: str,
+    generations: int,
 ) -> int:
     """Run (or resume) a single lineage under ``seed_dir``.
 
@@ -86,8 +101,10 @@ def _run_one_lineage(
         _LOG.info("seed=%d: resuming %s", seed, seed_dir)
         return invoke_evolve(
             [
-                "--resume", str(seed_dir),
-                "--generations", str(generations),
+                "--resume",
+                str(seed_dir),
+                "--generations",
+                str(generations),
             ],
             strict=False,
         )
@@ -95,11 +112,16 @@ def _run_one_lineage(
     # Fresh run for this seed.
     seed_dir.mkdir(parents=True, exist_ok=True)
     fresh_argv = [
-        "--opponent", str(opponent),
-        "--as-team", as_team,
-        "--seed", str(seed),
-        "--generations", str(generations),
-        "--out-dir", str(seed_dir),
+        "--opponent",
+        str(opponent),
+        "--as-team",
+        as_team,
+        "--seed",
+        str(seed),
+        "--generations",
+        str(generations),
+        "--out-dir",
+        str(seed_dir),
     ]
     if seed_ai is not None:
         fresh_argv += ["--seed-ai", str(seed_ai)]
@@ -113,9 +135,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose >= 2
-              else logging.INFO if args.verbose == 1
-              else logging.WARNING,
+        level=logging.DEBUG
+        if args.verbose >= 2
+        else logging.INFO
+        if args.verbose == 1
+        else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
@@ -152,9 +176,13 @@ def main(argv: list[str] | None = None) -> int:
             budget_exceeded = True
             break
         rc = _run_one_lineage(
-            seed=seed, seed_dir=seed_dir, resume=args.resume,
-            common_argv=common_argv, opponent=opponent,
-            seed_ai=seed_ai, as_team=args.as_team,
+            seed=seed,
+            seed_dir=seed_dir,
+            resume=args.resume,
+            common_argv=common_argv,
+            opponent=opponent,
+            seed_ai=seed_ai,
+            as_team=args.as_team,
             generations=args.generations,
         )
         if rc != EXIT_OK:
@@ -164,9 +192,9 @@ def main(argv: list[str] | None = None) -> int:
             # lineage cannot poison the whole track.
             exhausted_seeds.append(seed)
             _LOG.warning(
-                "seed=%d: lineage ended with evolve rc=%d "
-                "(continuing with remaining seeds)",
-                seed, rc,
+                "seed=%d: lineage ended with evolve rc=%d (continuing with remaining seeds)",
+                seed,
+                rc,
             )
         lineages.append(summarise_lineage(seed_dir, seed=seed, exit_code=rc))
 

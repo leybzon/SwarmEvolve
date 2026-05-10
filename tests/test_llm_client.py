@@ -21,12 +21,12 @@ import pytest
 _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(_SCRIPTS))
 
-import llm_client  # noqa: E402
-
+import llm_client
 
 # -----------------------------------------------------------------------
 # extract_cpp_block
 # -----------------------------------------------------------------------
+
 
 def test_extract_cpp_block_tagged():
     text = "prose\n```cpp\nint x = 1;\n```\nmore"
@@ -61,6 +61,7 @@ def test_extract_cpp_block_none():
 # redact_secrets
 # -----------------------------------------------------------------------
 
+
 def test_redact_anthropic_key():
     msg = "error with sk-ant-abcdef1234567890_XYZ and more"
     out = llm_client.redact_secrets(msg)
@@ -83,11 +84,14 @@ def test_redact_leaves_benign_text():
 # MockClient
 # -----------------------------------------------------------------------
 
+
 def test_mock_client_queue_order():
-    mc = llm_client.MockClient([
-        llm_client.LLMResponse(text="one", model="mock"),
-        llm_client.LLMResponse(text="two", model="mock"),
-    ])
+    mc = llm_client.MockClient(
+        [
+            llm_client.LLMResponse(text="one", model="mock"),
+            llm_client.LLMResponse(text="two", model="mock"),
+        ]
+    )
     assert mc.generate("p1").text == "one"
     assert mc.generate("p2").text == "two"
     assert mc.calls == ["p1", "p2"]
@@ -102,6 +106,7 @@ def test_mock_client_empty_raises():
 # -----------------------------------------------------------------------
 # AnthropicClient — stub SDK so no network is touched
 # -----------------------------------------------------------------------
+
 
 class _FakeMessages:
     def __init__(self, raw):
@@ -145,8 +150,13 @@ class _FakeAnthropicSDK:
 
 def _install_fake_sdk(monkeypatch, factory):
     fake_mod = pytypes.ModuleType("anthropic")
-    for name in ("APIConnectionError", "APITimeoutError",
-                 "RateLimitError", "InternalServerError", "Anthropic"):
+    for name in (
+        "APIConnectionError",
+        "APITimeoutError",
+        "RateLimitError",
+        "InternalServerError",
+        "Anthropic",
+    ):
         setattr(fake_mod, name, getattr(_FakeAnthropicSDK, name))
     _FakeAnthropicSDK._canned_raw_factory = factory
     monkeypatch.setitem(sys.modules, "anthropic", fake_mod)
@@ -219,6 +229,7 @@ def test_anthropic_fatal_error_redacts(monkeypatch):
 
     def boom(**kwargs):
         raise RuntimeError("auth failed; token=secret-value-zzzzzzzzzzzzzzzzzz")
+
     monkeypatch.setattr(c._client.messages, "create", boom)
 
     with pytest.raises(llm_client.LLMError) as excinfo:

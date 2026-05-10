@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -24,7 +23,7 @@ _TESTS = _REPO_ROOT / "tests"
 if str(_TESTS) not in sys.path:
     sys.path.insert(0, str(_TESTS))
 
-from _build_helper import CXX  # type: ignore  # noqa: E402
+from _build_helper import CXX  # type: ignore
 
 # ``scripts/reproduce.py`` isn't a package member; import by path.
 _REPRO = _SCRIPTS / "reproduce.py"
@@ -174,10 +173,14 @@ def test_materialise_mock_dir_missing_template_errors(tmp_path: Path) -> None:
 
 def test_cli_parser_defaults():
     parser = reproduce.build_parser()
-    args = parser.parse_args([
-        "--mini-config", "/tmp/cfg",
-        "--out-root", "/tmp/out",
-    ])
+    args = parser.parse_args(
+        [
+            "--mini-config",
+            "/tmp/cfg",
+            "--out-root",
+            "/tmp/out",
+        ]
+    )
     assert args.mini_config == Path("/tmp/cfg")
     assert args.out_root == Path("/tmp/out")
     assert args.seeds == "1,2"
@@ -187,10 +190,14 @@ def test_cli_parser_defaults():
 
 def test_cli_rejects_nonexistent_mini_config(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist"
-    rc = reproduce.main([
-        "--mini-config", str(missing),
-        "--out-root", str(tmp_path / "out"),
-    ])
+    rc = reproduce.main(
+        [
+            "--mini-config",
+            str(missing),
+            "--out-root",
+            str(tmp_path / "out"),
+        ]
+    )
     assert rc == reproduce.EXIT_USAGE
 
 
@@ -208,12 +215,14 @@ def test_fingerprint_run_gathers_states_champions_manifest(tmp_path: Path) -> No
     # Two lineages, one champion each, plus a manifest at the root.
     _write_state_file(
         tmp_path / "seed1" / "state.json",
-        run_id="s1", champion_sha256="deadbeef",
+        run_id="s1",
+        champion_sha256="deadbeef",
         history=[{"generation": 0, "wall_seconds": 1.0}],
     )
     _write_state_file(
         tmp_path / "seed2" / "state.json",
-        run_id="s2", champion_sha256="cafebabe",
+        run_id="s2",
+        champion_sha256="cafebabe",
         history=[{"generation": 0, "wall_seconds": 2.0}],
     )
     ch1 = tmp_path / "seed1" / "champions" / "gen_0000.cpp"
@@ -223,13 +232,18 @@ def test_fingerprint_run_gathers_states_champions_manifest(tmp_path: Path) -> No
     ch2.parent.mkdir(parents=True)
     ch2.write_text("// b", encoding="utf-8")
     manifest_path = tmp_path / "track_a_manifest.json"
-    manifest_path.write_text(json.dumps({
-        "track": "A",
-        "lineages": [
-            {"seed": 1, "run_dir": "/abs/run/seed1"},
-            {"seed": 2, "run_dir": "/abs/run/seed2"},
-        ],
-    }), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "track": "A",
+                "lineages": [
+                    {"seed": 1, "run_dir": "/abs/run/seed1"},
+                    {"seed": 2, "run_dir": "/abs/run/seed2"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     fp = reproduce.fingerprint_run(tmp_path)
     assert set(fp["states"].keys()) == {"seed1/state.json", "seed2/state.json"}
@@ -263,12 +277,19 @@ def test_reproduce_mini_track_a_byte_identical(tmp_path: Path) -> None:
     """
     mini_config = _REPO_ROOT / "scripts" / "ci_fixtures" / "mini_track_a"
     out_root = tmp_path / "smoke"
-    rc = reproduce.main([
-        "--mini-config", str(mini_config),
-        "--out-root", str(out_root),
-        "--seeds", "1",
-        "--generations", "1",
-        "--n-matches", "2",
-    ])
+    rc = reproduce.main(
+        [
+            "--mini-config",
+            str(mini_config),
+            "--out-root",
+            str(out_root),
+            "--seeds",
+            "1",
+            "--generations",
+            "1",
+            "--n-matches",
+            "2",
+        ]
+    )
     assert rc == reproduce.EXIT_OK
     assert (out_root / "reproduce.ok").is_file()

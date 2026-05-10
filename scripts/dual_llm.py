@@ -15,12 +15,12 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
 # Make sibling scripts importable
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
@@ -57,6 +57,7 @@ class DualLLMResponse:
 
 class DualLLMError(RuntimeError):
     """Raised when dual-LLM pipeline fails after retries."""
+
     pass
 
 
@@ -91,7 +92,9 @@ def render_planner_prompt(
         "{OPPONENT_SOURCE}": opponent_source,
         "{AAR}": aar_markdown,
         "{PRIOR_LESSONS}": prior_lessons,
-        "{CHAMPION_FITNESS}": f"{champion_fitness:.3f}" if champion_fitness is not None else "N/A (first generation)",
+        "{CHAMPION_FITNESS}": f"{champion_fitness:.3f}"
+        if champion_fitness is not None
+        else "N/A (first generation)",
         "{LAST_GENERATION}": str(last_generation) if last_generation is not None else "N/A",
         "{LAST_HYPOTHESIS}": last_hypothesis if last_hypothesis else "N/A (first generation)",
         "{LAST_FITNESS}": f"{last_fitness:.3f}" if last_fitness is not None else "N/A",
@@ -166,7 +169,7 @@ def extract_json_from_response(text: str) -> str:
     """
     # Try fenced JSON block first
     fence_match = re.search(
-        r'```(?:json)?\s*\n(.*?)\n```',
+        r"```(?:json)?\s*\n(.*?)\n```",
         text,
         re.DOTALL | re.IGNORECASE,
     )
@@ -174,19 +177,19 @@ def extract_json_from_response(text: str) -> str:
         return fence_match.group(1).strip()
 
     # Fall back to bare JSON (first '{' to matching '}')
-    start = text.find('{')
+    start = text.find("{")
     if start == -1:
         raise ValueError("No JSON object found in response (no '{')")
 
     # Find matching closing brace
     depth = 0
     for i in range(start, len(text)):
-        if text[i] == '{':
+        if text[i] == "{":
             depth += 1
-        elif text[i] == '}':
+        elif text[i] == "}":
             depth -= 1
             if depth == 0:
-                return text[start:i+1]
+                return text[start : i + 1]
 
     raise ValueError("No complete JSON object found (unmatched braces)")
 
@@ -231,7 +234,9 @@ def call_planner(
                     f"Please return valid JSON matching the schema exactly."
                 )
                 continue
-            raise DualLLMError(f"Planner failed to return valid JSON after {max_retries + 1} attempts: {e}")
+            raise DualLLMError(
+                f"Planner failed to return valid JSON after {max_retries + 1} attempts: {e}"
+            ) from e
 
         except ts_mod.TacticSpecValidationError as e:
             _LOG.warning("planner-validation-failed attempt=%d err=%s", attempt + 1, e)
@@ -243,7 +248,9 @@ def call_planner(
                     f"Please fix the issues and return a valid spec."
                 )
                 continue
-            raise DualLLMError(f"Planner TacticSpec validation failed after {max_retries + 1} attempts: {e}")
+            raise DualLLMError(
+                f"Planner TacticSpec validation failed after {max_retries + 1} attempts: {e}"
+            ) from e
 
     # Unreachable but satisfies type checker
     raise DualLLMError("Planner failed (unreachable)")
@@ -269,7 +276,7 @@ def call_coder(
 
     # Extract first C++ fenced block
     fence_match = re.search(
-        r'```(?:c\+\+|cpp|CPP|C\+\+)?\s*\n(.*?)\n```',
+        r"```(?:c\+\+|cpp|CPP|C\+\+)?\s*\n(.*?)\n```",
         response.text,
         re.DOTALL,
     )
@@ -378,58 +385,74 @@ def dual_llm_generate(
 
 if __name__ == "__main__":
     # Smoke test with mock clients
-    from llm_client import MockClient, LLMResponse
+    from llm_client import LLMResponse, MockClient
 
     # Mock planner response (valid TacticSpec JSON)
-    mock_planner_json = json.dumps({
-        "observe": {
-            "key_metrics": [
-                "Outcome: DRAW",
-                "Cooldown util: 0.5 vs 0.5",
-                "Focus-fire: 0.2",
-                "Mean pairwise: 100.0",
-                "Message entropy: 0.5",
-            ],
-        },
-        "orient": {
-            "why_we_failed": "Equal metrics led to stalemate",
-            "what_enemy_exploited": "None, draw scenario",
-            "constraints_violated": "None identified",
-        },
-        "decide": {
-            "tactic_name": "Maintain Status Quo",
-            "mechanism": (
-                "Continue current approach as it achieves parity. "
-                "No changes needed when metrics are balanced and "
-                "we're not losing. Monitor for any shifts in next "
-                "generation before committing to new tactics."
-            ),
-            "why_this_counters_failure": "No failure to counter, draw is acceptable",
-        },
-        "act": {
-            "expected_changes": [
-                {"metric": "outcome", "old_value": "DRAW", "target_value": "DRAW", "reason": "maintain parity"},
-                {"metric": "cooldown_utilization_us", "old_value": 0.5, "target_value": 0.5, "reason": "no change"},
-            ],
-        },
-        "implementation_guidance": {
-            "message_protocol": "unchanged",
-            "memory_layout": "unchanged",
-            "special_cases": "none",
-        },
-    })
+    mock_planner_json = json.dumps(
+        {
+            "observe": {
+                "key_metrics": [
+                    "Outcome: DRAW",
+                    "Cooldown util: 0.5 vs 0.5",
+                    "Focus-fire: 0.2",
+                    "Mean pairwise: 100.0",
+                    "Message entropy: 0.5",
+                ],
+            },
+            "orient": {
+                "why_we_failed": "Equal metrics led to stalemate",
+                "what_enemy_exploited": "None, draw scenario",
+                "constraints_violated": "None identified",
+            },
+            "decide": {
+                "tactic_name": "Maintain Status Quo",
+                "mechanism": (
+                    "Continue current approach as it achieves parity. "
+                    "No changes needed when metrics are balanced and "
+                    "we're not losing. Monitor for any shifts in next "
+                    "generation before committing to new tactics."
+                ),
+                "why_this_counters_failure": "No failure to counter, draw is acceptable",
+            },
+            "act": {
+                "expected_changes": [
+                    {
+                        "metric": "outcome",
+                        "old_value": "DRAW",
+                        "target_value": "DRAW",
+                        "reason": "maintain parity",
+                    },
+                    {
+                        "metric": "cooldown_utilization_us",
+                        "old_value": 0.5,
+                        "target_value": 0.5,
+                        "reason": "no change",
+                    },
+                ],
+            },
+            "implementation_guidance": {
+                "message_protocol": "unchanged",
+                "memory_layout": "unchanged",
+                "special_cases": "none",
+            },
+        }
+    )
 
-    planner_mock = MockClient([
-        LLMResponse(text=mock_planner_json, model="mock-planner"),
-    ])
+    planner_mock = MockClient(
+        [
+            LLMResponse(text=mock_planner_json, model="mock-planner"),
+        ]
+    )
 
     # Mock coder response
-    coder_mock = MockClient([
-        LLMResponse(
-            text="```cpp\n#include \"../ai_abi.h\"\n// mock code\n```",
-            model="mock-coder",
-        ),
-    ])
+    coder_mock = MockClient(
+        [
+            LLMResponse(
+                text='```cpp\n#include "../ai_abi.h"\n// mock code\n```',
+                model="mock-coder",
+            ),
+        ]
+    )
 
     try:
         result = dual_llm_generate(
@@ -442,12 +465,13 @@ if __name__ == "__main__":
             aar_markdown="Outcome: DRAW",
             prior_lessons="None",
         )
-        print(f"✅ Smoke test passed")
+        print("✅ Smoke test passed")
         print(f"   Tactic: {result.tactic_spec.tactic_name}")
         print(f"   Planner retries: {result.planner_retries}")
         print(f"   Total tokens: {result.total_prompt_tokens + result.total_completion_tokens}")
     except Exception as e:
         import traceback
+
         print(f"❌ Smoke test failed: {type(e).__name__}: {e}")
         traceback.print_exc()
         sys.exit(1)

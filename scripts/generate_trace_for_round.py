@@ -13,10 +13,16 @@ import fitness as fitness_mod
 
 def main():
     parser = argparse.ArgumentParser(description="Generate trace for a specific M25 round")
-    parser.add_argument("--round", type=int, required=True, help="Round number (e.g., 1, 13, 31, 41)")
+    parser.add_argument(
+        "--round", type=int, required=True, help="Round number (e.g., 1, 13, 31, 41)"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--out-dir", type=Path, required=True, help="Output directory for M25 experiment")
-    parser.add_argument("--trace-output", type=Path, required=True, help="Path for output trace file")
+    parser.add_argument(
+        "--out-dir", type=Path, required=True, help="Output directory for M25 experiment"
+    )
+    parser.add_argument(
+        "--trace-output", type=Path, required=True, help="Path for output trace file"
+    )
     args = parser.parse_args()
 
     round_dir = args.out_dir / f"round_{args.round:04d}"

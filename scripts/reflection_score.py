@@ -55,13 +55,13 @@ import argparse
 import csv
 import json
 import logging
-import math
 import re
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Protocol
+from typing import Any, Protocol
 
 # --- local imports: scripts/ on sys.path ----------------------------------
 _THIS = Path(__file__).resolve()
@@ -88,34 +88,55 @@ MAX_JUDGE_RETRIES = 2
 
 #: The rubric prompt template, substituted with ENTRY_JSON / GENERATION /
 #: MODEL / TRACK / ABI_HEADER at call time.
-DEFAULT_RUBRIC_PATH = (_SCRIPTS.parent / "prompts" / "reflection_rubric.md")
-DEFAULT_ABI_HEADER_PATH = (_SCRIPTS.parent / "src" / "ai_abi.h")
+DEFAULT_RUBRIC_PATH = _SCRIPTS.parent / "prompts" / "reflection_rubric.md"
+DEFAULT_ABI_HEADER_PATH = _SCRIPTS.parent / "src" / "ai_abi.h"
 
 _NUMERIC_RE = re.compile(r"\b-?\d+(\.\d+)?\b")
 
 _FORBIDDEN_ABI_SUBSTRINGS: tuple[str, ...] = (
-    "malloc", "std::vector", "std::string", "std::map", "std::list",
-    "std::unordered_map", "std::deque", "std::thread", "std::mutex",
-    "std::atomic", "<thread>", "<mutex>", "<atomic>",
-    "<fstream>", "<iostream>", "<filesystem>",
-    "new ", "delete ", "rand()", "srand", "asm ", "__asm__",
-    "popen(", "system(", "execve(",
+    "malloc",
+    "std::vector",
+    "std::string",
+    "std::map",
+    "std::list",
+    "std::unordered_map",
+    "std::deque",
+    "std::thread",
+    "std::mutex",
+    "std::atomic",
+    "<thread>",
+    "<mutex>",
+    "<atomic>",
+    "<fstream>",
+    "<iostream>",
+    "<filesystem>",
+    "new ",
+    "delete ",
+    "rand()",
+    "srand",
+    "asm ",
+    "__asm__",
+    "popen(",
+    "system(",
+    "execve(",
 )
 
 #: Keys in AAR metrics that we treat as legitimate "cited evidence".
 #: Matches telemetry_aar's emitted structured metrics (M15b).
-_AAR_METRIC_KEYS: frozenset[str] = frozenset({
-    "focus_fire_redundancy",
-    "mean_pairwise_distance_us",
-    "mean_pairwise_distance_them",
-    "cooldown_uptime_us",
-    "cooldown_uptime_them",
-    "cluster_cohesion_us",
-    "kill_to_loss_ratio",
-    "time_to_first_kill_us",
-    "time_to_first_kill_them",
-    "win_margin",
-})
+_AAR_METRIC_KEYS: frozenset[str] = frozenset(
+    {
+        "focus_fire_redundancy",
+        "mean_pairwise_distance_us",
+        "mean_pairwise_distance_them",
+        "cooldown_uptime_us",
+        "cooldown_uptime_them",
+        "cluster_cohesion_us",
+        "kill_to_loss_ratio",
+        "time_to_first_kill_us",
+        "time_to_first_kill_them",
+        "win_margin",
+    }
+)
 
 _LOG = logging.getLogger("swarmevolve.reflection")
 
@@ -128,6 +149,7 @@ _LOG = logging.getLogger("swarmevolve.reflection")
 @dataclass(frozen=True)
 class RubricScore:
     """One row of scores for one journal entry."""
+
     generation: int
     track: str
     model: str
@@ -135,7 +157,7 @@ class RubricScore:
     causal_diagnosis: int
     counter_tactic_specificity: int
     abi_feasibility: int
-    judge_kind: str          # "anthropic" | "mock" | "rule"
+    judge_kind: str  # "anthropic" | "mock" | "rule"
     judge_model: str
     justification: str
     prompt_tokens: int = 0
@@ -152,15 +174,22 @@ class RubricScore:
     @classmethod
     def csv_fieldnames(cls) -> list[str]:
         return [
-            "generation", "track", "model", "seed",
-            "causal_diagnosis", "counter_tactic_specificity",
+            "generation",
+            "track",
+            "model",
+            "seed",
+            "causal_diagnosis",
+            "counter_tactic_specificity",
             "abi_feasibility",
-            "judge_kind", "judge_model", "justification",
+            "judge_kind",
+            "judge_model",
+            "justification",
         ]
 
 
 class Judge(Protocol):
     """Callable scoring protocol. `score(entry)` returns a RubricScore."""
+
     kind: str
     model: str
 
@@ -188,7 +217,7 @@ def _score_causal_diagnosis(entry: dict[str, Any]) -> int:
     exp = (entry.get("mechanism_expected") or "").strip()
     combined = f"{exp}\n{obs}".strip()
     cited = entry.get("aar_metrics_cited") or {}
-    cited_keys = {k for k in cited.keys() if k in _AAR_METRIC_KEYS}
+    cited_keys = {k for k in cited if k in _AAR_METRIC_KEYS}
 
     if not combined:
         return 1
@@ -243,10 +272,10 @@ def _score_abi_feasibility(entry: dict[str, Any]) -> int:
     4: concrete, references my_memory or named ABI inputs.
     5: concrete + mentions MEM_SIZE/MAX_DRONES + bounded-compute phrasing.
     """
-    advice = (entry.get("advice_to_future_self") or "")
-    hyp = (entry.get("hypothesis_tested") or "")
-    obs = (entry.get("mechanism_observed") or "")
-    exp = (entry.get("mechanism_expected") or "")
+    advice = entry.get("advice_to_future_self") or ""
+    hyp = entry.get("hypothesis_tested") or ""
+    obs = entry.get("mechanism_observed") or ""
+    exp = entry.get("mechanism_expected") or ""
     full = f"{hyp}\n{exp}\n{obs}\n{advice}"
     lower = full.lower()
 
@@ -254,22 +283,35 @@ def _score_abi_feasibility(entry: dict[str, Any]) -> int:
         if bad.lower() in lower:
             return 1
 
-    if "enemy cooldown" in lower or "enemies[].cooldown" in lower \
-            or "enemies.cooldown" in lower:
+    if "enemy cooldown" in lower or "enemies[].cooldown" in lower or "enemies.cooldown" in lower:
         return 2
 
     signals = 0
-    for token in ("my_memory", "allies[", "enemies[",
-                  "out_action", "incoming_messages",
-                  "params->", "target_id", "message_out"):
+    for token in (
+        "my_memory",
+        "allies[",
+        "enemies[",
+        "out_action",
+        "incoming_messages",
+        "params->",
+        "target_id",
+        "message_out",
+    ):
         if token in full:
             signals += 1
             break  # one ABI-input reference is enough for level-4 bump
 
-    bounded = any(t in full for t in (
-        "MAX_DRONES", "MEM_SIZE", "MSG_SIZE",
-        "bounded", "for (int", "compile-time",
-    ))
+    bounded = any(
+        t in full
+        for t in (
+            "MAX_DRONES",
+            "MEM_SIZE",
+            "MSG_SIZE",
+            "bounded",
+            "for (int",
+            "compile-time",
+        )
+    )
 
     if signals and bounded:
         return 5
@@ -280,6 +322,7 @@ def _score_abi_feasibility(entry: dict[str, Any]) -> int:
 
 class RuleJudge:
     """Deterministic scorer. Zero tokens, zero network."""
+
     kind = "rule"
     model = "rule-v1"
 
@@ -304,13 +347,9 @@ class RuleJudge:
 
 
 def _rule_justification(cd: int, ct: int, af: int, entry: dict[str, Any]) -> str:
-    cited = len([k for k in (entry.get("aar_metrics_cited") or {})
-                 if k in _AAR_METRIC_KEYS])
+    cited = len([k for k in (entry.get("aar_metrics_cited") or {}) if k in _AAR_METRIC_KEYS])
     tags = len(entry.get("tactic_tags") or [])
-    return (
-        f"rule: cited={cited} tags={tags} "
-        f"cd={cd} ct={ct} af={af}"
-    )[:200]
+    return (f"rule: cited={cited} tags={tags} cd={cd} ct={ct} af={af}")[:200]
 
 
 # --------------------------------------------------------------------------
@@ -352,15 +391,11 @@ def _extract_json_object(text: str) -> dict[str, Any]:
             depth -= 1
             if depth == 0:
                 try:
-                    obj = json.loads(stripped[start:i + 1])
+                    obj = json.loads(stripped[start : i + 1])
                 except json.JSONDecodeError as exc:
-                    raise JudgeParseError(
-                        f"balanced region not JSON: {exc}"
-                    ) from exc
+                    raise JudgeParseError(f"balanced region not JSON: {exc}") from exc
                 if not isinstance(obj, dict):
-                    raise JudgeParseError(
-                        "JSON root is not an object"
-                    )
+                    raise JudgeParseError("JSON root is not an object")
                 return obj
     raise JudgeParseError("unbalanced braces in response")
 
@@ -374,31 +409,40 @@ def _coerce_axis(obj: dict[str, Any], axis: str) -> int:
     except (TypeError, ValueError) as exc:
         raise JudgeParseError(f"axis {axis!r} not an integer: {val!r}") from exc
     if ival < SCORE_MIN or ival > SCORE_MAX:
-        raise JudgeParseError(
-            f"axis {axis!r} out of range [{SCORE_MIN},{SCORE_MAX}]: {ival}"
-        )
+        raise JudgeParseError(f"axis {axis!r} out of range [{SCORE_MIN},{SCORE_MAX}]: {ival}")
     return ival
 
 
 def _build_judge_prompt(
-    *, entry: dict[str, Any], rubric_template: str, abi_header: str,
+    *,
+    entry: dict[str, Any],
+    rubric_template: str,
+    abi_header: str,
 ) -> str:
     # Minimise context: ship just the reflective fields + tactic tags +
     # cited metrics. The rubric itself mandates grounding in those.
     trimmed_entry = {
-        k: v for k, v in entry.items()
-        if k in (
-            "generation", "verdict", "status",
-            "hypothesis_tested", "mechanism_expected",
-            "mechanism_observed", "advice_to_future_self",
-            "tactic_tags", "aar_metrics_cited",
-            "outcome_summary", "fitness", "fitness_delta",
+        k: v
+        for k, v in entry.items()
+        if k
+        in (
+            "generation",
+            "verdict",
+            "status",
+            "hypothesis_tested",
+            "mechanism_expected",
+            "mechanism_observed",
+            "advice_to_future_self",
+            "tactic_tags",
+            "aar_metrics_cited",
+            "outcome_summary",
+            "fitness",
+            "fitness_delta",
         )
     }
     entry_json = json.dumps(trimmed_entry, indent=2, sort_keys=True)
     return (
-        rubric_template
-        .replace("{GENERATION}", str(entry.get("generation", "?")))
+        rubric_template.replace("{GENERATION}", str(entry.get("generation", "?")))
         .replace("{MODEL}", str(entry.get("model", "?")))
         .replace("{TRACK}", str(entry.get("track", "?")))
         .replace("{ABI_HEADER}", abi_header)
@@ -426,9 +470,7 @@ class LLMJudge:
 
     @property
     def kind(self) -> str:
-        return "anthropic" if isinstance(
-            self._client, llm_client.AnthropicClient
-        ) else "mock"
+        return "anthropic" if isinstance(self._client, llm_client.AnthropicClient) else "mock"
 
     @property
     def model(self) -> str:
@@ -436,7 +478,8 @@ class LLMJudge:
 
     def score(self, entry: dict[str, Any]) -> RubricScore:
         prompt = _build_judge_prompt(
-            entry=entry, rubric_template=self._rubric,
+            entry=entry,
+            rubric_template=self._rubric,
             abi_header=self._abi_header,
         )
         last_err: Exception | None = None
@@ -446,12 +489,12 @@ class LLMJudge:
         for _attempt in range(MAX_JUDGE_RETRIES + 1):
             try:
                 resp = self._client.generate(
-                    prompt, max_tokens=self._max_tokens,
+                    prompt,
+                    max_tokens=self._max_tokens,
                 )
             except llm_client.LLMError as exc:
                 last_err = exc
-                _LOG.warning("judge llm error: %s",
-                             llm_client.redact_secrets(str(exc)))
+                _LOG.warning("judge llm error: %s", llm_client.redact_secrets(str(exc)))
                 break
             prompt_tokens += getattr(resp, "prompt_tokens", 0) or 0
             completion_tokens += getattr(resp, "completion_tokens", 0) or 0
@@ -467,8 +510,7 @@ class LLMJudge:
                 continue
         if parsed is None:
             raise JudgeParseError(
-                f"judge failed after {MAX_JUDGE_RETRIES + 1} attempts: "
-                f"{last_err!s}"
+                f"judge failed after {MAX_JUDGE_RETRIES + 1} attempts: {last_err!s}"
             )
         justification = str(parsed.get("justification", ""))[:200]
         return RubricScore(
@@ -477,8 +519,7 @@ class LLMJudge:
             model=str(entry.get("model", "")),
             seed=int(entry.get("seed", -1)),
             causal_diagnosis=_coerce_axis(parsed, "causal_diagnosis"),
-            counter_tactic_specificity=_coerce_axis(
-                parsed, "counter_tactic_specificity"),
+            counter_tactic_specificity=_coerce_axis(parsed, "counter_tactic_specificity"),
             abi_feasibility=_coerce_axis(parsed, "abi_feasibility"),
             judge_kind=self.kind,
             judge_model=self.model,
@@ -493,8 +534,7 @@ class LLMJudge:
 # --------------------------------------------------------------------------
 
 
-def _safe_score(judge: Judge, entry: dict[str, Any],
-                fallback: Judge | None) -> RubricScore:
+def _safe_score(judge: Judge, entry: dict[str, Any], fallback: Judge | None) -> RubricScore:
     try:
         return judge.score(entry)
     except JudgeParseError as exc:
@@ -502,7 +542,8 @@ def _safe_score(judge: Judge, entry: dict[str, Any],
             raise
         _LOG.warning(
             "judge fell back to rule scorer for gen=%s: %s",
-            entry.get("generation"), exc,
+            entry.get("generation"),
+            exc,
         )
         return fallback.score(entry)
     except llm_client.LLMError as exc:
@@ -573,22 +614,24 @@ def cohens_kappa(a: list[int], b: list[int], *, weights: str = "linear") -> floa
         # Degenerate: everyone agrees on one value → kappa undefined but
         # conventionally 1.0 if a == b, else 0.0. Chose 1.0 only if
         # every pair matches.
-        return 1.0 if all(x == y for x, y in zip(a, b)) else 0.0
+        return 1.0 if all(x == y for x, y in zip(a, b, strict=False)) else 0.0
     idx = {c: i for i, c in enumerate(categories)}
     n = len(a)
     observed = [[0] * k for _ in range(k)]
     row = [0] * k
     col = [0] * k
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         i, j = idx[x], idx[y]
         observed[i][j] += 1
         row[i] += 1
         col[j] += 1
     kmax = k - 1
     if weights == "linear":
+
         def w(i: int, j: int) -> float:
             return abs(i - j) / kmax if kmax else 0.0
     elif weights == "unweighted":
+
         def w(i: int, j: int) -> float:
             return 0.0 if i == j else 1.0
     else:
@@ -607,7 +650,10 @@ def cohens_kappa(a: list[int], b: list[int], *, weights: str = "linear") -> floa
 
 
 def calibrate_csv_pair(
-    human_path: Path, judge_path: Path, *, axis: str | None = None,
+    human_path: Path,
+    judge_path: Path,
+    *,
+    axis: str | None = None,
 ) -> dict[str, float]:
     """Compute per-axis (or single-axis) weighted kappa between two
     score CSVs. Rows are matched by ``(track, model, seed, generation)``.
@@ -626,9 +672,7 @@ def calibrate_csv_pair(
         if k in human_idx:
             pairs.append((human_idx[k], r))
     if len(pairs) < 5:
-        raise ValueError(
-            f"only {len(pairs)} matched rows; need >= 5 for meaningful kappa"
-        )
+        raise ValueError(f"only {len(pairs)} matched rows; need >= 5 for meaningful kappa")
     axes = (axis,) if axis else AXES
     out: dict[str, float] = {}
     for ax in axes:
@@ -667,8 +711,11 @@ def load_journal(path: Path) -> list[dict[str, Any]]:
 
 
 def _build_judge(
-    kind: str, *, judge_model: str | None,
-    rubric_template: str, abi_header: str,
+    kind: str,
+    *,
+    judge_model: str | None,
+    rubric_template: str,
+    abi_header: str,
     mock_response_paths: list[Path] | None,
 ) -> tuple[Judge, Judge | None]:
     if kind == "rule":
@@ -676,23 +723,27 @@ def _build_judge(
     if kind == "mock":
         responses: list[llm_client.LLMResponse] = []
         for mp in mock_response_paths or []:
-            responses.append(llm_client.LLMResponse(
-                text=mp.read_text(encoding="utf-8"),
-                model=judge_model or "mock-judge",
-            ))
+            responses.append(
+                llm_client.LLMResponse(
+                    text=mp.read_text(encoding="utf-8"),
+                    model=judge_model or "mock-judge",
+                )
+            )
         client = llm_client.MockClient(
             responses=responses,
             model=judge_model or "mock-judge",
         )
         judge = LLMJudge(
-            client=client, rubric_template=rubric_template,
+            client=client,
+            rubric_template=rubric_template,
             abi_header=abi_header,
         )
         return judge, RuleJudge()
     if kind == "anthropic":
         client = llm_client.AnthropicClient(model=judge_model)
         judge = LLMJudge(
-            client=client, rubric_template=rubric_template,
+            client=client,
+            rubric_template=rubric_template,
             abi_header=abi_header,
         )
         return judge, RuleJudge()
@@ -702,12 +753,8 @@ def _build_judge(
 def _cmd_score(args: argparse.Namespace) -> int:
     journal_path = Path(args.journal).resolve()
     out_path = Path(args.out).resolve()
-    rubric_template = load_rubric_template(
-        Path(args.rubric_path) if args.rubric_path else None
-    )
-    abi_header = load_abi_header(
-        Path(args.abi_path) if args.abi_path else None
-    )
+    rubric_template = load_rubric_template(Path(args.rubric_path) if args.rubric_path else None)
+    abi_header = load_abi_header(Path(args.abi_path) if args.abi_path else None)
 
     mock_paths: list[Path] | None = None
     if args.mock_response_dir:
@@ -718,8 +765,10 @@ def _cmd_score(args: argparse.Namespace) -> int:
             return 2
 
     judge, fallback = _build_judge(
-        args.judge, judge_model=args.judge_model,
-        rubric_template=rubric_template, abi_header=abi_header,
+        args.judge,
+        judge_model=args.judge_model,
+        rubric_template=rubric_template,
+        abi_header=abi_header,
         mock_response_paths=mock_paths,
     )
 
@@ -734,9 +783,7 @@ def _cmd_score(args: argparse.Namespace) -> int:
     # Summary line for callers/CI.
     total_prompt = sum(s.prompt_tokens for s in scores)
     total_completion = sum(s.completion_tokens for s in scores)
-    by_axis = {
-        ax: Counter(getattr(s, ax) for s in scores) for ax in AXES
-    }
+    by_axis = {ax: Counter(getattr(s, ax) for s in scores) for ax in AXES}
     print(
         f"reflection_score: wrote {len(scores)} rows to {out_path} "
         f"judge={judge.kind} model={judge.model} "
@@ -788,13 +835,13 @@ def _cmd_sample(args: argparse.Namespace) -> int:
             int(e.get("seed", 0) or 0),
             int(e.get("generation", 0) or 0),
         )
+
     for b in buckets.values():
         b.sort(key=order_key)
 
     # Round-robin across buckets to reach --size rows.
     rng = random.Random(args.seed)
-    ordered_buckets = sorted(buckets.items(),
-                             key=lambda kv: (kv[0][0], kv[0][1]))
+    ordered_buckets = sorted(buckets.items(), key=lambda kv: (kv[0][0], kv[0][1]))
     selected: list[dict[str, Any]] = []
     cursors = {k: 0 for k, _ in ordered_buckets}
     while len(selected) < args.size:
@@ -820,25 +867,27 @@ def _cmd_sample(args: argparse.Namespace) -> int:
         w.writeheader()
         for e in selected:
             row_id = (
-                f"{e.get('track','?')}-{e.get('model','?')}-"
-                f"{e.get('seed','?')}-{e.get('generation','?')}"
+                f"{e.get('track', '?')}-{e.get('model', '?')}-"
+                f"{e.get('seed', '?')}-{e.get('generation', '?')}"
             )
             (entries_dir / f"{row_id}.json").write_text(
                 json.dumps(e, indent=2, sort_keys=True),
                 encoding="utf-8",
             )
-            w.writerow({
-                "generation": e.get("generation", ""),
-                "track": e.get("track", ""),
-                "model": e.get("model", ""),
-                "seed": e.get("seed", ""),
-                "causal_diagnosis": "",  # human fills these in
-                "counter_tactic_specificity": "",
-                "abi_feasibility": "",
-                "judge_kind": "human",
-                "judge_model": args.human_label,
-                "justification": "",
-            })
+            w.writerow(
+                {
+                    "generation": e.get("generation", ""),
+                    "track": e.get("track", ""),
+                    "model": e.get("model", ""),
+                    "seed": e.get("seed", ""),
+                    "causal_diagnosis": "",  # human fills these in
+                    "counter_tactic_specificity": "",
+                    "abi_feasibility": "",
+                    "judge_kind": "human",
+                    "judge_model": args.human_label,
+                    "justification": "",
+                }
+            )
 
     # Quiet noise for CI by default; verbose listing on --verbose.
     print(
@@ -853,7 +902,9 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
     human_path = Path(args.human).resolve()
     judge_path = Path(args.judge).resolve()
     kappas = calibrate_csv_pair(
-        human_path, judge_path, axis=args.axis,
+        human_path,
+        judge_path,
+        axis=args.axis,
     )
     n = int(kappas.pop("_n_pairs"))
     min_kappa = min(kappas.values())
@@ -873,16 +924,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("score", help="score a journal.jsonl → CSV")
     s.add_argument("journal", help="path to journal.jsonl")
     s.add_argument("out", help="path to output CSV")
-    s.add_argument("--judge", choices=("rule", "mock", "anthropic"),
-                   default="rule")
-    s.add_argument("--judge-model", default=None,
-                   help="override judge model id")
-    s.add_argument("--rubric-path", default=None,
-                   help="override rubric template path")
-    s.add_argument("--abi-path", default=None,
-                   help="override ai_abi.h header path")
-    s.add_argument("--mock-response-dir", default=None,
-                   help="directory of judge responses for --judge mock")
+    s.add_argument("--judge", choices=("rule", "mock", "anthropic"), default="rule")
+    s.add_argument("--judge-model", default=None, help="override judge model id")
+    s.add_argument("--rubric-path", default=None, help="override rubric template path")
+    s.add_argument("--abi-path", default=None, help="override ai_abi.h header path")
+    s.add_argument(
+        "--mock-response-dir", default=None, help="directory of judge responses for --judge mock"
+    )
     s.set_defaults(func=_cmd_score)
 
     p_sample = sub.add_parser(
@@ -892,24 +940,23 @@ def build_parser() -> argparse.ArgumentParser:
             "journal.jsonl files and emit a human-scoring template"
         ),
     )
-    p_sample.add_argument("--out-dir", required=True,
-                           help="directory to write sample.csv + entries/")
-    p_sample.add_argument("--size", type=int, default=50,
-                           help="maximum number of sampled rows")
-    p_sample.add_argument("--seed", type=int, default=0,
-                           help="random seed (reserved for tie-breaking)")
-    p_sample.add_argument("--human-label", default="human-v1",
-                           help="value for judge_model in the template CSV")
-    p_sample.add_argument("journal", nargs="+",
-                           help="one or more journal.jsonl files")
+    p_sample.add_argument(
+        "--out-dir", required=True, help="directory to write sample.csv + entries/"
+    )
+    p_sample.add_argument("--size", type=int, default=50, help="maximum number of sampled rows")
+    p_sample.add_argument(
+        "--seed", type=int, default=0, help="random seed (reserved for tie-breaking)"
+    )
+    p_sample.add_argument(
+        "--human-label", default="human-v1", help="value for judge_model in the template CSV"
+    )
+    p_sample.add_argument("journal", nargs="+", help="one or more journal.jsonl files")
     p_sample.set_defaults(func=_cmd_sample)
 
-    c = sub.add_parser("calibrate",
-                       help="Cohen's kappa between two score CSVs")
+    c = sub.add_parser("calibrate", help="Cohen's kappa between two score CSVs")
     c.add_argument("human", help="CSV with human ground-truth scores")
     c.add_argument("judge", help="CSV written by `score`")
-    c.add_argument("--axis", default=None,
-                   help="compute kappa for one axis only")
+    c.add_argument("--axis", default=None, help="compute kappa for one axis only")
     c.set_defaults(func=_cmd_calibrate)
     return parser
 
@@ -929,12 +976,24 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = [
-    "SCHEMA_VERSION", "AXES", "SCORE_MIN", "SCORE_MAX",
+    "AXES",
     "MAX_JUDGE_RETRIES",
-    "RubricScore", "RuleJudge", "LLMJudge",
-    "Judge", "JudgeParseError",
-    "score_journal", "write_csv", "read_csv",
-    "cohens_kappa", "calibrate_csv_pair",
-    "load_rubric_template", "load_abi_header", "load_journal",
-    "build_parser", "main",
+    "SCHEMA_VERSION",
+    "SCORE_MAX",
+    "SCORE_MIN",
+    "Judge",
+    "JudgeParseError",
+    "LLMJudge",
+    "RubricScore",
+    "RuleJudge",
+    "build_parser",
+    "calibrate_csv_pair",
+    "cohens_kappa",
+    "load_abi_header",
+    "load_journal",
+    "load_rubric_template",
+    "main",
+    "read_csv",
+    "score_journal",
+    "write_csv",
 ]

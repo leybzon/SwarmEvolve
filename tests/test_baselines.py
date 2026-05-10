@@ -70,7 +70,7 @@ def test_frozen_baselines_do_not_use_banned_tokens() -> None:
     """The AI-token linter must accept all frozen baselines."""
     # Import directly (pattern used in test_lint_ai_tokens.py).
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from lint_ai_tokens import scan_file  # noqa: PLC0415
+    from lint_ai_tokens import scan_file
 
     for name in ("pursuit_v1.cpp", "cluster_v1.cpp", "stationary_v1.cpp"):
         path = BASELINES / name

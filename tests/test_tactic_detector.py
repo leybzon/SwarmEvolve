@@ -29,38 +29,50 @@ _SCRIPTS = _REPO_ROOT / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import tactic_detector as td  # noqa: E402
-
+import tactic_detector as td
 
 # ---------------------------------------------------------------------------
 # Tick / action / attack helpers (mirror test_telemetry_aar fixture format)
 # ---------------------------------------------------------------------------
 
-def _drone(did: int, x: float, y: float, *, cd: int = 0,
-           alive: bool = True) -> dict:
+
+def _drone(did: int, x: float, y: float, *, cd: int = 0, alive: bool = True) -> dict:
     return {"id": did, "x": x, "y": y, "cooldown": cd, "alive": alive}
 
 
-def _action(did: int, *, alive: bool = True,
-            vx: float = 0.0, vy: float = 0.0,
-            target_id: int = -1, msg=(0.0, 0.0, 0.0, 0.0)) -> dict:
+def _action(
+    did: int,
+    *,
+    alive: bool = True,
+    vx: float = 0.0,
+    vy: float = 0.0,
+    target_id: int = -1,
+    msg=(0.0, 0.0, 0.0, 0.0),
+) -> dict:
     return {
-        "id": did, "alive": alive, "vx": vx, "vy": vy,
-        "target_id": target_id, "msg": list(msg),
+        "id": did,
+        "alive": alive,
+        "vx": vx,
+        "vy": vy,
+        "target_id": target_id,
+        "msg": list(msg),
     }
 
 
-def _attack(atk_team: int, atk_id: int, tgt_team: int, tgt_id: int,
-            *, hit: bool, dist: float) -> dict:
+def _attack(
+    atk_team: int, atk_id: int, tgt_team: int, tgt_id: int, *, hit: bool, dist: float
+) -> dict:
     return {
-        "atk_team": atk_team, "atk_id": atk_id,
-        "tgt_team": tgt_team, "tgt_id": tgt_id,
-        "hit": hit, "dist": dist,
+        "atk_team": atk_team,
+        "atk_id": atk_id,
+        "tgt_team": tgt_team,
+        "tgt_id": tgt_id,
+        "hit": hit,
+        "dist": dist,
     }
 
 
-def _tick(idx: int, *, team_a, team_b, actions_a=None, actions_b=None,
-          attacks=None) -> dict:
+def _tick(idx: int, *, team_a, team_b, actions_a=None, actions_b=None, attacks=None) -> dict:
     return {
         "schema_version": 2,
         "tick": idx,
@@ -76,9 +88,10 @@ def _tick(idx: int, *, team_a, team_b, actions_a=None, actions_b=None,
 # Flanking
 # ===========================================================================
 
-def _build_flanking_ticks(num_ticks: int,
-                          *, angle_deg: float = 180.0,
-                          r: float = 50.0) -> list[dict]:
+
+def _build_flanking_ticks(
+    num_ticks: int, *, angle_deg: float = 180.0, r: float = 50.0
+) -> list[dict]:
     """Allies split into two perfectly symmetric clusters seen from the
     enemy centroid at the origin. ``angle_deg`` controls the angular
     separation (180° is maximum; 90° is the threshold).
@@ -97,14 +110,12 @@ def _build_flanking_ticks(num_ticks: int,
     team_b = [_drone(0, 0.0, 0.0), _drone(1, 1.0, 0.0)]
     ticks = []
     for t in range(num_ticks):
-        ticks.append(_tick(t, team_a=[dict(d) for d in team_a],
-                           team_b=[dict(d) for d in team_b]))
+        ticks.append(_tick(t, team_a=[dict(d) for d in team_a], team_b=[dict(d) for d in team_b]))
     return ticks
 
 
 def test_flanking_fires_on_symmetric_split():
-    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5,
-                                  angle_deg=170.0)
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5, angle_deg=170.0)
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is not None, "flanking should fire on sustained 170° split"
     assert ev.tactic == "flanking"
@@ -116,23 +127,20 @@ def test_flanking_fires_on_symmetric_split():
 
 def test_flanking_silent_when_streak_too_short():
     # 40 ticks of full separation, then break by collapsing the clusters.
-    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS - 10,
-                                  angle_deg=170.0)
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS - 10, angle_deg=170.0)
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is None, "streak below threshold must not fire"
 
 
 def test_flanking_silent_when_angle_below_threshold():
     # 60° separation for plenty of ticks — no fire.
-    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 20,
-                                  angle_deg=60.0)
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 20, angle_deg=60.0)
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is None, "angle below 90° must not fire"
 
 
 def test_flanking_silent_when_too_few_allies():
-    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5,
-                                  angle_deg=170.0)
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5, angle_deg=170.0)
     # Kill all but 2 allies on every tick.
     for t in ticks:
         for d in t["team_a"][2:]:
@@ -145,8 +153,10 @@ def test_flanking_silent_when_too_few_allies():
 # Kiting
 # ===========================================================================
 
-def _build_kiting_ticks(num_ticks: int, *, retreat: bool = True,
-                        vel_mag: float = 1.0) -> list[dict]:
+
+def _build_kiting_ticks(
+    num_ticks: int, *, retreat: bool = True, vel_mag: float = 1.0
+) -> list[dict]:
     """4 allies to the right of an enemy cluster at origin. If retreat,
     their velocity is +x (away from enemy); otherwise -x."""
     team_b = [_drone(0, 0.0, 0.0), _drone(1, 2.0, 0.0)]
@@ -156,13 +166,15 @@ def _build_kiting_ticks(num_ticks: int, *, retreat: bool = True,
     actions_b = [_action(0), _action(1)]
     ticks = []
     for t in range(num_ticks):
-        ticks.append(_tick(
-            t,
-            team_a=[dict(d) for d in team_a],
-            team_b=[dict(d) for d in team_b],
-            actions_a=[dict(a) for a in actions_a],
-            actions_b=[dict(a) for a in actions_b],
-        ))
+        ticks.append(
+            _tick(
+                t,
+                team_a=[dict(d) for d in team_a],
+                team_b=[dict(d) for d in team_b],
+                actions_a=[dict(a) for a in actions_a],
+                actions_b=[dict(a) for a in actions_b],
+            )
+        )
     return ticks
 
 
@@ -183,9 +195,9 @@ def test_kiting_silent_on_advance():
 
 
 def test_kiting_silent_when_below_velocity_floor():
-    ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 20,
-                                retreat=True,
-                                vel_mag=td.KITE_MIN_VEL_MAG / 10.0)
+    ticks = _build_kiting_ticks(
+        td.KITE_MIN_STREAK_TICKS + 20, retreat=True, vel_mag=td.KITE_MIN_VEL_MAG / 10.0
+    )
     ev = td.detect_kiting(ticks, perspective="a")
     assert ev is None, "near-stationary drones must not count as kiting"
 
@@ -200,8 +212,8 @@ def test_kiting_silent_when_streak_too_short():
 # Focus-fire discipline
 # ===========================================================================
 
-def _build_focus_fire_ticks(num_attacks: int,
-                            redundant_ratio: float) -> list[dict]:
+
+def _build_focus_fire_ticks(num_attacks: int, redundant_ratio: float) -> list[dict]:
     """Emit ``num_attacks`` attack events spread across ticks. A
     ``redundant_ratio`` fraction of shots target an already-dead enemy.
     Team B has 10 drones; B0 is dead throughout. Shots at B0 count as
@@ -213,7 +225,7 @@ def _build_focus_fire_ticks(num_attacks: int,
         _drone(i, 20.0 + i, 0.0) for i in range(1, 5)
     ]
     ticks = []
-    n_redundant = int(round(num_attacks * redundant_ratio))
+    n_redundant = round(num_attacks * redundant_ratio)
     n_total = num_attacks
     # One attack per tick to make the rolling window progression obvious.
     for i in range(n_total):
@@ -222,18 +234,19 @@ def _build_focus_fire_ticks(num_attacks: int,
             atk = _attack(0, i % 5, 1, 0, hit=False, dist=25.0)
         else:
             atk = _attack(0, i % 5, 1, 1, hit=True, dist=15.0)
-        ticks.append(_tick(
-            i,
-            team_a=[dict(d) for d in team_a],
-            team_b=[dict(d) for d in team_b_base],
-            attacks=[atk],
-        ))
+        ticks.append(
+            _tick(
+                i,
+                team_a=[dict(d) for d in team_a],
+                team_b=[dict(d) for d in team_b_base],
+                attacks=[atk],
+            )
+        )
     return ticks
 
 
 def test_focus_fire_fires_on_clean_window():
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5,
-                                    redundant_ratio=0.0)
+    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.0)
     ev = td.detect_focus_fire_discipline(ticks, perspective="a")
     assert ev is not None, "zero redundant shots must fire the detector"
     assert ev.tactic == "focus_fire_discipline"
@@ -243,16 +256,14 @@ def test_focus_fire_fires_on_clean_window():
 
 def test_focus_fire_silent_on_noisy_window():
     # 30% redundant shots is well above the 10% budget.
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5,
-                                    redundant_ratio=0.30)
+    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.30)
     ev = td.detect_focus_fire_discipline(ticks, perspective="a")
     assert ev is None, "30% redundant shots must not pass discipline"
 
 
 def test_focus_fire_silent_when_too_few_attempts():
     # Only half a window of clean shots — the rolling window never fills.
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS // 2,
-                                    redundant_ratio=0.0)
+    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS // 2, redundant_ratio=0.0)
     ev = td.detect_focus_fire_discipline(ticks, perspective="a")
     assert ev is None, "fewer than FF_WINDOW_ATTEMPTS attempts → silent"
 
@@ -261,8 +272,8 @@ def test_focus_fire_silent_when_too_few_attempts():
 # Message-coded targeting
 # ===========================================================================
 
-def _build_message_coded_ticks(num_ticks: int,
-                               *, coded: bool = True) -> list[dict]:
+
+def _build_message_coded_ticks(num_ticks: int, *, coded: bool = True) -> list[dict]:
     """Four allies; each has a target cycling between 2 enemies. When
     ``coded`` is True, their msg[0] mirrors the target (strong NMI).
     When False, msg[0] is a constant (zero NMI)."""
@@ -282,13 +293,15 @@ def _build_message_coded_ticks(num_ticks: int,
             else:
                 m0 = 0.0
             actions_a.append(_action(i, target_id=tid, msg=(m0, 0.0, 0.0, 0.0)))
-        ticks.append(_tick(
-            t,
-            team_a=[dict(d) for d in team_a],
-            team_b=[dict(d) for d in team_b],
-            actions_a=actions_a,
-            actions_b=[_action(0), _action(1)],
-        ))
+        ticks.append(
+            _tick(
+                t,
+                team_a=[dict(d) for d in team_a],
+                team_b=[dict(d) for d in team_b],
+                actions_a=actions_a,
+                actions_b=[_action(0), _action(1)],
+            )
+        )
     return ticks
 
 
@@ -318,13 +331,16 @@ def test_message_coded_silent_when_too_few_ticks():
 # Dispatcher + metadata forwarding
 # ===========================================================================
 
+
 def test_scan_trace_forwards_metadata():
     ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5)
     events = td.scan_trace(
         ticks,
         perspective="a",
-        track="A", model="claude-opus-4-7",
-        seed=42, generation=7,
+        track="A",
+        model="claude-opus-4-7",
+        seed=42,
+        generation=7,
         tactics=["kiting"],
     )
     assert len(events) == 1
@@ -339,8 +355,9 @@ def test_scan_trace_forwards_metadata():
 
 def test_scan_trace_selects_subset():
     ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5)
-    events = td.scan_trace(ticks, perspective="a",
-                           tactics=["flanking"])  # no flanking in this fixture
+    events = td.scan_trace(
+        ticks, perspective="a", tactics=["flanking"]
+    )  # no flanking in this fixture
     assert events == []
 
 
@@ -365,11 +382,13 @@ def test_perspective_b_dispatch():
     actions_b = [_action(i, vx=1.0, vy=0.0) for i in range(4)]
     actions_a = [_action(0), _action(1)]
     ticks = [
-        _tick(t,
-              team_a=[dict(d) for d in team_a],
-              team_b=[dict(d) for d in team_b],
-              actions_a=[dict(a) for a in actions_a],
-              actions_b=[dict(a) for a in actions_b])
+        _tick(
+            t,
+            team_a=[dict(d) for d in team_a],
+            team_b=[dict(d) for d in team_b],
+            actions_a=[dict(a) for a in actions_a],
+            actions_b=[dict(a) for a in actions_b],
+        )
         for t in range(td.KITE_MIN_STREAK_TICKS + 5)
     ]
     ev = td.detect_kiting(ticks, perspective="b")
@@ -387,19 +406,30 @@ def test_invalid_perspective_raises():
 # I/O helpers
 # ===========================================================================
 
+
 def test_write_and_read_events_roundtrip(tmp_path: Path):
     events = [
         td.TacticEvent(
             schema_version=td.SCHEMA_VERSION,
-            tactic="flanking", first_tick=3, sustained_ticks=50,
-            track="A", model="m1", seed=1, generation=0,
+            tactic="flanking",
+            first_tick=3,
+            sustained_ticks=50,
+            track="A",
+            model="m1",
+            seed=1,
+            generation=0,
             perspective="a",
             evidence={"angle_deg": 95.0},
         ),
         td.TacticEvent(
             schema_version=td.SCHEMA_VERSION,
-            tactic="kiting", first_tick=10, sustained_ticks=101,
-            track="A", model="m1", seed=1, generation=0,
+            tactic="kiting",
+            first_tick=10,
+            sustained_ticks=101,
+            track="A",
+            model="m1",
+            seed=1,
+            generation=0,
             perspective="a",
             evidence={"kiting_fraction": 0.75},
         ),
@@ -421,9 +451,15 @@ def test_read_events_tolerates_trailing_blank_line(tmp_path: Path):
     out = tmp_path / "events.jsonl"
     ev = td.TacticEvent(
         schema_version=td.SCHEMA_VERSION,
-        tactic="kiting", first_tick=0, sustained_ticks=100,
-        track="", model="", seed=-1, generation=-1,
-        perspective="a", evidence={},
+        tactic="kiting",
+        first_tick=0,
+        sustained_ticks=100,
+        track="",
+        model="",
+        seed=-1,
+        generation=-1,
+        perspective="a",
+        evidence={},
     )
     out.write_text(ev.as_jsonl_line() + "\n\n")
     loaded = td.read_events(out)
@@ -440,9 +476,15 @@ def test_read_events_raises_on_mid_file_corruption(tmp_path: Path):
 def test_write_events_pretty(tmp_path: Path):
     ev = td.TacticEvent(
         schema_version=td.SCHEMA_VERSION,
-        tactic="kiting", first_tick=0, sustained_ticks=100,
-        track="", model="", seed=-1, generation=-1,
-        perspective="a", evidence={"foo": "bar"},
+        tactic="kiting",
+        first_tick=0,
+        sustained_ticks=100,
+        track="",
+        model="",
+        seed=-1,
+        generation=-1,
+        perspective="a",
+        evidence={"foo": "bar"},
     )
     out = tmp_path / "events_pretty.jsonl"
     td.write_events([ev], out, pretty=True)
@@ -460,6 +502,7 @@ def test_write_events_pretty(tmp_path: Path):
 # CLI
 # ===========================================================================
 
+
 def _write_trace(tmp_path: Path, ticks: list[dict]) -> Path:
     trace = tmp_path / "trace.jsonl"
     with trace.open("w", encoding="utf-8") as fh:
@@ -473,12 +516,23 @@ def test_cli_scan_writes_events(tmp_path: Path):
     ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5)
     trace_path = _write_trace(tmp_path, ticks)
     out_path = tmp_path / "tactic_events.jsonl"
-    rc = td.main([
-        "scan", str(trace_path), str(out_path),
-        "--perspective", "a",
-        "--track", "A", "--model", "m1",
-        "--seed", "7", "--generation", "2",
-    ])
+    rc = td.main(
+        [
+            "scan",
+            str(trace_path),
+            str(out_path),
+            "--perspective",
+            "a",
+            "--track",
+            "A",
+            "--model",
+            "m1",
+            "--seed",
+            "7",
+            "--generation",
+            "2",
+        ]
+    )
     assert rc == 0
     assert out_path.exists()
     events = td.read_events(out_path)
@@ -495,11 +549,17 @@ def test_cli_scan_subset_via_tactic_flag(tmp_path: Path):
     ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5)
     trace_path = _write_trace(tmp_path, ticks)
     out_path = tmp_path / "events.jsonl"
-    rc = td.main([
-        "scan", str(trace_path), str(out_path),
-        "--perspective", "a",
-        "--tactic", "flanking",  # only flanking → no fires in this fixture
-    ])
+    rc = td.main(
+        [
+            "scan",
+            str(trace_path),
+            str(out_path),
+            "--perspective",
+            "a",
+            "--tactic",
+            "flanking",  # only flanking → no fires in this fixture
+        ]
+    )
     assert rc == 0
     # File is written even when empty.
     assert out_path.exists()
@@ -523,27 +583,30 @@ def test_cli_dump_config_prints_thresholds():
 def test_cli_scan_rejects_v1_trace(tmp_path: Path):
     trace_path = tmp_path / "v1.jsonl"
     trace_path.write_text(
-        '{"tick":0,"team_a":[{"id":0,"x":0,"y":0,"cooldown":0,"alive":true}],'
-        '"team_b":[]}\n'
+        '{"tick":0,"team_a":[{"id":0,"x":0,"y":0,"cooldown":0,"alive":true}],"team_b":[]}\n'
     )
     out_path = tmp_path / "events.jsonl"
     with pytest.raises(ValueError, match="v1 trace"):
-        td.main([
-            "scan", str(trace_path), str(out_path),
-            "--perspective", "a",
-        ])
+        td.main(
+            [
+                "scan",
+                str(trace_path),
+                str(out_path),
+                "--perspective",
+                "a",
+            ]
+        )
 
 
 # ===========================================================================
 # Determinism
 # ===========================================================================
 
+
 def test_repeated_scans_are_byte_identical(tmp_path: Path):
     ticks = _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5)
-    events1 = td.scan_trace(ticks, perspective="a", track="A",
-                            model="m", seed=1, generation=0)
-    events2 = td.scan_trace(ticks, perspective="a", track="A",
-                            model="m", seed=1, generation=0)
+    events1 = td.scan_trace(ticks, perspective="a", track="A", model="m", seed=1, generation=0)
+    events2 = td.scan_trace(ticks, perspective="a", track="A", model="m", seed=1, generation=0)
     lines1 = [e.as_jsonl_line() for e in events1]
     lines2 = [e.as_jsonl_line() for e in events2]
     assert lines1 == lines2
@@ -552,6 +615,7 @@ def test_repeated_scans_are_byte_identical(tmp_path: Path):
 # ===========================================================================
 # NMI / quantise helpers (low-level sanity)
 # ===========================================================================
+
 
 def test_nmi_identity_is_one():
     xs = [0, 1, 2, 0, 1, 2]
@@ -578,6 +642,7 @@ def test_quantise_clips():
 # Schema validation (docs/tactic_events_schema.json)
 # ===========================================================================
 
+
 def test_events_validate_against_schema():
     """Every event produced by scan_trace must validate against
     docs/tactic_events_schema.json. If jsonschema is not installed,
@@ -590,19 +655,23 @@ def test_events_validate_against_schema():
     # Kiting and flanking can coexist if we retreat along a radial
     # split. Simpler: union of independent fixtures' events.
     fixtures = [
-        _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5,
-                              angle_deg=170.0),
+        _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5, angle_deg=170.0),
         _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5),
-        _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5,
-                                redundant_ratio=0.0),
+        _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.0),
         _build_message_coded_ticks(td.MSG_MIN_TICKS + 20, coded=True),
     ]
     all_events: list[td.TacticEvent] = []
     for ticks in fixtures:
-        all_events.extend(td.scan_trace(
-            ticks, perspective="a",
-            track="A", model="m1", seed=1, generation=0,
-        ))
+        all_events.extend(
+            td.scan_trace(
+                ticks,
+                perspective="a",
+                track="A",
+                model="m1",
+                seed=1,
+                generation=0,
+            )
+        )
     fired = {e.tactic for e in all_events}
     # We should cover all four tactics across the four fixtures.
     assert fired == set(td.TACTICS)

@@ -42,10 +42,9 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import llm_client  # noqa: E402
 import inject_guards  # noqa: E402
 import lint_ai_tokens  # noqa: E402
-import orchestrator  # noqa: E402
+import llm_client  # noqa: E402
 
 REPO_ROOT = _HERE.parent
 PROMPTS = REPO_ROOT / "prompts"
@@ -90,6 +89,7 @@ class EvolveOnceSummary:
 # Prompt rendering
 # ------------------------------------------------------------------------
 
+
 def _render_prompt(
     template_path: Path,
     *,
@@ -99,8 +99,8 @@ def _render_prompt(
     opponent_source: Path,
 ) -> str:
     template = template_path.read_text()
-    return (template
-        .replace("{TEAM_LETTER}", team_letter)
+    return (
+        template.replace("{TEAM_LETTER}", team_letter)
         .replace("{NAMESPACE}", namespace)
         .replace("{OPPONENT_NAME}", opponent_name)
         .replace("{OPPONENT_SOURCE}", opponent_source.read_text())
@@ -112,6 +112,7 @@ def _render_prompt(
 # ------------------------------------------------------------------------
 # Validation helpers
 # ------------------------------------------------------------------------
+
 
 def _lint_source(path: Path) -> list[tuple[int, str, str]]:
     """Run the banned-token linter against a single file and return
@@ -130,31 +131,41 @@ def _inject_in_place(src: Path, dest: Path) -> None:
 # Main pipeline
 # ------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evolve_once")
-    parser.add_argument("--opponent",
-                        default=str(BASELINES / "pursuit_v1.cpp"),
-                        help="path to opponent AI source (default: pursuit_v1.cpp)")
-    parser.add_argument("--as-team", choices=("A", "B"), default="A",
-                        help="which team the generated AI plays as")
+    parser.add_argument(
+        "--opponent",
+        default=str(BASELINES / "pursuit_v1.cpp"),
+        help="path to opponent AI source (default: pursuit_v1.cpp)",
+    )
+    parser.add_argument(
+        "--as-team", choices=("A", "B"), default="A", help="which team the generated AI plays as"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-ticks", type=int, default=1000)
     parser.add_argument("--drones-a", type=int, default=10)
     parser.add_argument("--drones-b", type=int, default=10)
     parser.add_argument("--timeout", type=float, default=15.0)
-    parser.add_argument("--out-dir", default=None,
-                        help="output directory (default: data/runs/evolve_once/<ts>/)")
-    parser.add_argument("--prompt", default=str(PROMPTS / "evolve_ai.md"),
-                        help="prompt template path")
-    parser.add_argument("--model", default=None,
-                        help="override model id (default: $ANTHROPIC_MODEL)")
+    parser.add_argument(
+        "--out-dir", default=None, help="output directory (default: data/runs/evolve_once/<ts>/)"
+    )
+    parser.add_argument(
+        "--prompt", default=str(PROMPTS / "evolve_ai.md"), help="prompt template path"
+    )
+    parser.add_argument(
+        "--model", default=None, help="override model id (default: $ANTHROPIC_MODEL)"
+    )
     parser.add_argument("--max-tokens", type=int, default=4096)
-    parser.add_argument("--client", choices=("anthropic", "mock"),
-                        default="anthropic")
-    parser.add_argument("--mock-response-path", default=None,
-                        help="when --client=mock, read LLM response text from this file")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="build the prompt and exit without calling the LLM")
+    parser.add_argument("--client", choices=("anthropic", "mock"), default="anthropic")
+    parser.add_argument(
+        "--mock-response-path",
+        default=None,
+        help="when --client=mock, read LLM response text from this file",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="build the prompt and exit without calling the LLM"
+    )
     parser.add_argument("-v", "--verbose", action="count", default=0)
     args = parser.parse_args(argv)
 
@@ -191,20 +202,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         logger.info("dry-run; stopping before LLM call")
-        _write_summary(out_dir, EvolveOnceSummary(
-            status="dry_run",
-            team_letter=team_letter,
-            namespace=namespace,
-            opponent=str(opponent_path),
-            model=args.model or os.environ.get("ANTHROPIC_MODEL", ""),
-            seed=args.seed,
-            prompt_path=str(prompt_path),
-            prompt_chars=len(prompt_text),
-            response_chars=0,
-            prompt_tokens=0,
-            completion_tokens=0,
-            wall_ms=int((time.monotonic() - t0) * 1000),
-        ))
+        _write_summary(
+            out_dir,
+            EvolveOnceSummary(
+                status="dry_run",
+                team_letter=team_letter,
+                namespace=namespace,
+                opponent=str(opponent_path),
+                model=args.model or os.environ.get("ANTHROPIC_MODEL", ""),
+                seed=args.seed,
+                prompt_path=str(prompt_path),
+                prompt_chars=len(prompt_text),
+                response_chars=0,
+                prompt_tokens=0,
+                completion_tokens=0,
+                wall_ms=int((time.monotonic() - t0) * 1000),
+            ),
+        )
         return EXIT_OK
 
     # ---- LLM --------------------------------------------------------
@@ -214,47 +228,56 @@ def main(argv: list[str] | None = None) -> int:
         response = client.generate(prompt_text, max_tokens=args.max_tokens)
     except llm_client.LLMError as exc:
         logger.error("llm-failed err=%s", llm_client.redact_secrets(str(exc)))
-        _write_summary(out_dir, EvolveOnceSummary(
-            status="llm_failed",
-            team_letter=team_letter,
-            namespace=namespace,
-            opponent=str(opponent_path),
-            model=getattr(client, "model", "?"),
-            seed=args.seed,
-            prompt_path=str(prompt_path),
-            prompt_chars=len(prompt_text),
-            response_chars=0,
-            prompt_tokens=0,
-            completion_tokens=0,
-            wall_ms=int((time.monotonic() - t0) * 1000),
-        ))
+        _write_summary(
+            out_dir,
+            EvolveOnceSummary(
+                status="llm_failed",
+                team_letter=team_letter,
+                namespace=namespace,
+                opponent=str(opponent_path),
+                model=getattr(client, "model", "?"),
+                seed=args.seed,
+                prompt_path=str(prompt_path),
+                prompt_chars=len(prompt_text),
+                response_chars=0,
+                prompt_tokens=0,
+                completion_tokens=0,
+                wall_ms=int((time.monotonic() - t0) * 1000),
+            ),
+        )
         return EXIT_LLM_FAILED
 
     (out_dir / "response.md").write_text(response.text)
-    logger.info("llm-response chars=%d in_tokens=%d out_tokens=%d stop=%s",
-                len(response.text), response.prompt_tokens,
-                response.completion_tokens,
-                response.metadata.get("stop_reason", ""))
+    logger.info(
+        "llm-response chars=%d in_tokens=%d out_tokens=%d stop=%s",
+        len(response.text),
+        response.prompt_tokens,
+        response.completion_tokens,
+        response.metadata.get("stop_reason", ""),
+    )
 
     # ---- Parse ------------------------------------------------------
     cpp = llm_client.extract_cpp_block(response.text)
     if cpp is None:
         logger.error("no-cpp-block response_chars=%d", len(response.text))
-        _write_summary(out_dir, EvolveOnceSummary(
-            status="parse_failed",
-            team_letter=team_letter,
-            namespace=namespace,
-            opponent=str(opponent_path),
-            model=client.model,
-            seed=args.seed,
-            prompt_path=str(prompt_path),
-            prompt_chars=len(prompt_text),
-            response_chars=len(response.text),
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            response_metadata=dict(response.metadata),
-            wall_ms=int((time.monotonic() - t0) * 1000),
-        ))
+        _write_summary(
+            out_dir,
+            EvolveOnceSummary(
+                status="parse_failed",
+                team_letter=team_letter,
+                namespace=namespace,
+                opponent=str(opponent_path),
+                model=client.model,
+                seed=args.seed,
+                prompt_path=str(prompt_path),
+                prompt_chars=len(prompt_text),
+                response_chars=len(response.text),
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                response_metadata=dict(response.metadata),
+                wall_ms=int((time.monotonic() - t0) * 1000),
+            ),
+        )
         return EXIT_PARSE_FAILED
 
     candidate_path = out_dir / "candidate.cpp"
@@ -265,24 +288,29 @@ def main(argv: list[str] | None = None) -> int:
     violations = _lint_source(candidate_path)
     if violations:
         logger.error("lint-failed n=%d", len(violations))
-        _write_summary(out_dir, EvolveOnceSummary(
-            status="lint_failed",
-            team_letter=team_letter,
-            namespace=namespace,
-            opponent=str(opponent_path),
-            model=client.model,
-            seed=args.seed,
-            prompt_path=str(prompt_path),
-            prompt_chars=len(prompt_text),
-            response_chars=len(response.text),
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            response_metadata=dict(response.metadata),
-            candidate_path=str(candidate_path),
-            lint_violations=[{"line": line, "token": tok, "reason": reason}
-                             for (line, tok, reason) in violations],
-            wall_ms=int((time.monotonic() - t0) * 1000),
-        ))
+        _write_summary(
+            out_dir,
+            EvolveOnceSummary(
+                status="lint_failed",
+                team_letter=team_letter,
+                namespace=namespace,
+                opponent=str(opponent_path),
+                model=client.model,
+                seed=args.seed,
+                prompt_path=str(prompt_path),
+                prompt_chars=len(prompt_text),
+                response_chars=len(response.text),
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                response_metadata=dict(response.metadata),
+                candidate_path=str(candidate_path),
+                lint_violations=[
+                    {"line": line, "token": tok, "reason": reason}
+                    for (line, tok, reason) in violations
+                ],
+                wall_ms=int((time.monotonic() - t0) * 1000),
+            ),
+        )
         return EXIT_LINT_FAILED
 
     # ---- Inject -----------------------------------------------------
@@ -292,22 +320,25 @@ def main(argv: list[str] | None = None) -> int:
     except (inject_guards.InjectorError, ValueError) as exc:
         rc = getattr(exc, "exit_code", 4)
         logger.error("inject-failed rc=%d msg=%s", rc, str(exc))
-        _write_summary(out_dir, EvolveOnceSummary(
-            status="inject_failed",
-            team_letter=team_letter,
-            namespace=namespace,
-            opponent=str(opponent_path),
-            model=client.model,
-            seed=args.seed,
-            prompt_path=str(prompt_path),
-            prompt_chars=len(prompt_text),
-            response_chars=len(response.text),
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            response_metadata=dict(response.metadata),
-            candidate_path=str(candidate_path),
-            wall_ms=int((time.monotonic() - t0) * 1000),
-        ))
+        _write_summary(
+            out_dir,
+            EvolveOnceSummary(
+                status="inject_failed",
+                team_letter=team_letter,
+                namespace=namespace,
+                opponent=str(opponent_path),
+                model=client.model,
+                seed=args.seed,
+                prompt_path=str(prompt_path),
+                prompt_chars=len(prompt_text),
+                response_chars=len(response.text),
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                response_metadata=dict(response.metadata),
+                candidate_path=str(candidate_path),
+                wall_ms=int((time.monotonic() - t0) * 1000),
+            ),
+        )
         return EXIT_INJECT_FAILED
 
     logger.info("guards-injected path=%s", injected_path)
@@ -321,16 +352,25 @@ def main(argv: list[str] | None = None) -> int:
         team_a_src = opponent_path
         team_b_src = injected_path
     cmd = [
-        sys.executable, str(_HERE / "orchestrator.py"),
+        sys.executable,
+        str(_HERE / "orchestrator.py"),
         "run",
-        "--team-a", str(team_a_src),
-        "--team-b", str(team_b_src),
-        "--seed", str(args.seed),
-        "--max-ticks", str(args.max_ticks),
-        "--drones-a", str(args.drones_a),
-        "--drones-b", str(args.drones_b),
-        "--timeout", str(args.timeout),
-        "--out-dir", str(match_dir),
+        "--team-a",
+        str(team_a_src),
+        "--team-b",
+        str(team_b_src),
+        "--seed",
+        str(args.seed),
+        "--max-ticks",
+        str(args.max_ticks),
+        "--drones-a",
+        str(args.drones_a),
+        "--drones-b",
+        str(args.drones_b),
+        "--timeout",
+        str(args.timeout),
+        "--out-dir",
+        str(match_dir),
     ]
     logger.info("orchestrator-start")
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -377,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
 # ------------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------------
+
 
 def _configure_logging(verbosity: int) -> logging.Logger:
     level = logging.WARNING

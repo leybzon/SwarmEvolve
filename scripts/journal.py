@@ -47,9 +47,10 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 try:  # pragma: no cover - optional dependency, exercised in CI.
     from jsonschema import Draft7Validator
@@ -62,7 +63,7 @@ SCHEMA_PATH = REPO_ROOT / "docs" / "journal_schema.json"
 
 JOURNAL_SCHEMA_VERSION = 1
 METRIC_REL_TOLERANCE = 0.01  # 1% per §3.X.3 metric grounding rule
-MAX_REWRITES = 2             # orchestrator rewrite budget cap (§3.X.3)
+MAX_REWRITES = 2  # orchestrator rewrite budget cap (§3.X.3)
 
 # Controlled vocabulary normaliser: lowercase, collapse non-alphanumerics
 # to underscore, strip leading/trailing underscores.
@@ -72,6 +73,7 @@ _TAG_NORMALISER = re.compile(r"[^a-z0-9]+")
 # ---------------------------------------------------------------------------
 # Validation result (returned by append_entry)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -116,6 +118,7 @@ def _schema_errors(entry: dict[str, Any]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Canonicalisation
 # ---------------------------------------------------------------------------
+
 
 def _canonicalise_tag(tag: str) -> str:
     """Lowercase + snake_case; collapse runs of non-alnum to a single `_`."""
@@ -189,8 +192,7 @@ def _validate_reasoning_depth(entry: dict[str, Any]) -> list[str]:
     if isinstance(mechanism, str) and cited_metrics:
         # Check if any metric key appears in mechanism
         has_metric_citation = any(
-            key.replace("_", " ") in mechanism.lower() or key in mechanism
-            for key in cited_metrics.keys()
+            key.replace("_", " ") in mechanism.lower() or key in mechanism for key in cited_metrics
         )
         if not has_metric_citation:
             errors.append("mechanism_observed does not cite any AAR metric")
@@ -206,7 +208,8 @@ def _validate_reasoning_depth(entry: dict[str, Any]) -> list[str]:
             # Parse outcome_summary like "accepted: a=8 b=1 draws=1 invalid=0"
             if "a=" in outcome_summary:
                 import re
-                match = re.search(r'a=(\d+)\s+b=(\d+)\s+draws=(\d+)', outcome_summary)
+
+                match = re.search(r"a=(\d+)\s+b=(\d+)\s+draws=(\d+)", outcome_summary)
                 if match:
                     wins = int(match.group(1))
                     losses = int(match.group(2))
@@ -239,6 +242,7 @@ def _validate_reasoning_depth(entry: dict[str, Any]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Metric grounding
 # ---------------------------------------------------------------------------
+
 
 def _metric_matches(cited: Any, truth: Any) -> bool:
     """True iff ``cited`` matches the AAR ``truth`` within tolerance.
@@ -290,9 +294,7 @@ def validate_against_aar(
                 continue
             if not _metric_matches(value, aar[key]):
                 metrics_ok = False
-                errors.append(
-                    f"aar: '{key}' cited={value!r} vs aar={aar[key]!r}"
-                )
+                errors.append(f"aar: '{key}' cited={value!r} vs aar={aar[key]!r}")
 
     # M21: Optional reasoning depth validation
     if strict_reflection:
@@ -314,6 +316,7 @@ def validate_against_aar(
 # ---------------------------------------------------------------------------
 # Append path
 # ---------------------------------------------------------------------------
+
 
 def _write_line(path: Path, entry: dict[str, Any]) -> None:
     """Append a single canonical JSON line and fsync before returning."""
@@ -393,8 +396,16 @@ def _build_fallback(canon: dict[str, Any], errors: Sequence[str]) -> dict[str, A
     """
     # Start from only the fields we trust structurally.
     passthrough_keys = (
-        "schema_version", "generation", "timestamp_utc", "parent_generation",
-        "track", "model", "seed", "status", "fitness", "fitness_delta",
+        "schema_version",
+        "generation",
+        "timestamp_utc",
+        "parent_generation",
+        "track",
+        "model",
+        "seed",
+        "status",
+        "fitness",
+        "fitness_delta",
     )
     fb: dict[str, Any] = {k: canon.get(k) for k in passthrough_keys if k in canon}
     fb.setdefault("schema_version", JOURNAL_SCHEMA_VERSION)
@@ -411,8 +422,7 @@ def _build_fallback(canon: dict[str, Any], errors: Sequence[str]) -> dict[str, A
         "schema_valid": False,
         "metrics_match_aar": False,
         "rewrites": MAX_REWRITES,
-        "notes": ("fallback after validation failure: "
-                  + "; ".join(errors))[:400],
+        "notes": ("fallback after validation failure: " + "; ".join(errors))[:400],
     }
     # Stall entries must have null fitness; non-stall retained.
     if status != "ok":
@@ -424,6 +434,7 @@ def _build_fallback(canon: dict[str, Any], errors: Sequence[str]) -> dict[str, A
 # ---------------------------------------------------------------------------
 # Read path
 # ---------------------------------------------------------------------------
+
 
 def read_entries(path: Path | str) -> list[dict[str, Any]]:
     """Return journal entries in file order. Tolerates a partial last line.
@@ -453,6 +464,7 @@ def read_entries(path: Path | str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Recall (deterministic, embedding-free retrieval)
 # ---------------------------------------------------------------------------
+
 
 def _jaccard(a: Iterable[str], b: Iterable[str]) -> float:
     sa, sb = set(a), set(b)
@@ -552,6 +564,7 @@ def recall(
 # Render path
 # ---------------------------------------------------------------------------
 
+
 def render_for_prompt(
     entries: Sequence[dict[str, Any]],
     *,
@@ -600,14 +613,19 @@ def render_for_prompt(
 # CLI (thin wrapper for manual use + M16 wiring)
 # ---------------------------------------------------------------------------
 
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Append/recall learning-journal entries.")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     p_app = sub.add_parser("append", help="Append one JSON entry read from stdin.")
     p_app.add_argument("--path", required=True, type=Path)
-    p_app.add_argument("--aar", type=Path, default=None,
-                       help="Path to AAR JSON (M15b sidecar). Omit to skip grounding.")
+    p_app.add_argument(
+        "--aar",
+        type=Path,
+        default=None,
+        help="Path to AAR JSON (M15b sidecar). Omit to skip grounding.",
+    )
 
     p_rec = sub.add_parser("recall", help="Print recalled entries as JSON list.")
     p_rec.add_argument("--path", required=True, type=Path)
@@ -629,14 +647,19 @@ def main(argv: list[str] | None = None) -> int:
         entry = json.loads(sys.stdin.read())
         aar = json.loads(args.aar.read_text()) if args.aar else None
         result = append_entry(args.path, entry, aar)
-        print(json.dumps({
-            "ok": result.ok,
-            "written": result.written,
-            "schema_valid": result.schema_valid,
-            "metrics_match_aar": result.metrics_match_aar,
-            "rewrites": result.rewrites,
-            "errors": list(result.errors),
-        }, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "ok": result.ok,
+                    "written": result.written,
+                    "schema_valid": result.schema_valid,
+                    "metrics_match_aar": result.metrics_match_aar,
+                    "rewrites": result.rewrites,
+                    "errors": list(result.errors),
+                },
+                sort_keys=True,
+            )
+        )
         return 0 if result.ok else 3
     if args.cmd == "recall":
         picked = recall(

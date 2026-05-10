@@ -20,7 +20,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import sandbox  # noqa: E402
+import sandbox
 
 BASELINES = REPO_ROOT / "src" / "baselines"
 GOLDEN = REPO_ROOT / "tests" / "fixtures" / "golden" / "seed42_pursuit_vs_cluster.jsonl"
@@ -63,10 +63,8 @@ def _render_baselines(dst_dir: Path) -> tuple[Path, Path]:
     src_dir = dst_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
 
-    a_src = (BASELINES / "pursuit_v1.cpp").read_text().replace(
-        "TEAM_NS_PLACEHOLDER", "TeamA")
-    b_src = (BASELINES / "cluster_v1.cpp").read_text().replace(
-        "TEAM_NS_PLACEHOLDER", "TeamB")
+    a_src = (BASELINES / "pursuit_v1.cpp").read_text().replace("TEAM_NS_PLACEHOLDER", "TeamA")
+    b_src = (BASELINES / "cluster_v1.cpp").read_text().replace("TEAM_NS_PLACEHOLDER", "TeamB")
 
     a = src_dir / "a.cpp"
     b = src_dir / "b.cpp"
@@ -78,6 +76,7 @@ def _render_baselines(dst_dir: Path) -> tuple[Path, Path]:
 # -----------------------------------------------------------------------
 # flag-set unit tests (no container launch)
 # -----------------------------------------------------------------------
+
 
 def test_sandbox_flags_match_spec():
     """IMPLEMENTATION_PLAN §M8 mandates an exact flag set; drift is a
@@ -107,9 +106,13 @@ def test_build_command_has_expected_shape(tmp_path):
     b.write_text("//\n")
     out = tmp_path / "out"
     cmd = sandbox.build_command(
-        team_a_src=a, team_b_src=b, out_dir=out,
-        image="test:latest", engine_args=["--seed", "7"],
-        runtime="docker", timeout=10.0,
+        team_a_src=a,
+        team_b_src=b,
+        out_dir=out,
+        image="test:latest",
+        engine_args=["--seed", "7"],
+        runtime="docker",
+        timeout=10.0,
     )
     assert cmd[0:2] == ["docker", "run"]
     assert "--network=none" in cmd
@@ -130,14 +133,19 @@ def test_build_command_rejects_missing_team(tmp_path):
     with pytest.raises(sandbox.SandboxError):
         sandbox.build_command(
             team_a_src=tmp_path / "does_not_exist.cpp",
-            team_b_src=tmp_path / "b.cpp", out_dir=out,
-            image="test", engine_args=None, runtime="docker", timeout=10,
+            team_b_src=tmp_path / "b.cpp",
+            out_dir=out,
+            image="test",
+            engine_args=None,
+            runtime="docker",
+            timeout=10,
         )
 
 
 # -----------------------------------------------------------------------
 # integration: container must be present
 # -----------------------------------------------------------------------
+
 
 def test_baseline_match_runs_and_matches_golden(colima_safe_tmp):
     """pursuit_v1 vs cluster_v1 @ seed=42 must produce the byte-identical
@@ -150,14 +158,16 @@ def test_baseline_match_runs_and_matches_golden(colima_safe_tmp):
     out_dir = colima_safe_tmp / "out_golden"
 
     result = sandbox.run_match_in_sandbox(
-        a, b, out_dir,
-        image=IMAGE, timeout=60.0, runtime=rt,
+        a,
+        b,
+        out_dir,
+        image=IMAGE,
+        timeout=60.0,
+        runtime=rt,
         engine_args=["--seed", "42", "--max-ticks", "1000"],
     )
 
-    assert result.ok, (
-        f"sandbox match failed: rc={result.returncode} status={result.status}"
-    )
+    assert result.ok, f"sandbox match failed: rc={result.returncode} status={result.status}"
     assert result.status["status"] == "ok"
     assert result.status["engine_rc"] == 2  # DRAW
 
@@ -174,13 +184,17 @@ def test_missing_input_yields_structured_failure(colima_safe_tmp):
 
     out_dir = colima_safe_tmp / "out_missing"
     out_dir.mkdir(parents=True, exist_ok=True)
-    good = (colima_safe_tmp / "good.cpp")
+    good = colima_safe_tmp / "good.cpp"
     good.write_text("//")
 
     with pytest.raises(sandbox.SandboxError):
         sandbox.run_match_in_sandbox(
-            colima_safe_tmp / "does_not_exist.cpp", good, out_dir,
-            image=IMAGE, runtime=rt, timeout=30.0,
+            colima_safe_tmp / "does_not_exist.cpp",
+            good,
+            out_dir,
+            image=IMAGE,
+            runtime=rt,
+            timeout=30.0,
         )
 
 
@@ -194,8 +208,8 @@ def test_compile_failure_reports_structured_status(colima_safe_tmp):
     _, b = _render_baselines(colima_safe_tmp / "inputs_bad")
     bad_a = colima_safe_tmp / "inputs_bad" / "src" / "a.cpp"
     bad_a.write_text(
-        "#include \"../ai_abi.h\"\n"
-        "#include \"../types.h\"\n"
+        '#include "../ai_abi.h"\n'
+        '#include "../types.h"\n'
         "namespace TeamA { // missing closing brace on purpose\n"
         "#pragma acc routine seq\n"
         "void drone_ai(int, const GameParams*, const AllyState*,\n"
@@ -206,8 +220,12 @@ def test_compile_failure_reports_structured_status(colima_safe_tmp):
 
     out_dir = colima_safe_tmp / "out_compile_fail"
     result = sandbox.run_match_in_sandbox(
-        bad_a, b, out_dir,
-        image=IMAGE, runtime=rt, timeout=60.0,
+        bad_a,
+        b,
+        out_dir,
+        image=IMAGE,
+        runtime=rt,
+        timeout=60.0,
         engine_args=["--seed", "0", "--max-ticks", "10"],
     )
     assert not result.ok
@@ -226,13 +244,28 @@ def test_cli_reports_image_missing(colima_safe_tmp, monkeypatch):
     a, b = _render_baselines(colima_safe_tmp / "inputs_cli")
     out_dir = colima_safe_tmp / "out_cli"
     proc = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "sandbox.py"),
-         "--team-a", str(a), "--team-b", str(b),
-         "--out-dir", str(out_dir),
-         "--image", "definitely-not-an-image:xyz",
-         "--timeout", "10",
-         "--", "--seed", "0", "--max-ticks", "10"],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "sandbox.py"),
+            "--team-a",
+            str(a),
+            "--team-b",
+            str(b),
+            "--out-dir",
+            str(out_dir),
+            "--image",
+            "definitely-not-an-image:xyz",
+            "--timeout",
+            "10",
+            "--",
+            "--seed",
+            "0",
+            "--max-ticks",
+            "10",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert proc.returncode == 21, proc.stderr
     assert "sandbox error" in (proc.stdout + proc.stderr).lower()

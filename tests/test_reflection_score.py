@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -30,10 +29,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-import llm_client  # noqa: E402
-import reflection_score as rs  # noqa: E402
-import journal as journal_mod  # noqa: E402
-
+import llm_client
+import reflection_score as rs
 
 # --------------------------------------------------------------------------
 # Fixtures
@@ -49,7 +46,8 @@ _AAR_METRICS_OK = {
 
 
 def _entry(
-    generation: int = 0, *,
+    generation: int = 0,
+    *,
     status: str = "ok",
     verdict: str = "confirmed",
     hypothesis: str = "kite the opponent past 60 units",
@@ -82,7 +80,9 @@ def _entry(
         "advice_to_future_self": advice,
         "aar_metrics_cited": cited if cited is not None else dict(_AAR_METRICS_OK),
         "validation": {
-            "schema_valid": True, "metrics_match_aar": True, "rewrites": 0,
+            "schema_valid": True,
+            "metrics_match_aar": True,
+            "rewrites": 0,
         },
     }
 
@@ -95,9 +95,9 @@ def _entry(
 def test_rule_high_marks_on_rich_entry():
     e = _entry()
     score = rs.RuleJudge().score(e)
-    assert score.causal_diagnosis == 5    # >= 2 AAR metrics cited
+    assert score.causal_diagnosis == 5  # >= 2 AAR metrics cited
     assert score.counter_tactic_specificity == 5  # 2 tags + numeric advice
-    assert score.abi_feasibility == 3     # no my_memory / MEM_SIZE refs
+    assert score.abi_feasibility == 3  # no my_memory / MEM_SIZE refs
     assert score.judge_kind == "rule"
     assert score.judge_model == "rule-v1"
     assert score.prompt_tokens == 0 and score.completion_tokens == 0
@@ -105,8 +105,11 @@ def test_rule_high_marks_on_rich_entry():
 
 def test_rule_low_marks_on_empty_entry():
     e = _entry(
-        mech_exp="", mech_obs="",
-        advice="", tags=[], cited={},
+        mech_exp="",
+        mech_obs="",
+        advice="",
+        tags=[],
+        cited={},
     )
     score = rs.RuleJudge().score(e)
     assert score.causal_diagnosis == 1
@@ -220,26 +223,28 @@ _ABI_HEADER = "// ai_abi.h mock\nvoid drone_ai(...);"
 def _make_mock_judge(*responses: str, model: str = "mock-judge-1"):
     client = llm_client.MockClient(
         responses=[
-            llm_client.LLMResponse(text=r, model=model,
-                                    prompt_tokens=7, completion_tokens=11)
+            llm_client.LLMResponse(text=r, model=model, prompt_tokens=7, completion_tokens=11)
             for r in responses
         ],
         model=model,
     )
     return rs.LLMJudge(
-        client=client, rubric_template=_RUBRIC_TEMPLATE,
+        client=client,
+        rubric_template=_RUBRIC_TEMPLATE,
         abi_header=_ABI_HEADER,
     ), client
 
 
 def test_llm_judge_happy_path():
     judge, client = _make_mock_judge(
-        json.dumps({
-            "causal_diagnosis": 4,
-            "counter_tactic_specificity": 3,
-            "abi_feasibility": 5,
-            "justification": "mock happy",
-        })
+        json.dumps(
+            {
+                "causal_diagnosis": 4,
+                "counter_tactic_specificity": 3,
+                "abi_feasibility": 5,
+                "justification": "mock happy",
+            }
+        )
     )
     out = judge.score(_entry(generation=7))
     assert out.causal_diagnosis == 4
@@ -257,10 +262,14 @@ def test_llm_judge_happy_path():
 def test_llm_judge_strips_markdown_fence():
     judge, _ = _make_mock_judge(
         "```json\n"
-        + json.dumps({
-            "causal_diagnosis": 2, "counter_tactic_specificity": 2,
-            "abi_feasibility": 3, "justification": "fenced",
-        })
+        + json.dumps(
+            {
+                "causal_diagnosis": 2,
+                "counter_tactic_specificity": 2,
+                "abi_feasibility": 3,
+                "justification": "fenced",
+            }
+        )
         + "\n```\n"
     )
     out = judge.score(_entry())
@@ -271,10 +280,14 @@ def test_llm_judge_strips_markdown_fence():
 def test_llm_judge_retries_on_malformed_then_succeeds():
     judge, client = _make_mock_judge(
         "not json at all",  # attempt 1
-        json.dumps({
-            "causal_diagnosis": 3, "counter_tactic_specificity": 4,
-            "abi_feasibility": 4, "justification": "second try",
-        }),  # attempt 2
+        json.dumps(
+            {
+                "causal_diagnosis": 3,
+                "counter_tactic_specificity": 4,
+                "abi_feasibility": 4,
+                "justification": "second try",
+            }
+        ),  # attempt 2
     )
     out = judge.score(_entry())
     assert out.counter_tactic_specificity == 4
@@ -284,15 +297,22 @@ def test_llm_judge_retries_on_malformed_then_succeeds():
 
 def test_llm_judge_out_of_range_triggers_retry():
     judge, client = _make_mock_judge(
-        json.dumps({
-            "causal_diagnosis": 7,  # out of [1,5]
-            "counter_tactic_specificity": 3,
-            "abi_feasibility": 3, "justification": "bad",
-        }),
-        json.dumps({
-            "causal_diagnosis": 3, "counter_tactic_specificity": 3,
-            "abi_feasibility": 3, "justification": "good",
-        }),
+        json.dumps(
+            {
+                "causal_diagnosis": 7,  # out of [1,5]
+                "counter_tactic_specificity": 3,
+                "abi_feasibility": 3,
+                "justification": "bad",
+            }
+        ),
+        json.dumps(
+            {
+                "causal_diagnosis": 3,
+                "counter_tactic_specificity": 3,
+                "abi_feasibility": 3,
+                "justification": "good",
+            }
+        ),
     )
     out = judge.score(_entry())
     assert out.causal_diagnosis == 3
@@ -310,13 +330,19 @@ def test_score_journal_fallback_on_parse_failure():
     # Each entry consumes MAX_JUDGE_RETRIES + 1 = 3 responses before it
     # gives up and the fallback runs; need 3 * N_entries queued.
     judge, _ = _make_mock_judge(
-        "x1", "x2", "x3",
-        "y1", "y2", "y3",
+        "x1",
+        "x2",
+        "x3",
+        "y1",
+        "y2",
+        "y3",
     )
     fallback = rs.RuleJudge()
     entries = [_entry(generation=0), _entry(generation=1)]
     scores = rs.score_journal(
-        entries=entries, judge=judge, fallback=fallback,
+        entries=entries,
+        judge=judge,
+        fallback=fallback,
     )
     assert len(scores) == 2
     assert all(s.judge_kind == "rule" for s in scores)
@@ -378,21 +404,27 @@ def _write_score_csv(path: Path, rows: list[dict]) -> None:
             w.writerow(r)
 
 
-def _calib_row(gen: int, cd: int, ct: int, af: int,
-               *, track="A", model="m", seed=1, kind="rule") -> dict:
+def _calib_row(
+    gen: int, cd: int, ct: int, af: int, *, track="A", model="m", seed=1, kind="rule"
+) -> dict:
     return {
-        "generation": gen, "track": track, "model": model, "seed": seed,
+        "generation": gen,
+        "track": track,
+        "model": model,
+        "seed": seed,
         "causal_diagnosis": cd,
         "counter_tactic_specificity": ct,
         "abi_feasibility": af,
-        "judge_kind": kind, "judge_model": "v1",
+        "judge_kind": kind,
+        "judge_model": "v1",
         "justification": "",
     }
 
 
 def test_calibrate_csv_pair_computes_per_axis_kappa(tmp_path: Path):
-    rows_h = [_calib_row(g, cd=(g % 5) + 1, ct=((g + 1) % 5) + 1,
-                          af=((g + 2) % 5) + 1) for g in range(10)]
+    rows_h = [
+        _calib_row(g, cd=(g % 5) + 1, ct=((g + 1) % 5) + 1, af=((g + 2) % 5) + 1) for g in range(10)
+    ]
     rows_j = [dict(r) for r in rows_h]  # perfect agreement
     hpath = tmp_path / "human.csv"
     jpath = tmp_path / "judge.csv"
@@ -409,10 +441,8 @@ def test_calibrate_rejects_too_few_matches(tmp_path: Path):
     hpath = tmp_path / "h.csv"
     jpath = tmp_path / "j.csv"
     # Only 2 rows → below the 5-pair minimum.
-    _write_score_csv(hpath, [_calib_row(0, 3, 3, 3),
-                              _calib_row(1, 3, 3, 3)])
-    _write_score_csv(jpath, [_calib_row(0, 3, 3, 3),
-                              _calib_row(1, 3, 3, 3)])
+    _write_score_csv(hpath, [_calib_row(0, 3, 3, 3), _calib_row(1, 3, 3, 3)])
+    _write_score_csv(jpath, [_calib_row(0, 3, 3, 3), _calib_row(1, 3, 3, 3)])
     with pytest.raises(ValueError):
         rs.calibrate_csv_pair(hpath, jpath)
 
@@ -446,9 +476,15 @@ def test_cli_score_rule_writes_csv(tmp_path: Path):
     jp = tmp_path / "journal.jsonl"
     out = tmp_path / "scores.csv"
     _write_journal(jp, [_entry(generation=i) for i in range(3)])
-    rc = rs.main([
-        "score", str(jp), str(out), "--judge", "rule",
-    ])
+    rc = rs.main(
+        [
+            "score",
+            str(jp),
+            str(out),
+            "--judge",
+            "rule",
+        ]
+    )
     assert rc == 0
     rows = rs.read_csv(out)
     assert len(rows) == 3
@@ -460,23 +496,36 @@ def test_cli_score_mock_judge_uses_response_dir(tmp_path: Path):
     _write_journal(jp, [_entry(generation=0), _entry(generation=1)])
     mr = tmp_path / "mocks"
     mr.mkdir()
-    good = json.dumps({
-        "causal_diagnosis": 4, "counter_tactic_specificity": 4,
-        "abi_feasibility": 4, "justification": "cli mock",
-    })
+    good = json.dumps(
+        {
+            "causal_diagnosis": 4,
+            "counter_tactic_specificity": 4,
+            "abi_feasibility": 4,
+            "justification": "cli mock",
+        }
+    )
     (mr / "00.md").write_text(good)
     (mr / "01.md").write_text(good)
     out = tmp_path / "scores.csv"
     (tmp_path / "rubric.md").write_text(_RUBRIC_TEMPLATE)
     (tmp_path / "abi.h").write_text(_ABI_HEADER)
-    rc = rs.main([
-        "score", str(jp), str(out),
-        "--judge", "mock",
-        "--judge-model", "mock-cli-judge",
-        "--mock-response-dir", str(mr),
-        "--rubric-path", str(tmp_path / "rubric.md"),
-        "--abi-path", str(tmp_path / "abi.h"),
-    ])
+    rc = rs.main(
+        [
+            "score",
+            str(jp),
+            str(out),
+            "--judge",
+            "mock",
+            "--judge-model",
+            "mock-cli-judge",
+            "--mock-response-dir",
+            str(mr),
+            "--rubric-path",
+            str(tmp_path / "rubric.md"),
+            "--abi-path",
+            str(tmp_path / "abi.h"),
+        ]
+    )
     assert rc == 0
     rows = rs.read_csv(out)
     assert len(rows) == 2
@@ -493,10 +542,17 @@ def test_cli_score_missing_rubric_raises(tmp_path: Path):
     _write_journal(jp, [_entry()])
     out = tmp_path / "scores.csv"
     with pytest.raises(FileNotFoundError):
-        rs.main([
-            "score", str(jp), str(out), "--judge", "rule",
-            "--rubric-path", str(tmp_path / "nonexistent.md"),
-        ])
+        rs.main(
+            [
+                "score",
+                str(jp),
+                str(out),
+                "--judge",
+                "rule",
+                "--rubric-path",
+                str(tmp_path / "nonexistent.md"),
+            ]
+        )
 
 
 def test_cli_calibrate_reports_kappa(tmp_path: Path, capsys: pytest.CaptureFixture):
@@ -554,18 +610,22 @@ def test_cli_sample_emits_template_and_entries(tmp_path: Path):
     for i in range(5, 10):
         rows.append(_entry(generation=i, status="ok", verdict="rejected"))
     for i in range(10, 15):
-        rows.append(_entry(generation=i, status="compile_failed",
-                           verdict="stalled"))
+        rows.append(_entry(generation=i, status="compile_failed", verdict="stalled"))
     for i in range(15, 20):
         rows.append(_entry(generation=i, status="ok", verdict="partial"))
     _write_journal(jp, rows)
 
     out = tmp_path / "calib"
-    rc = rs.main([
-        "sample", str(jp),
-        "--out-dir", str(out),
-        "--size", "8",
-    ])
+    rc = rs.main(
+        [
+            "sample",
+            str(jp),
+            "--out-dir",
+            str(out),
+            "--size",
+            "8",
+        ]
+    )
     assert rc == 0
     sample_csv = out / "sample.csv"
     assert sample_csv.is_file()
@@ -589,17 +649,16 @@ def test_cli_sample_emits_template_and_entries(tmp_path: Path):
 def test_cli_sample_is_deterministic(tmp_path: Path):
     """Running sample twice on the same journal yields the same rows."""
     jp = tmp_path / "journal.jsonl"
-    rows = [_entry(generation=i, status="ok",
-                   verdict="confirmed" if i % 2 == 0 else "rejected")
-            for i in range(12)]
+    rows = [
+        _entry(generation=i, status="ok", verdict="confirmed" if i % 2 == 0 else "rejected")
+        for i in range(12)
+    ]
     _write_journal(jp, rows)
 
     out1 = tmp_path / "a"
     out2 = tmp_path / "b"
-    assert rs.main(["sample", str(jp), "--out-dir", str(out1),
-                     "--size", "6"]) == 0
-    assert rs.main(["sample", str(jp), "--out-dir", str(out2),
-                     "--size", "6"]) == 0
+    assert rs.main(["sample", str(jp), "--out-dir", str(out1), "--size", "6"]) == 0
+    assert rs.main(["sample", str(jp), "--out-dir", str(out2), "--size", "6"]) == 0
     s1 = (out1 / "sample.csv").read_text()
     s2 = (out2 / "sample.csv").read_text()
     assert s1 == s2
@@ -613,17 +672,22 @@ def test_cli_sample_handles_small_journal(tmp_path: Path):
     out = tmp_path / "c"
     rc = rs.main(["sample", str(jp), "--out-dir", str(out), "--size", "50"])
     assert rc == 0
-    sample_rows = list(csv.DictReader(
-        (out / "sample.csv").open(encoding="utf-8")))
+    sample_rows = list(csv.DictReader((out / "sample.csv").open(encoding="utf-8")))
     assert len(sample_rows) == 3
 
 
 def test_cli_sample_missing_journal_errors(tmp_path: Path):
     out = tmp_path / "c"
-    rc = rs.main([
-        "sample", str(tmp_path / "nope.jsonl"),
-        "--out-dir", str(out), "--size", "5",
-    ])
+    rc = rs.main(
+        [
+            "sample",
+            str(tmp_path / "nope.jsonl"),
+            "--out-dir",
+            str(out),
+            "--size",
+            "5",
+        ]
+    )
     assert rc == 2
 
 

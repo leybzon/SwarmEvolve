@@ -14,7 +14,6 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import fitness as fitness_mod
 
 REPO_ROOT = _HERE.parent
 M23_DIR = REPO_ROOT / "data" / "runs" / "m23_sustained_50gen"
@@ -52,8 +51,7 @@ def _render_team_source(src_path: Path, namespace: str, dest: Path) -> None:
     dest.write_text(text)
 
 
-def generate_trace(candidate_path: Path, opponent_path: Path,
-                   trace_path: Path, seed: int) -> None:
+def generate_trace(candidate_path: Path, opponent_path: Path, trace_path: Path, seed: int) -> None:
     """Generate a single match trace file by copying to src/ and compiling."""
     LOG.info("Generating trace for %s vs %s", candidate_path.stem, opponent_path.stem)
 
@@ -85,9 +83,12 @@ def generate_trace(candidate_path: Path, opponent_path: Path,
         # Use Homebrew LLVM clang++ (same as fitness module)
         compiler = "/opt/homebrew/opt/llvm/bin/clang++"
         compile_cmd = [
-            compiler, "-std=c++17", "-O3",
+            compiler,
+            "-std=c++17",
+            "-O3",
             f"-I{REPO_ROOT / 'src'}",  # Include path for headers
-            "-o", str(binary),
+            "-o",
+            str(binary),
             "src/engine.cpp",
             "src/a/team_a_ai.cpp",
             "src/b/team_b_ai.cpp",
@@ -105,8 +106,10 @@ def generate_trace(candidate_path: Path, opponent_path: Path,
         LOG.info("Running match...")
         run_cmd = [
             str(binary),
-            "--record", str(trace_path),
-            "--seed", str(seed),
+            "--record",
+            str(trace_path),
+            "--seed",
+            str(seed),
         ]
         result = subprocess.run(run_cmd, cwd=REPO_ROOT, capture_output=True, text=True)
         # Note: binary returns rc=0 for Team A win, rc=1 for Team B win, rc=2 for DRAW
@@ -134,7 +137,8 @@ def generate_video(trace_path: Path, video_path: Path, intro_text: str) -> None:
         str(_HERE / "visualizer.py"),
         str(trace_path),
         str(video_path),
-        "--intro-text", intro_text,
+        "--intro-text",
+        intro_text,
         "-v",
     ]
 
@@ -182,7 +186,9 @@ def main() -> int:
             continue
 
         # Create intro text
-        intro_text = f"M23: Sustained Improvement Experiment\\nGeneration {gen}\\nFitness: {fitness:.3f}"
+        intro_text = (
+            f"M23: Sustained Improvement Experiment\\nGeneration {gen}\\nFitness: {fitness:.3f}"
+        )
 
         # Generate video
         try:

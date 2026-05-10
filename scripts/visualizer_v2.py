@@ -20,10 +20,10 @@ import json
 import logging
 import subprocess
 import sys
-import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import cv2
 import numpy as np
@@ -33,8 +33,8 @@ LOG = logging.getLogger("visualizer_v2")
 # BGR (OpenCV byte order)
 COLOR_BG = (32, 32, 32)
 COLOR_GRID = (48, 48, 48)
-COLOR_A = (255, 128, 32)           # blue-ish (Team A)
-COLOR_B = (32, 32, 255)            # red (Team B)
+COLOR_A = (255, 128, 32)  # blue-ish (Team A)
+COLOR_B = (32, 32, 255)  # red (Team B)
 COLOR_DEAD = (96, 96, 96)
 COLOR_RANGE = (72, 72, 72)
 COLOR_CD_BAR = (0, 220, 220)
@@ -49,6 +49,7 @@ GRID_STEP_UNITS = 200.0
 @dataclass(frozen=True)
 class RenderConfig:
     """Rendering configuration."""
+
     fps: int = 30
     width: int = 800
     height: int = 800
@@ -59,13 +60,13 @@ class RenderConfig:
     max_cooldown: int = 10
     intro_text: str | None = None
     slowdown: float = 1.0  # playback slowdown multiplier (e.g., 4.0 for 4x slower)
-    codec: str = "h264"    # "h264" (ffmpeg) or "mp4v" (cv2)
+    codec: str = "h264"  # "h264" (ffmpeg) or "mp4v" (cv2)
 
 
 def _world_to_px(x: float, y: float, cfg: RenderConfig) -> tuple[int, int]:
     """Map drone-space (x, y) → pixel-space (px, py). Both are Y-down."""
-    px = int(round(x / cfg.arena_w * cfg.width))
-    py = int(round(y / cfg.arena_h * cfg.height))
+    px = round(x / cfg.arena_w * cfg.width)
+    py = round(y / cfg.arena_h * cfg.height)
     px = max(0, min(cfg.width - 1, px))
     py = max(0, min(cfg.height - 1, py))
     return px, py
@@ -85,8 +86,9 @@ def _draw_grid(frame: np.ndarray, cfg: RenderConfig) -> None:
         y += GRID_STEP_UNITS
 
 
-def _draw_targeting_arrow(frame: np.ndarray, attacker: dict, target: dict,
-                          color: tuple[int, int, int], cfg: RenderConfig) -> None:
+def _draw_targeting_arrow(
+    frame: np.ndarray, attacker: dict, target: dict, color: tuple[int, int, int], cfg: RenderConfig
+) -> None:
     """Draw dotted arrow from attacker to target with small tip in team color."""
     # Don't check if target is alive - show arrows to dead targets too (last known position)
     if not attacker.get("alive", True):
@@ -98,7 +100,7 @@ def _draw_targeting_arrow(frame: np.ndarray, attacker: dict, target: dict,
     # Calculate distance
     dx = tx - ax
     dy = ty - ay
-    dist = np.sqrt(dx*dx + dy*dy)
+    dist = np.sqrt(dx * dx + dy * dy)
 
     if dist < 5:  # Too close, skip arrow
         return
@@ -133,8 +135,9 @@ def _draw_targeting_arrow(frame: np.ndarray, attacker: dict, target: dict,
     cv2.line(frame, (tx, ty), (p2_x, p2_y), color, 1, lineType=cv2.LINE_AA)
 
 
-def _draw_drone(frame: np.ndarray, drone: dict[str, Any], color: tuple[int, int, int],
-                cfg: RenderConfig) -> None:
+def _draw_drone(
+    frame: np.ndarray, drone: dict[str, Any], color: tuple[int, int, int], cfg: RenderConfig
+) -> None:
     px, py = _world_to_px(float(drone["x"]), float(drone["y"]), cfg)
 
     if not drone["alive"]:
@@ -146,7 +149,7 @@ def _draw_drone(frame: np.ndarray, drone: dict[str, Any], color: tuple[int, int,
 
     # Disable-range ring
     if cfg.draw_range_ring:
-        radius_px = max(1, int(round(cfg.disable_range / cfg.arena_w * cfg.width)))
+        radius_px = max(1, round(cfg.disable_range / cfg.arena_w * cfg.width))
         cv2.circle(frame, (px, py), radius_px, COLOR_RANGE, 1)
 
     # Drone body
@@ -156,16 +159,22 @@ def _draw_drone(frame: np.ndarray, drone: dict[str, Any], color: tuple[int, int,
     cd = int(drone.get("cooldown", 0))
     if cd > 0 and cfg.max_cooldown > 0:
         frac = min(1.0, cd / float(cfg.max_cooldown))
-        bar_w = int(round(COOLDOWN_BAR_W_PX * frac))
+        bar_w = round(COOLDOWN_BAR_W_PX * frac)
         if bar_w >= 1:
             bar_x0 = px - COOLDOWN_BAR_W_PX // 2
             bar_y0 = py + DRONE_RADIUS_PX + 2
-            cv2.rectangle(frame, (bar_x0, bar_y0), (bar_x0 + bar_w, bar_y0 + COOLDOWN_BAR_H_PX),
-                          COLOR_CD_BAR, thickness=-1)
+            cv2.rectangle(
+                frame,
+                (bar_x0, bar_y0),
+                (bar_x0 + bar_w, bar_y0 + COOLDOWN_BAR_H_PX),
+                COLOR_CD_BAR,
+                thickness=-1,
+            )
 
 
-def _draw_hud(frame: np.ndarray, tick: int, a_alive: int, b_alive: int,
-              outcome: str | None, cfg: RenderConfig) -> None:
+def _draw_hud(
+    frame: np.ndarray, tick: int, a_alive: int, b_alive: int, outcome: str | None, cfg: RenderConfig
+) -> None:
     """Draw HUD with tick counter in top-left."""
     # Draw semi-transparent background box for HUD
     box_height = 80 if outcome else 60
@@ -174,21 +183,39 @@ def _draw_hud(frame: np.ndarray, tick: int, a_alive: int, b_alive: int,
     # Top-left: Step counter (more prominent with shadow for contrast)
     step_text = f"Step {tick}"
     # Shadow
-    cv2.putText(frame, step_text, (9, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                (0, 0, 0), 3, lineType=cv2.LINE_AA)
+    cv2.putText(
+        frame, step_text, (9, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 3, lineType=cv2.LINE_AA
+    )
     # Main text
-    cv2.putText(frame, step_text, (8, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                COLOR_HUD, 2, lineType=cv2.LINE_AA)
+    cv2.putText(
+        frame, step_text, (8, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_HUD, 2, lineType=cv2.LINE_AA
+    )
 
     # Below step: Team status
     status_text = f"Team A: {a_alive}  Team B: {b_alive}"
-    cv2.putText(frame, status_text, (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                COLOR_HUD, 1, lineType=cv2.LINE_AA)
+    cv2.putText(
+        frame,
+        status_text,
+        (8, 50),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        COLOR_HUD,
+        1,
+        lineType=cv2.LINE_AA,
+    )
 
     # Show outcome if present
     if outcome:
-        cv2.putText(frame, outcome, (8, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    COLOR_HUD, 1, lineType=cv2.LINE_AA)
+        cv2.putText(
+            frame,
+            outcome,
+            (8, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            COLOR_HUD,
+            1,
+            lineType=cv2.LINE_AA,
+        )
 
 
 def _draw_intro_frame(cfg: RenderConfig) -> np.ndarray:
@@ -196,24 +223,31 @@ def _draw_intro_frame(cfg: RenderConfig) -> np.ndarray:
     frame = np.full((cfg.height, cfg.width, 3), COLOR_BG, dtype=np.uint8)
 
     if cfg.intro_text:
-        lines = cfg.intro_text.split('\n')
+        lines = cfg.intro_text.split("\n")
         y_start = cfg.height // 2 - len(lines) * 20
 
         for i, line in enumerate(lines):
-            (text_width, text_height), _ = cv2.getTextSize(
-                line, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
-            )
+            (text_width, _text_height), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
             x = (cfg.width - text_width) // 2
             y = y_start + i * 40
 
-            cv2.putText(frame, line, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        COLOR_HUD, 2, lineType=cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                line,
+                (x, y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                COLOR_HUD,
+                2,
+                lineType=cv2.LINE_AA,
+            )
 
     return frame
 
 
-def _draw_outcome_frame(final_tick: int, outcome: str, a_alive: int, b_alive: int,
-                        cfg: RenderConfig) -> np.ndarray:
+def _draw_outcome_frame(
+    final_tick: int, outcome: str, a_alive: int, b_alive: int, cfg: RenderConfig
+) -> np.ndarray:
     """Create outcome frame showing match result."""
     frame = np.full((cfg.height, cfg.width, 3), COLOR_BG, dtype=np.uint8)
     _draw_grid(frame, cfg)
@@ -230,31 +264,47 @@ def _draw_outcome_frame(final_tick: int, outcome: str, a_alive: int, b_alive: in
         winner_color = COLOR_HUD
 
     # Large centered winner text
-    (text_width, text_height), _ = cv2.getTextSize(
-        winner_text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3
-    )
+    (text_width, _text_height), _ = cv2.getTextSize(winner_text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)
     x = (cfg.width - text_width) // 2
     y = cfg.height // 2
 
-    cv2.putText(frame, winner_text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
-                winner_color, 3, lineType=cv2.LINE_AA)
+    cv2.putText(
+        frame,
+        winner_text,
+        (x, y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.5,
+        winner_color,
+        3,
+        lineType=cv2.LINE_AA,
+    )
 
     # Final stats
     stats_text = f"Final Step: {final_tick}  |  Team A: {a_alive}  Team B: {b_alive}"
-    (stats_width, _), _ = cv2.getTextSize(
-        stats_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1
-    )
+    (stats_width, _), _ = cv2.getTextSize(stats_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
     stats_x = (cfg.width - stats_width) // 2
     stats_y = y + 50
 
-    cv2.putText(frame, stats_text, (stats_x, stats_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                COLOR_HUD, 1, lineType=cv2.LINE_AA)
+    cv2.putText(
+        frame,
+        stats_text,
+        (stats_x, stats_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        COLOR_HUD,
+        1,
+        lineType=cv2.LINE_AA,
+    )
 
     return frame
 
 
-def _render_frame(line: dict[str, Any], cfg: RenderConfig,
-                  last_targets_a: dict[int, int], last_targets_b: dict[int, int]) -> np.ndarray:
+def _render_frame(
+    line: dict[str, Any],
+    cfg: RenderConfig,
+    last_targets_a: dict[int, int],
+    last_targets_b: dict[int, int],
+) -> np.ndarray:
     """Render one trace line into a BGR uint8 frame.
 
     last_targets_a/b: dict mapping drone_id -> last_known_target_id for persistence
@@ -348,7 +398,7 @@ def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = No
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Calculate effective FPS for playback (divided by slowdown)
-    playback_fps = int(round(cfg.fps / cfg.slowdown))
+    playback_fps = round(cfg.fps / cfg.slowdown)
 
     # Collect all frames first
     frames = []
@@ -372,7 +422,7 @@ def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = No
     for line in _iter_trace(trace_path):
         frame = _render_frame(line, cfg, last_targets_a, last_targets_b)
         # Repeat frame based on slowdown multiplier
-        for _ in range(int(round(cfg.slowdown))):
+        for _ in range(round(cfg.slowdown)):
             frames.append(frame)
 
         # Track final state
@@ -384,8 +434,9 @@ def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = No
         final_b_alive = sum(1 for d in team_b if d["alive"])
 
     # Outcome frame (2 seconds hold)
-    outcome_frame = _draw_outcome_frame(final_tick, final_outcome,
-                                       final_a_alive, final_b_alive, cfg)
+    outcome_frame = _draw_outcome_frame(
+        final_tick, final_outcome, final_a_alive, final_b_alive, cfg
+    )
     for _ in range(cfg.fps * 2):  # 2 seconds at cfg.fps
         frames.append(outcome_frame)
 
@@ -409,22 +460,36 @@ def render_trace(trace_path: Path, out_path: Path, cfg: RenderConfig | None = No
     return n_frames
 
 
-def _write_h264_ffmpeg(frames: list[np.ndarray], out_path: Path, fps: int, cfg: RenderConfig) -> None:
+def _write_h264_ffmpeg(
+    frames: list[np.ndarray], out_path: Path, fps: int, cfg: RenderConfig
+) -> None:
     """Write frames to H.264 MP4 using ffmpeg subprocess."""
     cmd = [
-        "ffmpeg", "-y",
-        "-f", "rawvideo",
-        "-vcodec", "rawvideo",
-        "-s", f"{cfg.width}x{cfg.height}",
-        "-pix_fmt", "bgr24",
-        "-r", str(fps),
-        "-i", "-",  # stdin
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        str(out_path)
+        "ffmpeg",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-s",
+        f"{cfg.width}x{cfg.height}",
+        "-pix_fmt",
+        "bgr24",
+        "-r",
+        str(fps),
+        "-i",
+        "-",  # stdin
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(out_path),
     ]
 
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -455,6 +520,7 @@ def _write_mp4v_cv2(frames: list[np.ndarray], out_path: Path, fps: int, cfg: Ren
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _parse_resolution(s: str) -> tuple[int, int]:
     w, _, h = s.partition("x")
     if not w or not h:
@@ -474,20 +540,46 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("trace", type=Path, help="input JSONL trace path")
     parser.add_argument("output", type=Path, help="output MP4 path")
     parser.add_argument("--fps", type=int, default=30)
-    parser.add_argument("--resolution", type=_parse_resolution, default=(800, 800),
-                        help="output resolution WIDTHxHEIGHT (default 800x800)")
-    parser.add_argument("--arena", type=_parse_arena, default=(1000.0, 1000.0),
-                        help="arena dimensions WIDTHxHEIGHT in drone-space units")
-    parser.add_argument("--disable-range", type=float, default=50.0,
-                        help="disable_range for the range ring (default 50.0)")
-    parser.add_argument("--no-range-ring", action="store_true",
-                        help="skip drawing the faint disable_range ring")
-    parser.add_argument("--intro-text", type=str, default=None,
-                        help="optional text shown for 1 second at start (use \\n for newlines)")
-    parser.add_argument("--slowdown", type=float, default=1.0,
-                        help="playback slowdown multiplier (e.g., 4.0 for 4x slower, default 1.0)")
-    parser.add_argument("--codec", type=str, choices=["h264", "mp4v"], default="h264",
-                        help="video codec: h264 (ffmpeg, default) or mp4v (cv2)")
+    parser.add_argument(
+        "--resolution",
+        type=_parse_resolution,
+        default=(800, 800),
+        help="output resolution WIDTHxHEIGHT (default 800x800)",
+    )
+    parser.add_argument(
+        "--arena",
+        type=_parse_arena,
+        default=(1000.0, 1000.0),
+        help="arena dimensions WIDTHxHEIGHT in drone-space units",
+    )
+    parser.add_argument(
+        "--disable-range",
+        type=float,
+        default=50.0,
+        help="disable_range for the range ring (default 50.0)",
+    )
+    parser.add_argument(
+        "--no-range-ring", action="store_true", help="skip drawing the faint disable_range ring"
+    )
+    parser.add_argument(
+        "--intro-text",
+        type=str,
+        default=None,
+        help="optional text shown for 1 second at start (use \\n for newlines)",
+    )
+    parser.add_argument(
+        "--slowdown",
+        type=float,
+        default=1.0,
+        help="playback slowdown multiplier (e.g., 4.0 for 4x slower, default 1.0)",
+    )
+    parser.add_argument(
+        "--codec",
+        type=str,
+        choices=["h264", "mp4v"],
+        default="h264",
+        help="video codec: h264 (ffmpeg, default) or mp4v (cv2)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -499,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
     # Process intro text to handle literal \n escape sequences
     intro_text = None
     if args.intro_text:
-        intro_text = args.intro_text.replace('\\n', '\n')
+        intro_text = args.intro_text.replace("\\n", "\n")
 
     cfg = RenderConfig(
         fps=args.fps,

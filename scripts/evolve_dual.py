@@ -15,7 +15,6 @@ import argparse
 import json
 import logging
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,8 +91,12 @@ def evolve_dual_llm(
         current_champion = baseline_path.read_text(encoding="utf-8")
         _LOG.info("init-champion using stationary baseline")
 
-    _LOG.info("evolve-dual-start generations=%d planner=%s coder=%s",
-              generations, planner_model, coder_model)
+    _LOG.info(
+        "evolve-dual-start generations=%d planner=%s coder=%s",
+        generations,
+        planner_model,
+        coder_model,
+    )
 
     for gen in range(generations):
         gen_dir = out_dir / f"gen_{gen:04d}"
@@ -105,7 +108,7 @@ def evolve_dual_llm(
         aar_metrics = None
 
         # Special handling for gen 0 with init-champion: skip LLM, just evaluate
-        skip_llm = (gen == 0 and init_champion)
+        skip_llm = gen == 0 and init_champion
 
         if skip_llm:
             _LOG.info("gen-0-init-champion: using provided champion directly (no LLM call)")
@@ -119,12 +122,12 @@ def evolve_dual_llm(
                 "No planner call - directly evaluating champion code.\n"
             )
             (gen_dir / "coder_response.md").write_text(
-                "# Gen 0: Init Champion Evaluation\n\n"
-                "No coder call - using champion code as-is.\n"
+                "# Gen 0: Init Champion Evaluation\n\nNo coder call - using champion code as-is.\n"
             )
 
             # Create minimal tactic spec for journal
             import tactic_spec as tspec
+
             minimal_tactic_spec = tspec.TacticSpec(
                 key_metrics=[],
                 why_we_failed="N/A - evaluating provided init-champion",
@@ -136,7 +139,7 @@ def evolve_dual_llm(
                 expected_changes=[],
                 message_protocol="Inherited from init-champion",
                 memory_layout="Inherited from init-champion",
-                special_cases="None"
+                special_cases="None",
             )
             (gen_dir / "tactic_spec.json").write_text(
                 json.dumps(minimal_tactic_spec.to_dict(), indent=2) + "\n"
@@ -144,11 +147,12 @@ def evolve_dual_llm(
 
             # Create mock result for consistency with normal path
             from types import SimpleNamespace
+
             result = SimpleNamespace(
                 cpp_code=current_champion,
                 tactic_spec=minimal_tactic_spec,
                 total_prompt_tokens=0,
-                total_completion_tokens=0
+                total_completion_tokens=0,
             )
 
         else:
@@ -165,7 +169,7 @@ def evolve_dual_llm(
             aar_markdown = "(none - first generation)"
             aar_metrics = None
             if gen > 0:
-                prev_gen_dir = out_dir / f"gen_{gen-1:04d}"
+                prev_gen_dir = out_dir / f"gen_{gen - 1:04d}"
                 prev_trace = prev_gen_dir / "trace_sample.jsonl"
                 if prev_trace.exists():
                     try:
@@ -200,8 +204,8 @@ def evolve_dual_llm(
                     prior_lessons=prior_lessons,
                     champion_fitness=champion_fitness,
                     last_generation=gen - 1 if gen > 0 else None,
-                    last_hypothesis=last_entry.get('hypothesis_tested') if last_entry else None,
-                    last_fitness=last_entry.get('fitness') if last_entry else None,
+                    last_hypothesis=last_entry.get("hypothesis_tested") if last_entry else None,
+                    last_fitness=last_entry.get("fitness") if last_entry else None,
                 )
             except dual_llm.DualLLMError as e:
                 _LOG.error("dual-llm-failed gen=%d err=%s", gen, e)
@@ -217,9 +221,7 @@ def evolve_dual_llm(
 
             # Save tactic spec
             tactic_spec_path = gen_dir / "tactic_spec.json"
-            tactic_spec_path.write_text(
-                json.dumps(result.tactic_spec.to_dict(), indent=2) + "\n"
-            )
+            tactic_spec_path.write_text(json.dumps(result.tactic_spec.to_dict(), indent=2) + "\n")
 
             # Save responses
             (gen_dir / "planner_response.md").write_text(result.planner_response.text)
@@ -291,13 +293,20 @@ def evolve_dual_llm(
             champion_fitness = _get_champion_fitness(journal_path)
             # Accept if better than current champion (with small epsilon for noise)
             accepted = fitness_result.mean > (champion_fitness - 0.05)
-            _LOG.info("acceptance-check mode=relative champion=%.3f candidate=%.3f accepted=%s",
-                     champion_fitness, fitness_result.mean, accepted)
+            _LOG.info(
+                "acceptance-check mode=relative champion=%.3f candidate=%.3f accepted=%s",
+                champion_fitness,
+                fitness_result.mean,
+                accepted,
+            )
         else:
             # M22 behavior: absolute threshold
             accepted = fitness_result.mean > 0.0
-            _LOG.info("acceptance-check mode=absolute candidate=%.3f accepted=%s",
-                     fitness_result.mean, accepted)
+            _LOG.info(
+                "acceptance-check mode=absolute candidate=%.3f accepted=%s",
+                fitness_result.mean,
+                accepted,
+            )
 
         if accepted:
             current_champion = result.cpp_code
@@ -338,19 +347,20 @@ def _get_champion_fitness(journal_path: Path) -> float:
         return -1.0
 
     entries = journal_mod.read_entries(journal_path)
-    accepted_entries = [e for e in entries if e.get('verdict') == 'confirmed']
+    accepted_entries = [e for e in entries if e.get("verdict") == "confirmed"]
 
     if not accepted_entries:
         return -1.0
 
     # Return fitness of most recent accepted entry
-    return accepted_entries[-1]['fitness']
+    return accepted_entries[-1]["fitness"]
 
 
 def _slugify_tag(s: str) -> str:
     """Slugify a tag: lowercase, alphanum+underscore only, max 50 chars."""
     import re
-    slug = re.sub(r'[^a-z0-9_]', '', s.lower().replace(' ', '_').replace('-', '_'))
+
+    slug = re.sub(r"[^a-z0-9_]", "", s.lower().replace(" ", "_").replace("-", "_"))
     return slug[:50]  # More conservative limit
 
 
@@ -405,8 +415,7 @@ def _write_journal_entry(
 
     # Extract predicted changes from tactic spec
     predicted_metrics = {
-        change.metric: change.target_value
-        for change in tactic_spec.expected_changes
+        change.metric: change.target_value for change in tactic_spec.expected_changes
     }
 
     entry = {
@@ -425,7 +434,9 @@ def _write_journal_entry(
         "verdict": verdict,
         "outcome_summary": f"{'accepted' if accepted else 'rejected'}: mean={fitness_result.mean:.3f}",
         "advice_to_future_self": f"predicted metrics: {predicted_metrics}",
-        "tactic_tags": [_slugify_tag(m) for m in tactic_spec.key_metrics[:6]] if tactic_spec.key_metrics else ["dual_llm"],
+        "tactic_tags": [_slugify_tag(m) for m in tactic_spec.key_metrics[:6]]
+        if tactic_spec.key_metrics
+        else ["dual_llm"],
         "aar_metrics_cited": aar_metrics or {},
         "validation": {"schema_valid": True, "metrics_match_aar": True, "rewrites": 0},
     }
@@ -452,30 +463,32 @@ def main(argv: list[str] | None = None) -> int:
         description="Dual-LLM evolutionary driver (M21)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--opponent", required=True, type=Path,
-                        help="Opponent AI source (.cpp)")
-    parser.add_argument("--as-team", choices=("A", "B"), default="A",
-                        help="Which team slot (default: A)")
-    parser.add_argument("--planner-model", default="claude-opus-4-7",
-                        help="Model for planner LLM")
-    parser.add_argument("--coder-model", default="claude-haiku-4-5",
-                        help="Model for coder LLM")
-    parser.add_argument("--generations", type=int, default=10,
-                        help="Number of generations")
-    parser.add_argument("--n-matches", type=int, default=10,
-                        help="Matches per generation")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Base seed")
-    parser.add_argument("--out-dir", type=Path, required=True,
-                        help="Output directory")
-    parser.add_argument("--strict-reflection", action="store_true",
-                        help="Enable enhanced journal validation")
-    parser.add_argument("--init-champion", type=Path, default=None,
-                        help="Path to initial champion C++ file (default: stationary_v1)")
-    parser.add_argument("--acceptance-mode", choices=["absolute", "relative"], default="absolute",
-                        help="Acceptance criterion: absolute (>0.0) vs relative (>champion)")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Enable debug logging")
+    parser.add_argument("--opponent", required=True, type=Path, help="Opponent AI source (.cpp)")
+    parser.add_argument(
+        "--as-team", choices=("A", "B"), default="A", help="Which team slot (default: A)"
+    )
+    parser.add_argument("--planner-model", default="claude-opus-4-7", help="Model for planner LLM")
+    parser.add_argument("--coder-model", default="claude-haiku-4-5", help="Model for coder LLM")
+    parser.add_argument("--generations", type=int, default=10, help="Number of generations")
+    parser.add_argument("--n-matches", type=int, default=10, help="Matches per generation")
+    parser.add_argument("--seed", type=int, default=42, help="Base seed")
+    parser.add_argument("--out-dir", type=Path, required=True, help="Output directory")
+    parser.add_argument(
+        "--strict-reflection", action="store_true", help="Enable enhanced journal validation"
+    )
+    parser.add_argument(
+        "--init-champion",
+        type=Path,
+        default=None,
+        help="Path to initial champion C++ file (default: stationary_v1)",
+    )
+    parser.add_argument(
+        "--acceptance-mode",
+        choices=["absolute", "relative"],
+        default="absolute",
+        help="Acceptance criterion: absolute (>0.0) vs relative (>champion)",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args(argv)
 
