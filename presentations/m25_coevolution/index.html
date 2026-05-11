@@ -1573,74 +1573,71 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
             </section>
 
             <section>
-                <h2>The Recipe — and Now, the Test</h2>
-                <h3>Six choices made. Time to see if they work.</h3>
+                <h2>Experiment Setup</h2>
+                <h3>M25: 95-round competitive co-evolution</h3>
 
-                <div class="recipe-summary">
-                    <div class="recipe-row">
-                        <span class="recipe-icon">🧬</span>
-                        <div>
-                            <div class="recipe-label">GENOME</div>
-                            <div class="recipe-value">Shared, per team</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0.8rem;">
+
+                    <!-- LEFT: Hypothesis + Parameters -->
+                    <div>
+                        <!-- Hypothesis -->
+                        <div style="padding: 1rem 1.2rem; background: rgba(168,85,247,0.08); border-left: 4px solid #a855f7; border-radius: 8px; margin-bottom: 1rem;">
+                            <div style="font-size: 0.7rem; color: #a855f7; letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.3rem;">HYPOTHESIS</div>
+                            <p style="font-size: 0.95rem; line-height: 1.5; margin: 0; font-style: italic;">
+                                When both teams evolve against each other, weaker teams can discover counter-tactics that surpass initially stronger opponents.
+                            </p>
+                        </div>
+
+                        <!-- Evolution Parameters -->
+                        <div style="padding: 1rem 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.6rem;">EVOLUTION PARAMETERS</div>
+                            <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.88rem;">
+                                <span style="color: var(--text-secondary);">Models:</span>
+                                <span><code style="font-size: 0.8rem;">Sonnet 4</code> (planner) + <code style="font-size: 0.8rem;">Haiku 4.5</code> (coder)</span>
+                                <span style="color: var(--text-secondary);">Rounds:</span>
+                                <span>95 total · alternating teams (A: even, B: odd)</span>
+                                <span style="color: var(--text-secondary);">Matches:</span>
+                                <span>10 per fitness evaluation</span>
+                                <span style="color: var(--text-secondary);">Acceptance:</span>
+                                <span>Relative mode (champion − 0.05)</span>
+                                <span style="color: var(--text-secondary);">Reflection:</span>
+                                <span>Strict (enhanced journal validation)</span>
+                                <span style="color: var(--text-secondary);">Budget:</span>
+                                <span>~$10 · ~90 minutes · 1 consumer GPU</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="recipe-row">
-                        <span class="recipe-icon">🔄</span>
-                        <div>
-                            <div class="recipe-label">LOOPS</div>
-                            <div class="recipe-value">n=10 inner · alternating outer</div>
-                        </div>
-                    </div>
-                    <div class="recipe-row">
-                        <span class="recipe-icon">📊</span>
-                        <div>
-                            <div class="recipe-label">FITNESS</div>
-                            <div class="recipe-value">Relative + strict reflection</div>
-                        </div>
-                    </div>
-                    <div class="recipe-row">
-                        <span class="recipe-icon">♛</span>
-                        <div>
-                            <div class="recipe-label">ANTI-STASIS</div>
-                            <div class="recipe-value">Red Queen co-evolution</div>
-                        </div>
-                    </div>
-                    <div class="recipe-row">
-                        <span class="recipe-icon">⚙️</span>
-                        <div>
-                            <div class="recipe-label">MUTATION BOUNDS</div>
-                            <div class="recipe-value">Free-form + AST-safe</div>
-                        </div>
-                    </div>
-                    <div class="recipe-row">
-                        <span class="recipe-icon">🛑</span>
-                        <div>
-                            <div class="recipe-label">TERMINATION</div>
-                            <div class="recipe-value">95 rounds · ~$10 · ~90 min</div>
+
+                    <!-- RIGHT: The Matchup -->
+                    <div>
+                        <div style="text-align: center; font-size: 1.1rem; color: var(--text-primary); font-family: 'Fraunces', serif; font-style: italic; margin-bottom: 0.8rem;">The Matchup: David vs Goliath</div>
+
+                        <div style="display: block !important;">
+                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-blue); background: linear-gradient(135deg, rgba(59,130,246,0.1), transparent); margin-bottom: 0.5rem;">
+                                <h4 style="color: var(--accent-blue); margin: 0 0 0.5rem; font-size: 1rem;">🔵 Team A — The Champion</h4>
+                                <div style="font-size: 0.88rem; line-height: 1.6;">
+                                    <strong>Source:</strong> M22 Generation 33 champion<br>
+                                    <strong>Tactic:</strong> Claim-Arbitrated Targeting + Post-Shot Kite<br>
+                                    <strong>Stats:</strong> 204 LOC · <span style="color: var(--accent-blue); font-weight: 700;">+1.0 fitness</span> · 30/30 wins vs baseline
+                                </div>
+                            </div>
+
+                            <div style="text-align: center; font-size: 1.3rem; font-weight: 900; color: var(--text-secondary); margin: 0.3rem 0;">VS</div>
+
+                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-red); background: linear-gradient(135deg, rgba(239,68,68,0.1), transparent);">
+                                <h4 style="color: var(--accent-red); margin: 0 0 0.5rem; font-size: 1rem;">🔴 Team B — The Underdog</h4>
+                                <div style="font-size: 0.88rem; line-height: 1.6;">
+                                    <strong>Source:</strong> <code style="font-size: 0.8rem;">pursuit_v1</code> baseline<br>
+                                    <strong>Tactic:</strong> Nearest-enemy pursuit · no coordination<br>
+                                    <strong>Stats:</strong> 66 LOC · <span style="color: var(--accent-red); font-weight: 700;">−0.8 fitness</span> · losing 8 out of 10
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <h3 style="text-align: center; margin-top: 1.5rem; font-size: 1.5rem; color: var(--text-primary); font-family: 'Fraunces', serif; font-style: italic;">The Matchup: David vs Goliath</h3>
-
-                <div class="vs-container" style="margin-top: 0.8rem;">
-                    <div class="fighter fighter-a">
-                        <h4 style="color: var(--accent-blue); margin-bottom: 0.8rem;">Team A — The Champion</h4>
-                        <div class="stat-line"><span class="stat-label">Evolution:</span><span class="stat-value">95 generations</span></div>
-                        <div class="stat-line"><span class="stat-label">Final champion:</span><span class="stat-value">204 LOC</span></div>
-                        <div class="stat-line"><span class="stat-label">Starting fitness:</span><span class="stat-value" style="color: var(--accent-blue);">+1.0 (perfect)</span></div>
-                    </div>
-                    <div class="vs-badge">VS</div>
-                    <div class="fighter fighter-b">
-                        <h4 style="color: var(--accent-red); margin-bottom: 0.8rem;">Team B — The Underdog</h4>
-                        <div class="stat-line"><span class="stat-label">Evolution:</span><span class="stat-value">Baseline</span></div>
-                        <div class="stat-line"><span class="stat-label">Code:</span><span class="stat-value">66 LOC</span></div>
-                        <div class="stat-line"><span class="stat-label">Starting fitness:</span><span class="stat-value" style="color: var(--accent-red);">−0.8 (losing 8/10)</span></div>
-                    </div>
-                </div>
-
-                <p class="emphasis" style="font-size: 1.5rem; text-align: center; margin-top: 1.2rem;">
-                    Did the recipe work? Let's see the results →
+                <p class="emphasis" style="font-size: 1.2rem; text-align: center; margin-top: 1rem;">
+                    Can a 66-line underdog evolve to beat a 204-line champion? Let's find out →
                 </p>
             </section>
 
