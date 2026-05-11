@@ -812,7 +812,7 @@
                                 Emergent, adaptive, measurable.
                             </p>
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                                👥 1 researcher + a system
+                                👥 1 evolution engineer
                             </p>
                             <div class="path-metric">Hours → Days</div>
                         </div>
@@ -825,9 +825,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="slide-footer">
-                    Today: how Path 3 actually works — and the engineering behind it.
-                </div>
+
             </section>
 
             <section>
@@ -1103,12 +1101,12 @@
                 <h2>Emergent Behavior</h2>
                 <h3>Discovered, not programmed</h3>
 
-                <div class="diagram-container" style="margin: 1rem 0;">
-                    <img src="figures/emergent_behavior_dark.png" alt="Emergent behavior timeline showing Team B's tactical development across 5 phases: Bootstrap, Coordination, Prediction, Formation, and Zone Control" style="max-height: 420px;">
+                <div class="diagram-container" style="margin: 0.5rem 0; flex: 1; display: flex; align-items: center; justify-content: center;">
+                    <img src="figures/emergent_behavior_dark.png" alt="Emergent behavior timeline showing Team B's tactical development across 5 phases: Bootstrap, Coordination, Prediction, Formation, and Zone Control" style="max-height: 70vh; width: 95%;">
                 </div>
 
-                <p style="margin-top: 0.8rem; font-size: 1rem; text-align: center; color: var(--text-secondary);">
-                    These tactics have names because we <em>observed</em> them. The LLM didn't plan "zone control."<br>
+                <p style="margin-top: 0.3rem; font-size: 0.95rem; text-align: center; color: var(--text-secondary);">
+                    These tactics have names because we <em>observed</em> them. The LLM didn't plan "zone control."
                     Across both teams: <strong>55 mutation attempts</strong>. <strong>8 accepted</strong>. This is one of them.
                 </p>
             </section>
@@ -1157,7 +1155,7 @@ for (int i = 0; i &lt; num_allies; i++) {
     float dy = my_y - allies[i].y;
     float dist = sqrtf(dx*dx + dy*dy);
 
-    <span class="highlight-line">const float min_spacing = 80.0f; // THIS LINE</span>
+    const float min_spacing = 80.0f; // ← THE KEY LINE
 
     if (dist &lt; min_spacing &amp;&amp; dist &gt; 0.01f) {
         float push_x = dx / dist;
@@ -1179,12 +1177,15 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                     The swarm didn't know it was inventing a strategy. It just... worked.
                 </p>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1rem;">
                     <div class="diagram-container">
-                        <img src="figures/code_growth.png" alt="Code complexity growth over rounds — 66 LOC baseline grows to 187 LOC at breakthrough" style="max-height: 200px;">
+                        <img src="figures/code_growth.png" alt="Code complexity growth over rounds — 66 LOC baseline grows to 187 LOC at breakthrough" style="max-height: 180px;">
                     </div>
                     <div class="diagram-container">
-                        <img src="figures/loc_fitness_scatter.png" alt="Lines-of-code vs fitness scatter — accepted mutations cluster at higher LOC + higher fitness" style="max-height: 200px;">
+                        <img src="figures/learning_speed_comparison.png" alt="Learning speed comparison across evolution rounds" style="max-height: 180px;">
+                    </div>
+                    <div class="diagram-container">
+                        <img src="figures/loc_fitness_scatter.png" alt="Lines-of-code vs fitness scatter — accepted mutations cluster at higher LOC + higher fitness" style="max-height: 180px;">
                     </div>
                 </div>
             </section>
