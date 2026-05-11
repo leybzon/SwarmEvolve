@@ -1111,6 +1111,80 @@
                 </p>
             </section>
 
+            <!-- SLIDE: How Evolution Stacked Tactics -->
+            <section>
+                <h2>From Pursuit to Zone Control</h2>
+                <h3>Each phase added a capability — the breakthrough was their combination</h3>
+
+                <!-- Progression strip -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; margin: 0.8rem 0 1.2rem; font-size: 0.85rem; flex-wrap: wrap;">
+                    <span style="padding: 0.3rem 0.7rem; background: rgba(255,255,255,0.06); border-radius: 4px;">R1 · −0.80</span>
+                    <span style="color: var(--accent-blue);">→</span>
+                    <span style="padding: 0.3rem 0.7rem; background: rgba(59,130,246,0.15); border-radius: 4px; color: var(--accent-blue); font-weight: 700;">R3 R7 R9</span>
+                    <span style="color: var(--accent-gold);">→</span>
+                    <span style="padding: 0.3rem 0.7rem; background: rgba(245,158,11,0.15); border-radius: 4px; color: var(--accent-gold); font-weight: 700;">R13 R19</span>
+                    <span style="color: var(--accent-green);">→</span>
+                    <span style="padding: 0.4rem 0.9rem; background: rgba(34,197,94,0.2); border: 2px solid var(--accent-green); border-radius: 4px; color: var(--accent-green); font-weight: 700;">★ R31 · +0.90</span>
+                    <span style="color: var(--text-secondary);">→</span>
+                    <span style="padding: 0.3rem 0.7rem; background: rgba(168,85,247,0.15); border-radius: 4px; color: #a855f7; font-weight: 700;">R41</span>
+                </div>
+
+                <!-- Three phase cards -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.2rem;">
+
+                    <!-- Phase 1: Bootstrap -->
+                    <div style="padding: 1.3rem; border-radius: 12px; border: 2px solid var(--accent-blue); background: linear-gradient(135deg, rgba(59,130,246,0.06), transparent); display: flex; flex-direction: column;">
+                        <div style="font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.15em; font-weight: 700;">PHASE 1 · BOOTSTRAP</div>
+                        <h4 style="font-size: 1.4rem; color: var(--accent-blue); margin: 0.4rem 0 0.8rem; font-family: 'Fraunces', serif;">"Learn to talk to each other"</h4>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Tactic:</strong> Message-Coordinated Targeting</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>What changed:</strong> Each drone broadcasts its intended <code style="font-size: 0.82rem;">target_id</code> in <code style="font-size: 0.82rem;">message[2]</code>.</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Why it helped:</strong> No more 5 drones piling onto 1 enemy while 4 others escape. Each drone claims a unique target.</p>
+                        <div style="margin-top: 0.8rem; padding: 0.6rem 0.8rem; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: center;">
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;">−0.80 →</span>
+                            <strong style="color: var(--accent-blue); font-size: 1.15rem;"> −0.20</strong>
+                            <span style="color: var(--accent-blue); font-size: 0.85rem;"> (+0.60)</span>
+                        </div>
+                        <div class="bio-analog" style="margin-top: 0.6rem;">Bio analog: Bee waggle dance — direction sharing.</div>
+                    </div>
+
+                    <!-- Phase 2: Refinement -->
+                    <div style="padding: 1.3rem; border-radius: 12px; border: 2px solid var(--accent-gold); background: linear-gradient(135deg, rgba(245,158,11,0.06), transparent); display: flex; flex-direction: column;">
+                        <div style="font-size: 0.7rem; color: var(--accent-gold); letter-spacing: 0.15em; font-weight: 700;">PHASE 2 · REFINEMENT</div>
+                        <h4 style="font-size: 1.4rem; color: var(--accent-gold); margin: 0.4rem 0 0.8rem; font-family: 'Fraunces', serif;">"Aim where they'll be"</h4>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Tactic:</strong> Predictive Intercept Swarm</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>What changed:</strong> Each drone analyzes enemy positions and predicts their retreat vectors, then leads the shot.</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Why it helped:</strong> Shooting at "now" misses a moving target. Leading the target hits it.</p>
+                        <div style="margin-top: 0.8rem; padding: 0.6rem 0.8rem; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: center;">
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;">−0.20 →</span>
+                            <strong style="color: var(--accent-gold); font-size: 1.15rem;"> 0.00</strong>
+                            <span style="color: var(--accent-gold); font-size: 0.85rem;"> (parity!)</span>
+                        </div>
+                        <div class="bio-analog" style="margin-top: 0.6rem;">Bio analog: Cheetah anticipating a gazelle's swerve.</div>
+                    </div>
+
+                    <!-- Phase 3: Breakthrough ★ -->
+                    <div style="padding: 1.3rem; border-radius: 12px; border: 3px solid var(--accent-green); background: linear-gradient(135deg, rgba(34,197,94,0.1), transparent); box-shadow: 0 0 30px rgba(34,197,94,0.2); position: relative; display: flex; flex-direction: column;">
+                        <span style="position: absolute; top: -16px; right: 14px; font-size: 1.8rem;">⭐</span>
+                        <div style="font-size: 0.7rem; color: var(--accent-green); letter-spacing: 0.15em; font-weight: 700;">PHASE 3 · BREAKTHROUGH</div>
+                        <h4 style="font-size: 1.4rem; color: var(--accent-green); margin: 0.4rem 0 0.8rem; font-family: 'Fraunces', serif;">"Don't bunch up — own the space"</h4>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Tactic:</strong> Formation Spread → Zone Control with Baiting</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>What changed:</strong> Drones maintain <strong>80-unit minimum spacing</strong>; formation covers <strong>60% of the arena</strong>.</p>
+                        <p style="font-size: 0.92rem; line-height: 1.5; margin-bottom: 0.5rem;"><strong>Why it helped:</strong> No friendly fire. Multiple firing angles. No escape lanes.</p>
+                        <div style="margin-top: 0.8rem; padding: 0.6rem 0.8rem; background: rgba(0,0,0,0.3); border-radius: 6px; text-align: center;">
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;">0.00 →</span>
+                            <strong style="color: var(--accent-green); font-size: 1.3rem;"> +0.90</strong>
+                            <span style="color: var(--accent-green); font-size: 0.85rem;"> (the jump)</span>
+                        </div>
+                        <div class="bio-analog" style="margin-top: 0.6rem;">Bio analog: Wolf pack territorial spacing.</div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="margin-top: 1.2rem; font-size: 1.3rem;">
+                    Communication alone couldn't win. Prediction couldn't dominate.<br>
+                    Evolution stacked them in order — and the <strong style="color: var(--accent-green);">combination</strong> was the breakthrough.
+                </p>
+            </section>
+
             <section>
                 <h2>Code Archaeology</h2>
                 <h3>What Changed Between Round 1 and Round 31?</h3>
