@@ -1098,6 +1098,139 @@
 
 
             <section>
+                <h2>Experiment Setup</h2>
+                <h3>M25: 95-round competitive co-evolution</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0.8rem;">
+
+                    <!-- LEFT: Hypothesis + Parameters -->
+                    <div>
+                        <!-- Hypothesis -->
+                        <div style="padding: 1rem 1.2rem; background: rgba(168,85,247,0.08); border-left: 4px solid #a855f7; border-radius: 8px; margin-bottom: 1rem;">
+                            <div style="font-size: 0.7rem; color: #a855f7; letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.3rem;">HYPOTHESIS</div>
+                            <p style="font-size: 0.95rem; line-height: 1.5; margin: 0; font-style: italic;">
+                                When both teams evolve against each other, weaker teams can discover counter-tactics that surpass initially stronger opponents.
+                            </p>
+                        </div>
+
+                        <!-- Evolution Parameters -->
+                        <div style="padding: 1rem 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.6rem;">EVOLUTION PARAMETERS</div>
+                            <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.88rem;">
+                                <span style="color: var(--text-secondary);">Models:</span>
+                                <span><code style="font-size: 0.8rem;">Sonnet 4</code> (planner) + <code style="font-size: 0.8rem;">Haiku 4.5</code> (coder)</span>
+                                <span style="color: var(--text-secondary);">Rounds:</span>
+                                <span>95 total · alternating teams (A: even, B: odd)</span>
+                                <span style="color: var(--text-secondary);">Matches:</span>
+                                <span>10 per fitness evaluation</span>
+                                <span style="color: var(--text-secondary);">Acceptance:</span>
+                                <span>Relative mode (champion − 0.05)</span>
+                                <span style="color: var(--text-secondary);">Reflection:</span>
+                                <span>Strict (enhanced journal validation)</span>
+                                <span style="color: var(--text-secondary);">Budget:</span>
+                                <span>~$10 · ~90 minutes · 1 consumer GPU</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: The Matchup -->
+                    <div>
+                        <div style="text-align: center; font-size: 1.1rem; color: var(--text-primary); font-family: 'Fraunces', serif; font-style: italic; margin-bottom: 0.8rem;">The Matchup: David vs Goliath</div>
+
+                        <div style="display: block !important;">
+                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-blue); background: linear-gradient(135deg, rgba(59,130,246,0.1), transparent); margin-bottom: 0.5rem;">
+                                <h4 style="color: var(--accent-blue); margin: 0 0 0.5rem; font-size: 1rem;">🔵 Team A — The Champion</h4>
+                                <div style="font-size: 0.88rem; line-height: 1.6;">
+                                    <strong>Source:</strong> M22 Generation 33 champion<br>
+                                    <strong>Tactic:</strong> Claim-Arbitrated Targeting + Post-Shot Kite<br>
+                                    <strong>Stats:</strong> 204 LOC · <span style="color: var(--accent-blue); font-weight: 700;">+1.0 fitness</span> · 30/30 wins vs baseline
+                                </div>
+                            </div>
+
+                            <div style="text-align: center; font-size: 1.3rem; font-weight: 900; color: var(--text-secondary); margin: 0.3rem 0;">VS</div>
+
+                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-red); background: linear-gradient(135deg, rgba(239,68,68,0.1), transparent);">
+                                <h4 style="color: var(--accent-red); margin: 0 0 0.5rem; font-size: 1rem;">🔴 Team B — The Underdog</h4>
+                                <div style="font-size: 0.88rem; line-height: 1.6;">
+                                    <strong>Source:</strong> <code style="font-size: 0.8rem;">pursuit_v1</code> baseline<br>
+                                    <strong>Tactic:</strong> Nearest-enemy pursuit · no coordination<br>
+                                    <strong>Stats:</strong> 66 LOC · <span style="color: var(--accent-red); font-weight: 700;">−0.8 fitness</span> · losing 8 out of 10
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="font-size: 1.2rem; text-align: center; margin-top: 1rem;">
+                    Can a 66-line underdog evolve to beat a 204-line champion? Let's find out →
+                </p>
+            </section>
+
+            <!-- The Result: Underdog Wins -->
+            <section>
+                <h2>The Result: <span style="color: var(--accent-green);">Underdog Wins</span></h2>
+                <h3>Evolution found what engineering didn't</h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <!-- LEFT: Fitness Timeline -->
+                    <div>
+                        <div class="diagram-container">
+                            <img src="figures/fitness_timeline.png" alt="Fitness over time: Team B starts at -0.8, crosses over Team A at Round 31, ends dominant" style="max-height: 340px;">
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
+                            Team B (red) overtakes Team A (blue) at Round 31
+                        </p>
+                    </div>
+
+                    <!-- RIGHT: Results Summary Card -->
+                    <div>
+                        <!-- Score Card -->
+                        <div style="padding: 1.2rem 1.5rem; background: rgba(34, 197, 94, 0.06); border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 12px; margin-bottom: 1rem;">
+                            <h4 style="color: var(--accent-green); margin-bottom: 0.6rem; font-size: 1.1rem;">🏆 Final Score</h4>
+                            <div style="display: flex; justify-content: space-around; text-align: center; margin: 0.8rem 0;">
+                                <div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-red);">−0.8</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B start</div>
+                                </div>
+                                <div style="font-size: 2rem; color: var(--text-secondary); align-self: center;">→</div>
+                                <div>
+                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-green);">+1.0</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B finish</div>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.9rem; color: var(--text-primary); margin-top: 0.5rem; line-height: 1.5;">
+                                Team B went from <strong style="color: var(--accent-red);">losing 8 out of 10</strong> battles to <strong style="color: var(--accent-green);">dominant winner</strong> — in 95 rounds of unguided evolution.
+                            </p>
+                        </div>
+
+                        <!-- Evolution Trajectory -->
+                        <div style="padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 1rem;">
+                            <h4 style="color: var(--accent-blue); margin-bottom: 0.5rem; font-size: 0.95rem;">📈 Evolution Trajectory</h4>
+                            <div style="font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary);">
+                                <div><strong style="color: var(--text-primary);">R1–R30:</strong> Losing badly. Trying random approaches.</div>
+                                <div><strong style="color: var(--accent-gold);">R31:</strong> <strong style="color: var(--accent-green);">Breakthrough.</strong> Formation Spread mutation accepted.</div>
+                                <div><strong style="color: var(--text-primary);">R32–R95:</strong> Dominance. Team A never recovers.</div>
+                            </div>
+                        </div>
+
+                        <!-- Breakthrough Callout -->
+                        <div style="padding: 1rem 1.5rem; background: rgba(234,179,8,0.06); border-left: 3px solid var(--accent-gold); border-radius: 4px;">
+                            <h4 style="color: var(--accent-gold); margin-bottom: 0.4rem; font-size: 0.95rem;">💡 What Made the Difference</h4>
+                            <p style="font-size: 0.88rem; color: var(--text-primary); margin: 0; line-height: 1.5;">
+                                <strong>Formation Spread</strong> — a single parameter change:<br>
+                                <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 4px;">min_spacing = 80</code><br>
+                                Drones stopped clustering, became harder to hit en masse. No human ever designed this tactic.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="emphasis" style="margin-top: 1rem; font-size: 1.3rem;">
+                    The recipe worked. Evolution <em>found a way</em>.
+                </p>
+            </section>
+
+            <section>
                 <h2>Emergent Behavior</h2>
                 <h3>Discovered, not programmed</h3>
 
@@ -1572,139 +1705,6 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 </p>
             </section>
 
-            <section>
-                <h2>Experiment Setup</h2>
-                <h3>M25: 95-round competitive co-evolution</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0.8rem;">
-
-                    <!-- LEFT: Hypothesis + Parameters -->
-                    <div>
-                        <!-- Hypothesis -->
-                        <div style="padding: 1rem 1.2rem; background: rgba(168,85,247,0.08); border-left: 4px solid #a855f7; border-radius: 8px; margin-bottom: 1rem;">
-                            <div style="font-size: 0.7rem; color: #a855f7; letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.3rem;">HYPOTHESIS</div>
-                            <p style="font-size: 0.95rem; line-height: 1.5; margin: 0; font-style: italic;">
-                                When both teams evolve against each other, weaker teams can discover counter-tactics that surpass initially stronger opponents.
-                            </p>
-                        </div>
-
-                        <!-- Evolution Parameters -->
-                        <div style="padding: 1rem 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 0.15em; font-weight: 700; margin-bottom: 0.6rem;">EVOLUTION PARAMETERS</div>
-                            <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.88rem;">
-                                <span style="color: var(--text-secondary);">Models:</span>
-                                <span><code style="font-size: 0.8rem;">Sonnet 4</code> (planner) + <code style="font-size: 0.8rem;">Haiku 4.5</code> (coder)</span>
-                                <span style="color: var(--text-secondary);">Rounds:</span>
-                                <span>95 total · alternating teams (A: even, B: odd)</span>
-                                <span style="color: var(--text-secondary);">Matches:</span>
-                                <span>10 per fitness evaluation</span>
-                                <span style="color: var(--text-secondary);">Acceptance:</span>
-                                <span>Relative mode (champion − 0.05)</span>
-                                <span style="color: var(--text-secondary);">Reflection:</span>
-                                <span>Strict (enhanced journal validation)</span>
-                                <span style="color: var(--text-secondary);">Budget:</span>
-                                <span>~$10 · ~90 minutes · 1 consumer GPU</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- RIGHT: The Matchup -->
-                    <div>
-                        <div style="text-align: center; font-size: 1.1rem; color: var(--text-primary); font-family: 'Fraunces', serif; font-style: italic; margin-bottom: 0.8rem;">The Matchup: David vs Goliath</div>
-
-                        <div style="display: block !important;">
-                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-blue); background: linear-gradient(135deg, rgba(59,130,246,0.1), transparent); margin-bottom: 0.5rem;">
-                                <h4 style="color: var(--accent-blue); margin: 0 0 0.5rem; font-size: 1rem;">🔵 Team A — The Champion</h4>
-                                <div style="font-size: 0.88rem; line-height: 1.6;">
-                                    <strong>Source:</strong> M22 Generation 33 champion<br>
-                                    <strong>Tactic:</strong> Claim-Arbitrated Targeting + Post-Shot Kite<br>
-                                    <strong>Stats:</strong> 204 LOC · <span style="color: var(--accent-blue); font-weight: 700;">+1.0 fitness</span> · 30/30 wins vs baseline
-                                </div>
-                            </div>
-
-                            <div style="text-align: center; font-size: 1.3rem; font-weight: 900; color: var(--text-secondary); margin: 0.3rem 0;">VS</div>
-
-                            <div style="display: block !important; padding: 1rem 1.2rem; border-radius: 12px; border: 2px solid var(--accent-red); background: linear-gradient(135deg, rgba(239,68,68,0.1), transparent);">
-                                <h4 style="color: var(--accent-red); margin: 0 0 0.5rem; font-size: 1rem;">🔴 Team B — The Underdog</h4>
-                                <div style="font-size: 0.88rem; line-height: 1.6;">
-                                    <strong>Source:</strong> <code style="font-size: 0.8rem;">pursuit_v1</code> baseline<br>
-                                    <strong>Tactic:</strong> Nearest-enemy pursuit · no coordination<br>
-                                    <strong>Stats:</strong> 66 LOC · <span style="color: var(--accent-red); font-weight: 700;">−0.8 fitness</span> · losing 8 out of 10
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <p class="emphasis" style="font-size: 1.2rem; text-align: center; margin-top: 1rem;">
-                    Can a 66-line underdog evolve to beat a 204-line champion? Let's find out →
-                </p>
-            </section>
-
-            <!-- The Result: Underdog Wins -->
-            <section>
-                <h2>The Result: <span style="color: var(--accent-green);">Underdog Wins</span></h2>
-                <h3>Evolution found what engineering didn't</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
-                    <!-- LEFT: Fitness Timeline -->
-                    <div>
-                        <div class="diagram-container">
-                            <img src="figures/fitness_timeline.png" alt="Fitness over time: Team B starts at -0.8, crosses over Team A at Round 31, ends dominant" style="max-height: 340px;">
-                        </div>
-                        <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
-                            Team B (red) overtakes Team A (blue) at Round 31
-                        </p>
-                    </div>
-
-                    <!-- RIGHT: Results Summary Card -->
-                    <div>
-                        <!-- Score Card -->
-                        <div style="padding: 1.2rem 1.5rem; background: rgba(34, 197, 94, 0.06); border: 2px solid rgba(34, 197, 94, 0.3); border-radius: 12px; margin-bottom: 1rem;">
-                            <h4 style="color: var(--accent-green); margin-bottom: 0.6rem; font-size: 1.1rem;">🏆 Final Score</h4>
-                            <div style="display: flex; justify-content: space-around; text-align: center; margin: 0.8rem 0;">
-                                <div>
-                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-red);">−0.8</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B start</div>
-                                </div>
-                                <div style="font-size: 2rem; color: var(--text-secondary); align-self: center;">→</div>
-                                <div>
-                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 2rem; color: var(--accent-green);">+1.0</div>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Team B finish</div>
-                                </div>
-                            </div>
-                            <p style="font-size: 0.9rem; color: var(--text-primary); margin-top: 0.5rem; line-height: 1.5;">
-                                Team B went from <strong style="color: var(--accent-red);">losing 8 out of 10</strong> battles to <strong style="color: var(--accent-green);">dominant winner</strong> — in 95 rounds of unguided evolution.
-                            </p>
-                        </div>
-
-                        <!-- Evolution Trajectory -->
-                        <div style="padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 1rem;">
-                            <h4 style="color: var(--accent-blue); margin-bottom: 0.5rem; font-size: 0.95rem;">📈 Evolution Trajectory</h4>
-                            <div style="font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary);">
-                                <div><strong style="color: var(--text-primary);">R1–R30:</strong> Losing badly. Trying random approaches.</div>
-                                <div><strong style="color: var(--accent-gold);">R31:</strong> <strong style="color: var(--accent-green);">Breakthrough.</strong> Formation Spread mutation accepted.</div>
-                                <div><strong style="color: var(--text-primary);">R32–R95:</strong> Dominance. Team A never recovers.</div>
-                            </div>
-                        </div>
-
-                        <!-- Breakthrough Callout -->
-                        <div style="padding: 1rem 1.5rem; background: rgba(234,179,8,0.06); border-left: 3px solid var(--accent-gold); border-radius: 4px;">
-                            <h4 style="color: var(--accent-gold); margin-bottom: 0.4rem; font-size: 0.95rem;">💡 What Made the Difference</h4>
-                            <p style="font-size: 0.88rem; color: var(--text-primary); margin: 0; line-height: 1.5;">
-                                <strong>Formation Spread</strong> — a single parameter change:<br>
-                                <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; padding: 0.15rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 4px;">min_spacing = 80</code><br>
-                                Drones stopped clustering, became harder to hit en masse. No human ever designed this tactic.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <p class="emphasis" style="margin-top: 1rem; font-size: 1.3rem;">
-                    The recipe worked. Evolution <em>found a way</em>.
-                </p>
-            </section>
-
             <!-- ============================================ -->
             <!-- ACT 5: CLOSING                               -->
             <!-- ============================================ -->
@@ -1746,298 +1746,6 @@ move_y = 0.6f * pursuit_y + 0.4f * repulse_y;</code></pre>
                 <p class="emphasis" style="margin-top: 1.5rem; font-size: 1.8rem;">
                     What if all software was <em>alive</em>?
                 </p>
-            </section>
-
-            <section>
-                <h2>Evolution vs. Engineering</h2>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin: 1rem 0;">
-                    <div class="diagram-container">
-                        <img src="figures/evolution_vs_engineering.png" alt="Side-by-side: Darwin's finches (natural selection) vs CAD blueprint (intelligent design)" style="max-height: 380px;">
-                    </div>
-                    <div>
-                        <div class="big-quote" style="font-size: 1.7rem; margin: 0; text-align: left;">
-                            Engineering optimizes for the problem you <em>know</em>.<br><br>
-                            Evolution optimizes for the problem you <em>don't</em>.
-                        </div>
-                    </div>
-                </div>
-
-                <p class="emphasis" style="font-size: 1.6rem; color: var(--accent-red); margin-top: 1.5rem;">
-                    Code that can't evolve... is already extinct.
-                </p>
-
-                <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(34,197,94,0.1); border-radius: 12px; border: 2px solid var(--accent-green);">
-                    <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">Try It Yourself</h4>
-                    <pre style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 6px; font-size: 0.9rem;"><code>python3 scripts/evolve_coevolve.py --rounds 100</code></pre>
-                    <p style="font-size: 0.9rem; margin-top: 0.8rem; text-align: center;">
-                        <strong>GitHub:</strong> github.com/leybzon/SwarmEvolve · <strong>Cost:</strong> $10 · <strong>Time:</strong> 90 min · <strong>GPU:</strong> Consumer-grade
-                    </p>
-                </div>
-            </section>
-
-            <!-- ============================================ -->
-            <!-- BACKUP SLIDES                                -->
-            <!-- ============================================ -->
-
-
-            <section>
-                <h2>The Reversal</h2>
-                <h3>Punctuated Equilibrium — Evolution Isn't a Ramp, It's a Staircase</h3>
-
-                <div class="diagram-container" style="margin: 1rem 0;">
-                    <img src="figures/fitness_timeline.png" alt="Fitness over time: Team A blue line starts high, Team B red line starts low and crosses over at Round 31">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">The Jump</h4>
-                        <p style="font-size: 1rem; line-height: 1.6;">
-                            <strong>95 rounds. ~90 minutes. ~$10.</strong><br><br>
-                            Round 13: Parity at 0.0 fitness<br>
-                            Round 31: <span style="color: var(--accent-green); font-size: 1.25rem; font-weight: 700;">Breakthrough</span> at +0.9<br>
-                            Round 41: Refined dominance
-                        </p>
-                        <div class="definition" style="margin-top: 0.8rem;">
-                            <div class="definition-term">Punctuated Equilibrium</div>
-                            <div class="definition-text" style="font-size: 0.85rem;">
-                                Stephen Jay Gould (1972): evolution happens in bursts, not gradually. Long stasis, then sudden change. Co-evolution made this happen on purpose.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="diagram-container">
-                        <img src="figures/tactical_staircase.png" alt="Staircase graph showing 6 tactical phases with vertical jumps in fitness" style="max-height: 380px;">
-                    </div>
-                </div>
-            </section>
-
-            <section>
-                <h2>When Evolution Stalls</h2>
-                <h3>Lessons From Failed Experiments</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
-                    <div>
-                        <h4 style="color: var(--accent-red); margin-bottom: 1rem;">❌ Why Earlier Experiments Failed</h4>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🏝️ Small Arena</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Convergent tactics, no exploration space<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Island dwarfism</em>
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🎯 Fixed Opponent</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Overfitting, no pressure to adapt<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Coelacanth (400M years unchanged)</em>
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; border-radius: 8px;">
-                            <h5 style="margin-bottom: 0.5rem;">🧬 Single Lineage</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                No genetic diversity, local optimum trap<br>
-                                <em style="color: var(--text-secondary);">Bio analog: Cheetah genetic bottleneck</em>
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 1rem;">✅ Our Solution: Co-Evolution</h4>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🌍 Bigger Arena</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                1000×1000 units, exploration space for novel tactics<br>
-                                <strong>Result:</strong> Formation Spread emerges
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <h5 style="margin-bottom: 0.5rem;">🔄 Alternating Pressure</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Team A evolves → Team B responds → repeat<br>
-                                <strong>Result:</strong> Shifting fitness landscape (Red Queen)
-                            </p>
-                        </div>
-
-                        <div style="background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; border-radius: 8px;">
-                            <h5 style="margin-bottom: 0.5rem;">⚔️ Dynamic Opponent</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Opponent improves, can't overfit<br>
-                                <strong>Result:</strong> 35% faster learning vs isolated evolution
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <p style="margin-top: 1.5rem; text-align: center; font-size: 1.05rem;">
-                    <strong>Key insight:</strong> Evolution needs enemies that fight back.
-                </p>
-            </section>
-
-            <section>
-                <h2>The Red Queen's Race</h2>
-                <h3>Why Team A Failed to Adapt</h3>
-
-                <div class="big-quote" style="font-size: 1.6rem; margin: 0.8rem 0;">
-                    "It takes all the running you can do, to keep in the same place."
-                    <div class="quote-attribution">— Lewis Carroll, <em>Through the Looking-Glass</em></div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
-                    <div>
-                        <h4 style="color: var(--accent-red); margin-bottom: 0.8rem;">Team A: Trapped in Local Optimum</h4>
-                        <div class="diagram-container">
-                            <img src="figures/team_a_stagnation.png" alt="Team A's 47 rejected mutations" style="max-height: 200px;">
-                        </div>
-                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
-                            <li><strong>47 mutation attempts</strong></li>
-                            <li><strong>0 acceptances</strong></li>
-                            <li>Every change broke critical logic</li>
-                            <li>Over-specialized for pursuit_v1</li>
-                        </ul>
-                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
-                            Bio analog: Panda's thumb — over-adapted, can't switch
-                        </p>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--accent-green); margin-bottom: 0.8rem;">Team B: Adaptive Success</h4>
-                        <div class="diagram-container">
-                            <img src="figures/team_b_acceptance_rate.png" alt="Team B's 8 acceptances in 95 rounds" style="max-height: 200px;">
-                        </div>
-                        <ul style="margin-top: 0.8rem; font-size: 0.95rem; line-height: 1.7;">
-                            <li><strong>95 rounds total</strong></li>
-                            <li><strong>8 acceptances</strong> (8.4% rate)</li>
-                            <li>Started simple, stayed flexible</li>
-                            <li>Each innovation built on previous</li>
-                        </ul>
-                        <p style="margin-top: 0.5rem; font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
-                            Bio analog: Darwin's finches — beak plasticity
-                        </p>
-                    </div>
-                </div>
-
-                <div class="diagram-container" style="margin-top: 0.8rem;">
-                    <img src="figures/predator_prey_graph.png" style="max-height: 280px;" alt="Lotka-Volterra predator-prey oscillations overlaid with Team A/B fitness">
-                </div>
-
-                <p class="emphasis" style="margin-top: 0.8rem; font-size: 1.3rem;">
-                    Team A ran as fast as it could... and still lost ground.
-                </p>
-            </section>
-
-            <section>
-                <h2>What Evolution Unlocked</h2>
-                <h3>Cheap. Readable. Reproducible.</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1rem 0;">
-                    <div>
-                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Cost &amp; Time</h4>
-                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
-                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">AlphaStar (DeepMind)</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                ~$1,000,000 compute · weeks of training · TPU pods · 100B+ parameter neural net
-                            </p>
-                        </div>
-                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
-                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">SwarmEvolve (M25)</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                ~$10 API · 90 minutes · consumer GPU · 210 lines of C++
-                            </p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 style="color: var(--text-primary); margin-bottom: 0.8rem;">Interpretability</h4>
-                        <div style="background: rgba(239, 68, 68, 0.1); padding: 1.2rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--accent-red);">
-                            <h5 style="color: var(--accent-red); margin-bottom: 0.3rem;">Neural Net</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Black box. "It works, but we don't know why."
-                            </p>
-                        </div>
-                        <div style="background: rgba(34, 197, 94, 0.1); padding: 1.2rem; border-radius: 8px; border-left: 4px solid var(--accent-green);">
-                            <h5 style="color: var(--accent-green); margin-bottom: 0.3rem;">Evolved C++</h5>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                Read the code. Debug the logic. The "secret" is one line: <code>min_spacing = 80.0f</code>.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="benefits-grid" style="margin-top: 0.8rem;">
-                    <div class="benefit-card">
-                        <div class="benefit-icon">🔬</div>
-                        <h4>Interpretability</h4>
-                        <p style="font-size: 0.9rem;">Read the code. Debug the logic. No 100B-parameter mystery.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">⚡</div>
-                        <h4>Speed</h4>
-                        <p style="font-size: 0.9rem;">90 minutes vs weeks. Iterate in real time.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">💰</div>
-                        <h4>Democratization</h4>
-                        <p style="font-size: 0.9rem;">Consumer GPU. Open source. Anyone can run this.</p>
-                    </div>
-                </div>
-            </section>
-
-
-            <section>
-                <h2>Beyond Swarms: Evolution Arenas in the Wild</h2>
-                <h3>Where Code Competes to Survive</h3>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; font-size: 0.95rem;">
-                    <div>
-                        <div style="background: rgba(239,68,68,0.1); border-left: 4px solid var(--accent-red); padding: 1.2rem; margin-bottom: 1rem; border-radius: 8px;">
-                            <h4 style="color: var(--accent-red); margin-bottom: 0.5rem;">🔒 Cybersecurity Arms Race</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Sandbox with attacker &amp; defender · <strong>Result:</strong> Robust zero-day detection
-                            </p>
-                        </div>
-                        <div style="background: rgba(34,197,94,0.1); border-left: 4px solid var(--accent-green); padding: 1.2rem; margin-bottom: 1rem; border-radius: 8px;">
-                            <h4 style="color: var(--accent-green); margin-bottom: 0.5rem;">🤖 Robotic Locomotion</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Physics sim with gravity &amp; obstacles · <strong>Result:</strong> Emergent gaits no human programmed
-                            </p>
-                        </div>
-                        <div style="background: rgba(59,130,246,0.1); border-left: 4px solid var(--accent-blue); padding: 1.2rem; border-radius: 8px;">
-                            <h4 style="color: var(--accent-blue); margin-bottom: 0.5rem;">🎮 Game AI Self-Play</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Chess, Go, StarCraft · <strong>Result:</strong> Strategies no human would hand-code
-                            </p>
-                        </div>
-                    </div>
-                    <div>
-                        <div style="background: rgba(245,158,11,0.1); border-left: 4px solid var(--accent-gold); padding: 1.2rem; margin-bottom: 1rem; border-radius: 8px;">
-                            <h4 style="color: var(--accent-gold); margin-bottom: 0.5rem;">💹 Algorithmic Trading</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Stock market (literal survival of fittest) · <strong>Result:</strong> Exploit inefficiencies humans miss
-                            </p>
-                        </div>
-                        <div style="background: rgba(236,72,153,0.1); border-left: 4px solid var(--accent-magenta); padding: 1.2rem; margin-bottom: 1rem; border-radius: 8px;">
-                            <h4 style="color: var(--accent-magenta); margin-bottom: 0.5rem;">🏗️ Structural Engineering</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Wind/weight/tension stress tests · <strong>Result:</strong> Bridges &amp; aircraft parts beyond CAD limits
-                            </p>
-                        </div>
-                        <div style="background: rgba(168,85,247,0.1); border-left: 4px solid #a855f7; padding: 1.2rem; border-radius: 8px;">
-                            <h4 style="color: #a855f7; margin-bottom: 0.5rem;">🧬 Neural Architecture Search</h4>
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Arena:</strong> Classification benchmark · <strong>Result:</strong> AI designs better AI than humans can
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="big-quote" style="font-size: 1.4rem; margin-top: 1.5rem; padding: 1.5rem; background: rgba(255,255,255,0.05); border-radius: 12px;">
-                    <strong>The Pattern:</strong> Genome × Fitness × Selection × Mutation = <span style="color: var(--accent-green);">Emergent Intelligence</span>
-                </div>
             </section>
 
             <section>
