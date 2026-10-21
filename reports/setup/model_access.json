@@ -1,0 +1,22 @@
+{
+  "checked_utc": "2026-10-21T19:22:34Z",
+  "key_variable": "SWARMEVOLVE_ANTHROPIC_API_KEY",
+  "models": [
+    {
+      "display_name": "Claude Sonnet 5.5",
+      "model": "claude-sonnet-5-5",
+      "status": "available"
+    },
+    {
+      "display_name": "Claude Haiku 5.5",
+      "model": "claude-haiku-5-5",
+      "status": "available"
+    },
+    {
+      "display_name": "Claude Opus 5.5",
+      "model": "claude-opus-5-5",
+      "status": "available"
+    }
+  ],
+  "workspace_variable": "ANTHROPIC_WORKSPACE_ID"
+}

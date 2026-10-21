@@ -119,18 +119,24 @@ class _FakeModels:
 def test_model_access_statuses_and_key_never_written(tmp_path, monkeypatch, capsys):
     import anthropic
 
+    seen_headers = []
+
     class FakeClient:
-        def __init__(self, api_key, max_retries):
+        def __init__(self, api_key, max_retries, default_headers=None):
             assert api_key == FAKE_KEY
+            seen_headers.append(default_headers)
             self.models = _FakeModels(anthropic)
 
     monkeypatch.setenv("SWARMEVOLVE_ANTHROPIC_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "wrkspc_test")
     monkeypatch.setattr(anthropic, "Anthropic", FakeClient)
     rc = check_model_access.main(
         ["--out-dir", str(tmp_path), "--models", "ok-model", "missing", "denied"]
     )
     assert rc == 0
+    assert seen_headers == [{"anthropic-workspace-id": "wrkspc_test"}]
     data = json.loads((tmp_path / "model_access.json").read_text())
+    assert data["workspace_variable"] == "ANTHROPIC_WORKSPACE_ID"
     assert [r["status"] for r in data["models"]] == [
         "available",
         "not_found",
