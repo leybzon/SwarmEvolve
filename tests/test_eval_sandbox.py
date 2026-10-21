@@ -329,3 +329,15 @@ def test_sandbox_trace_matches_host(home_tmp):
         )
     assert traces["sandbox"].read_bytes() == traces["host"].read_bytes()
     assert traces["sandbox"].stat().st_size > 0
+
+
+def test_platform_json_draft_is_well_formed():
+    ref = platform_fingerprint.load_platform()
+    if ref is None:
+        pytest.skip("prereg/PLATFORM.json not written yet")
+    assert ref["status"] in ("draft", "final")
+    assert ref["canonical_keys"] == list(platform_fingerprint.CANONICAL_KEYS)
+    fp = ref["fingerprint"]
+    assert fp["backend"] == "sandbox" and fp["image_id"].startswith("sha256:")
+    assert "-ffp-contract=off" in fp["flags"]
+    assert all(fp[k] for k in platform_fingerprint.CANONICAL_KEYS)

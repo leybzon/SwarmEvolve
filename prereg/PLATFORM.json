@@ -1,0 +1,59 @@
+{
+  "canonical_keys": [
+    "backend",
+    "image_id",
+    "compiler_version",
+    "flags",
+    "cpu_model",
+    "kernel"
+  ],
+  "fingerprint": {
+    "backend": "sandbox",
+    "build_info": {
+      "base_image": "ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956",
+      "packages_sha256": "6aad8648b146eb94961341f7185f514dc38e291bf33bf06770f28499e2c30244",
+      "ubuntu_snapshot": "20261015T000000Z"
+    },
+    "compiler_version": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "cpu_model": "Intel(R) Core(TM) i9-14900KF",
+    "flags": [
+      "-std=c++17",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Wshadow",
+      "-Wpedantic",
+      "-Werror",
+      "-Wno-unknown-pragmas",
+      "-Wno-maybe-uninitialized",
+      "-Wno-stringop-overflow",
+      "-Wno-unused-variable",
+      "-Wno-unused-parameter",
+      "-Wno-unused-function",
+      "-Wno-unused-but-set-variable",
+      "-Wno-unused-const-variable",
+      "-ffp-contract=off"
+    ],
+    "harness_sha256": {
+      "ai_abi.h": "fac547506339f764cf528d8c741f0f6890053700cd5248f73e004ccf6f78dded",
+      "compile_flags.py": "e6668aed2ae482024f54ff0ef5fc3af8f3d456ba519c15ea41f5e23f755af9c1",
+      "engine.cpp": "583675068a25b832fc79196373412d318e6318b1f5552c56f999d7146dc66282",
+      "engine.h": "ddd42e7e163de743fb568fd41e712b19e51fa44eb6aed8adbd2f190ac040f35d",
+      "eval_batch.py": "483e3fba4cb93c68600ac64f56b21e71b3a13628e89d92ba28c0e9fe113d81bd",
+      "inject_guards.py": "4b98d6e9e3c70ba55d173d366ab11dee8ca750f873097cec1de1870e91bbeece",
+      "types.h": "25f83bd05d787e3c2a9ebe9792bd43efb539e175c0a7616375284b7e6be9bdc4"
+    },
+    "image": "swarmevolve-eval:latest",
+    "image_id": "sha256:ae671f3db889ea7c590bae525ce336e197e467874d62c351973dbc1f3662ab21",
+    "kernel": "7.0.0-38-generic"
+  },
+  "host": {
+    "architecture": "x86_64",
+    "container_runtime": "Docker version 29.8.2, build 7fc2dff",
+    "logical_cpus": 32,
+    "os": "Ubuntu 26.04.1 LTS"
+  },
+  "note": "Draft canonical platform for the v2 study. A result counts as canonical only if its fingerprint matches every key in canonical_keys and this file is final (status != draft). Written by scripts/platform_fingerprint.py.",
+  "recorded_utc": "2026-10-21T21:06:24Z",
+  "status": "draft"
+}
