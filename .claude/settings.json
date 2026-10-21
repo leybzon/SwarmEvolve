@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Edit(/data/runs/**)",
+      "Edit(/data/v2/**)"
+    ]
+  }
+}

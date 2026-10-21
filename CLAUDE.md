@@ -83,3 +83,19 @@ day-to-day loop is:
 - **Integration tests**: Run full matches with known baseline AIs
 - **Determinism tests**: Verify identical output for identical initial conditions
 - **Safety tests**: Verify loop guard injection prevents infinite loops
+
+## Research campaign rules (v2 study)
+Read docs/paper/RESEARCH_BRIEF.md before any experiment work.
+- Git: work on research/v2 or a branch from it, and commit after each green step. Never push, force-push, rewrite history, push tags or open PRs unless I ask.
+- Data: never delete, move or overwrite anything in data/runs/, data/v2/ or ~/swarmevolve-archive/; results are append-only. After prompt 11, prereg/ changes only by appending to prereg/DEVIATIONS.md.
+- Paid calls: before anything that calls a paid model API, print the plan (arms, seeds, rounds, model IDs, effort, projected cost) and wait for my explicit go. Every run uses the budget governor with a hard cap.
+- Frozen files: after prompt 11, files listed in prereg/FROZEN_MANIFEST.sha256 do not change. If one seems to need a change, stop and draft an entry in prereg/DEVIATIONS.md.
+- Platform: every reported number comes from the canonical container on the canonical host (prereg/PLATFORM.json). Label anything else dev and never mix it in.
+- Untrusted code: compile and run LLM-written C++ only inside the sandbox container.
+- Evaluation: candidate and champion play the same seeds, each seed with both side assignments. Invalid matches count as losses for the program under test.
+- Honesty: report every run, including failed and negative ones. Never rerun, drop or replace a seed because its result looks bad. Resume infrastructure failures from the last completed round and log them.
+- Numbers: never type a result into a report by hand; generate it from a results file and cite the file.
+- Long jobs: start them detached in tmux with a log and a status.json, and don't block the session.
+- Tests: run the test suite before every commit, and give every fixed defect a regression test.
+- Secrets: the experiment key is SWARMEVOLVE_ANTHROPIC_API_KEY. Never print, log or commit any key.
+- Ask me before any choice that changes what is measured or compared.
