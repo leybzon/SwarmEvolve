@@ -39,7 +39,7 @@ from inject_guards import (
     inject,
 )
 
-from tests._build_helper import CXX
+from tests._build_helper import CXX, compile_flags
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "inject"
 ADVERSARIAL = FIXTURES / "adversarial"
@@ -61,14 +61,10 @@ def _compile_and_run(
     subprocess.run(
         [
             CXX or "c++",
-            "-std=c++17",
-            "-O2",
-            "-Wall",
-            "-Wextra",
-            "-Wshadow",
-            "-Wpedantic",
-            "-Werror",
-            # The injector adds `if (++_g...) break;` before the first line
+            *compile_flags.STD,
+            *compile_flags.OPTIMIZE,
+            *compile_flags.WARNINGS,
+            # Strict on purpose: no ADR-0001 relaxations. The injector adds `if (++_g...) break;` before the first line
             # of the body; the guard variable is never read elsewhere, so
             # `-Werror=unused-but-set-variable` would fire only if the
             # compiler failed to see the ++ as a read. We pass -Wunused to
@@ -192,13 +188,10 @@ def test_fixture_injects_and_compiles(fixture: Path, tmp_path: Path) -> None:
     subprocess.run(
         [
             CXX or "c++",
-            "-std=c++17",
-            "-O2",
-            "-Wall",
-            "-Wextra",
-            "-Wshadow",
-            "-Wpedantic",
-            "-Werror",
+            *compile_flags.STD,
+            *compile_flags.OPTIMIZE,
+            # Strict on purpose: injected output must be warning-clean.
+            *compile_flags.WARNINGS,
             "-c",
             str(out_path),
             "-o",
@@ -334,16 +327,7 @@ def test_injected_baselines_still_compile_in_engine(tmp_path: Path) -> None:
     subprocess.run(
         [
             CXX or "c++",
-            "-std=c++17",
-            "-O2",
-            "-Wall",
-            "-Wextra",
-            "-Wshadow",
-            "-Wpedantic",
-            "-Werror",
-            # Baselines carry `#pragma acc routine seq` — silently
-            # ignored by non-nvc++ compilers per the OpenACC spec.
-            "-Wno-unknown-pragmas",
+            *compile_flags.engine_flags(CXX or "c++"),
             f"-I{REPO_ROOT / 'src'}",
             str(REPO_ROOT / "src" / "engine.cpp"),
             str(a_path),

@@ -16,6 +16,9 @@ if str(_HERE) not in sys.path:
 
 
 REPO_ROOT = _HERE.parent
+
+import compile_flags  # noqa: E402
+
 M23_DIR = REPO_ROOT / "data" / "runs" / "m23_sustained_50gen"
 VIZ_DIR = M23_DIR / "visualizations"
 OPPONENT = REPO_ROOT / "src" / "baselines" / "pursuit_v1.cpp"
@@ -84,8 +87,7 @@ def generate_trace(candidate_path: Path, opponent_path: Path, trace_path: Path, 
         compiler = "/opt/homebrew/opt/llvm/bin/clang++"
         compile_cmd = [
             compiler,
-            "-std=c++17",
-            "-O3",
+            *compile_flags.engine_flags(compiler),
             f"-I{REPO_ROOT / 'src'}",  # Include path for headers
             "-o",
             str(binary),

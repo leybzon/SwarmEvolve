@@ -11,6 +11,8 @@ M23_DIR="data/runs/m23_sustained_50gen"
 VIZ_DIR="$M23_DIR/visualizations"
 OPPONENT="src/baselines/pursuit_v1.cpp"
 ENGINE_SRC="src/engine.cpp"
+# Shared compile flags (scripts/compile_flags.py, ADR-0001)
+CXXFLAGS_SHARED="$(python3 "$REPO_ROOT/scripts/compile_flags.py" --compiler clang++)"
 
 mkdir -p "$VIZ_DIR"
 
@@ -39,7 +41,8 @@ generate_video_for_gen() {
 
     # Compile match (Team A = candidate, Team B = opponent)
     echo "Compiling..."
-    clang++ -std=c++17 -O3 \
+    # shellcheck disable=SC2086  # word-splitting the flag list is intended
+    clang++ $CXXFLAGS_SHARED \
         -DTEAM_A_SRC="\"$CANDIDATE\"" \
         -DTEAM_B_SRC="\"$OPPONENT\"" \
         -o "$BINARY" \

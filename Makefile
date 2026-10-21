@@ -12,34 +12,22 @@ CXX_GPU    ?= nvc++
 PYTHON     ?= python3
 
 # -------- flags --------
-# -Wno-unknown-pragmas: `#pragma acc routine seq` is legal under OpenACC
-# (nvc++) and mandated by spec to be silently ignored by other compilers.
-# Apple clang already does; g++ warns, and -Werror would promote to failure.
-# nvc++ does not accept -Wno-unknown-pragmas (it natively understands `acc`
-# pragmas and never warns on them) so CXXFLAGS_GPU omits it.
-CXXFLAGS_COMMON = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
-CXXFLAGS_GPU    = -std=c++17 -O2 -Wall -Wextra -Wshadow -Wpedantic -Werror -Isrc
-# g++-only suppressions. Two distinct false positives on the Ubuntu 24.04
-# default toolchain (GCC 13) at -O2 with -Werror enabled:
-#
-#   * -Wmaybe-uninitialized: src/engine.cpp:512 passes the stack-allocated
-#     `AttackEvent attack_events[2 * MAX_DRONES]` to write_trace_line_v2()
-#     on the tick-0 emit path. The third argument (event count) is 0 so
-#     the function never reads the buffer, but GCC can't see across the
-#     call boundary and conservatively flags it. Apple clang/nvc++ are
-#     silent.
-#   * -Wstringop-overflow: also engine.cpp — at -O2 the optimizer can't
-#     prove `w.params.num_drones_*` (int) is non-negative, models the
-#     memset length as ~SIZE_MAX, and triggers the diagnostic. Same
-#     diagnosis as the long-standing BENCH_GCC_EXTRA suppression below.
-#
-# Applied to build-linux-cpu/-cpu-omp only so Apple clang and nvc++ keep
-# their extra coverage.
-LINUX_GCC_EXTRA = -Wno-maybe-uninitialized -Wno-stringop-overflow
+# One definition for every engine build: scripts/compile_flags.py (see
+# docs/adr/0001-compile-flag-policy.md). It is shared with fitness.py, the
+# orchestrator, the test helpers and the sandbox entrypoint, and picks the
+# per-family adjustments itself: -Wno-unknown-pragmas everywhere except
+# nvc++ (which understands `#pragma acc` and rejects the flag), and the
+# GCC-only -Wno-maybe-uninitialized / -Wno-stringop-overflow suppressions
+# for the src/engine.cpp false positives. Recursive (=) so the helper only
+# runs for the compiler a target actually uses.
+COMPILE_FLAGS   = $(PYTHON) scripts/compile_flags.py --compiler
+CXXFLAGS_MACOS  = $(shell $(COMPILE_FLAGS) $(CXX_MACOS)) -Isrc
+CXXFLAGS_LINUX  = $(shell $(COMPILE_FLAGS) $(CXX_LINUX)) -Isrc
+CXXFLAGS_GPU    = $(shell $(COMPILE_FLAGS) $(CXX_GPU)) -Isrc
 # Tests default to -O0 -g only. Sanitizers are opt-in via SANITIZE=1 because
 # the Homebrew-LLVM ASan runtime on macOS can hang under SIP+dyld restrictions;
 # Linux CI sets SANITIZE=1 to exercise the sanitized build.
-CXXFLAGS_DEBUG  = -std=c++17 -O0 -g -Wall -Wextra -Wshadow -Wpedantic -Werror -Wno-unknown-pragmas -Isrc
+CXXFLAGS_DEBUG  = $(shell $(COMPILE_FLAGS) $(CXX_MACOS) --no-optimize) -O0 -g -Isrc
 ifeq ($(SANITIZE),1)
   CXXFLAGS_DEBUG += -fsanitize=address,undefined -fno-omit-frame-pointer
 endif
@@ -90,13 +78,13 @@ help:
 
 # -------- build --------
 build-macos: $(BUILD_DIR)
-	$(CXX_MACOS) $(CXXFLAGS_COMMON) $(SRC_ALL) -o $(TARGET)
+	$(CXX_MACOS) $(CXXFLAGS_MACOS) $(SRC_ALL) -o $(TARGET)
 
 build-linux-cpu: $(BUILD_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(LINUX_GCC_EXTRA) $(SRC_ALL) -o $(TARGET)
+	$(CXX_LINUX) $(CXXFLAGS_LINUX) $(SRC_ALL) -o $(TARGET)
 
 build-linux-cpu-omp: $(BUILD_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(LINUX_GCC_EXTRA) -fopenmp $(SRC_ALL) -o $(TARGET)
+	$(CXX_LINUX) $(CXXFLAGS_LINUX) -fopenmp $(SRC_ALL) -o $(TARGET)
 
 build-linux-gpu: $(BUILD_DIR)
 	$(CXX_GPU) $(CXXFLAGS_GPU) $(ACCFLAGS) $(SRC_ALL) -o $(TARGET)
@@ -111,19 +99,16 @@ $(BUILD_DIR):
 BENCH_MAX_DRONES ?= 100000
 BENCH_BIN_DIR    ?= build/bench
 BENCH_FLAGS      = -DMAX_DRONES_OVERRIDE=$(BENCH_MAX_DRONES)
-# GCC emits a false-positive -Wstringop-overflow at -O2 when MAX_DRONES is
-# large (100K) and memset length is runtime-computed. Suppress for g++ only.
-BENCH_GCC_EXTRA  = -Wno-stringop-overflow
 
 $(BENCH_BIN_DIR):
 	@mkdir -p $(BENCH_BIN_DIR)
 
 bench-build-cpu1: $(BENCH_BIN_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) $(BENCH_FLAGS) $(BENCH_GCC_EXTRA) $(SRC_ALL) \
+	$(CXX_LINUX) $(CXXFLAGS_LINUX) $(BENCH_FLAGS) $(SRC_ALL) \
 	    -o $(BENCH_BIN_DIR)/swarmevolve-cpu1
 
 bench-build-cpu-omp: $(BENCH_BIN_DIR)
-	$(CXX_LINUX) $(CXXFLAGS_COMMON) -fopenmp $(BENCH_FLAGS) $(BENCH_GCC_EXTRA) $(SRC_ALL) \
+	$(CXX_LINUX) $(CXXFLAGS_LINUX) -fopenmp $(BENCH_FLAGS) $(SRC_ALL) \
 	    -o $(BENCH_BIN_DIR)/swarmevolve-cpu-omp
 
 bench-build-gpu: $(BENCH_BIN_DIR)

@@ -82,6 +82,7 @@ COPY src/types.h              /opt/swarmevolve/types.h
 COPY src/ai_abi.h             /opt/swarmevolve/ai_abi.h
 COPY src/baselines            /opt/swarmevolve/baselines
 COPY scripts/inject_guards.py /opt/swarmevolve/inject_guards.py
+COPY scripts/compile_flags.py /opt/swarmevolve/compile_flags.py
 COPY docker/entrypoint.sh     /opt/swarmevolve/entrypoint.sh
 RUN chmod 0555 /opt/swarmevolve/entrypoint.sh
 

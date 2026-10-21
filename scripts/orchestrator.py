@@ -49,6 +49,11 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+import compile_flags  # noqa: E402
+
 ENGINE_SRC = REPO_ROOT / "src" / "engine.cpp"
 BASELINES = REPO_ROOT / "src" / "baselines"
 PLACEHOLDER = "TEAM_NS_PLACEHOLDER"
@@ -209,30 +214,9 @@ def compile_matchup(
     render_ai_source(team_b_src, "TeamB", b_dir / "ai.cpp")
 
     binary = build / "swarmevolve"
-    flags = [
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wextra",
-        "-Wshadow",
-        "-Wpedantic",
-        "-Werror",
-        # `#pragma acc routine seq` is legal under OpenACC (nvc++) and
-        # the spec mandates non-OpenACC compilers silently ignore it.
-        # Apple clang does; g++ raises an "unknown pragma" warning which
-        # -Werror promotes to a failure. Mirrors M8/M9 compile paths.
-        "-Wno-unknown-pragmas",
-        # See scripts/fitness.py::_compile and
-        # docs/adr/0001-compile-flag-policy.md: style-only unused-*
-        # warnings are suppressed so the evolutionary loop can accept
-        # LLM-authored candidates that leave scratch bookkeeping.
-        "-Wno-unused-variable",
-        "-Wno-unused-parameter",
-        "-Wno-unused-function",
-        "-Wno-unused-but-set-variable",
-        "-Wno-unused-const-variable",
-        f"-I{REPO_ROOT / 'src'}",
-    ]
+    # Shared with fitness.py, the Makefile, the test helpers and the
+    # sandbox image: scripts/compile_flags.py (ADR-0001).
+    flags = [*compile_flags.engine_flags(compiler), f"-I{REPO_ROOT / 'src'}"]
     if extra_flags:
         flags.extend(extra_flags)
     cmd = [

@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from tests._build_helper import BASELINES, CXX, render_baseline
+from tests._build_helper import BASELINES, CXX, compile_flags, render_baseline
 
 pytestmark = pytest.mark.skipif(CXX is None, reason="no C++17 compiler available")
 
@@ -57,28 +57,10 @@ def _build_bench_binary(
     render_baseline(BASELINES / "cluster_v1.cpp", "TeamB", b_dir, "ai.cpp")
 
     binary = scratch / "swarmevolve"
+    compiler = CXX or "c++"
     cmd: list[str] = [
-        CXX or "c++",
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wextra",
-        "-Wshadow",
-        "-Wpedantic",
-        "-Werror",
-        "-Wno-unknown-pragmas",
-        # Tolerate compiler-specific warning flags below (clang rejects
-        # -Wno-stringop-overflow / -Wno-maybe-uninitialized as
-        # unknown-warning-option under -Werror).
-        "-Wno-unknown-warning-option",
-        # GCC 13+ emits a false-positive -Wstringop-overflow at -O2 when
-        # MAX_DRONES_OVERRIDE is set and memset length is runtime-computed.
-        "-Wno-stringop-overflow",
-        # GCC 13+ also emits a false-positive -Wmaybe-uninitialized at -O2
-        # on src/engine.cpp:512 (the stack-allocated ``attack_events`` is
-        # passed with event-count 0 to write_trace_line_v2 and never read
-        # across the call boundary).
-        "-Wno-maybe-uninitialized",
+        compiler,
+        *compile_flags.engine_flags(compiler),
         f"-I{REPO_ROOT / 'src'}",
     ]
     if max_drones_override is not None:
@@ -264,7 +246,7 @@ def _probe_openmp(cc: str) -> bool:
         out = Path(td) / "probe"
         try:
             proc = subprocess.run(
-                [cc, "-std=c++17", "-fopenmp", str(src), "-o", str(out)],
+                [cc, *compile_flags.STD, "-fopenmp", str(src), "-o", str(out)],
                 capture_output=True,
                 check=False,
                 timeout=30,
@@ -335,10 +317,7 @@ def _build_bench_binary_with_cc(
     binary = scratch / "swarmevolve"
     cmd = [
         cc,
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wno-unknown-pragmas",
+        *compile_flags.engine_flags(cc),
         f"-I{REPO_ROOT / 'src'}",
         *extra_flags,
         str(ENGINE_SRC),

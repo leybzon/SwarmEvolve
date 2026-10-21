@@ -28,14 +28,21 @@ import fitness
 import inject_guards
 import llm_client
 import telemetry_aar
-from _build_helper import CXX
 from llm_client import LLMResponse, MockClient
-from test_dual_llm import PLANNER_JSON
+
+from tests._build_helper import CXX
+from tests.test_dual_llm import PLANNER_JSON
 
 pytestmark = pytest.mark.skipif(CXX is None, reason="no C++ compiler found on PATH")
 
 BASELINES = REPO_ROOT / "src" / "baselines"
 _TAG = re.compile(r"// TAG:(\w+)")
+
+
+def _tag(source: str) -> str:
+    m = _TAG.search(source)
+    assert m is not None, source
+    return m.group(1)
 
 
 def _program(tag: str, ns: str) -> str:
@@ -84,7 +91,7 @@ class FakeFitness:
     ):
         a_text = Path(team_a_src).read_text()
         b_text = Path(team_b_src).read_text()
-        tags = (_TAG.search(a_text).group(1), _TAG.search(b_text).group(1))
+        tags = (_tag(a_text), _tag(b_text))
         mean = self.table[tags]
         self.calls.append(
             dict(

@@ -159,3 +159,24 @@ single exhausted lineage would corrupt downstream aggregates.
 * If Track B / Track C show the same seed-level brittleness against
   real LLM clients, revisit their `strict=True` choice in a separate
   ADR.
+
+## Addendum (2026-10-21): one definition of the flags
+
+The flags in §1 had been copied into `scripts/fitness.py`,
+`scripts/orchestrator.py`, `tests/_build_helper.py`, the Makefile and
+`docker/entrypoint.sh`, and the copies drifted: the sandbox entrypoint
+never received the `-Wno-unused-*` relaxations (so a candidate could
+compile on the host and fail in the sandbox), and the GCC-only
+`-Wno-maybe-uninitialized` / `-Wno-stringop-overflow` suppressions were
+missing from the orchestrator path, which broke seven tests on GCC 13+.
+
+`scripts/compile_flags.py` is now the only definition. Python callers
+import it; the Makefile and the entrypoint call its CLI
+(`python3 scripts/compile_flags.py --compiler <cxx>`), and the sandbox
+image copies it next to the injector. It detects the compiler family
+from `--version` and applies the per-family adjustments: no
+`-Wno-unknown-pragmas` for nvc++, the GCC false-positive suppressions for
+GCC only. nvc++ keeps its historical warning set without the
+`-Wno-unused-*` relaxations until their acceptance by nvc++ is verified.
+`tests/test_compile_flags.py` checks every compile path against it and
+fails if any other file spells the flags out.

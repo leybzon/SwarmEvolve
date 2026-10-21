@@ -14,6 +14,9 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 REPO_ROOT = _HERE.parent
+
+import compile_flags  # noqa: E402
+
 M25_DIR = REPO_ROOT / "data" / "runs" / "m25_coevolve_100r"
 VID_DIR = M25_DIR / "videos"
 
@@ -77,8 +80,7 @@ def generate_trace(team_a_path: Path, team_b_path: Path, trace_path: Path, seed:
         compiler = "/opt/homebrew/opt/llvm/bin/clang++"
         compile_cmd = [
             compiler,
-            "-std=c++17",
-            "-O3",
+            *compile_flags.engine_flags(compiler),
             f"-I{REPO_ROOT / 'src'}",
             "-o",
             str(binary),

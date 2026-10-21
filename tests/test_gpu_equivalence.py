@@ -28,6 +28,7 @@ from tests._build_helper import (
     ENGINE_SRC,
     REPO_ROOT,
     build_matchup,
+    compile_flags,
     render_baseline,
 )
 
@@ -54,17 +55,11 @@ def _build_gpu_binary(tmp_path: Path) -> Path:
     render_baseline(BASELINES / "cluster_v1.cpp", "TeamB", b_dir, "ai.cpp")
 
     binary = scratch / "swarmevolve_gpu"
+    compiler = NVCPP or "nvc++"
     cmd = [
-        NVCPP or "nvc++",
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wextra",
-        "-Wshadow",
-        "-Wpedantic",
-        "-Werror",
-        # NB: no -Wno-unknown-pragmas; nvc++ rejects that flag and natively
-        # understands `#pragma acc`.
+        compiler,
+        # nvc++ family: no -Wno-unknown-pragmas (it understands `#pragma acc`).
+        *compile_flags.engine_flags(compiler),
         f"-I{REPO_ROOT / 'src'}",
         "-acc=gpu",
         "-gpu=mem:managed",

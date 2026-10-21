@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from tests._build_helper import ENGINE_SRC, REPO_ROOT
+from tests._build_helper import ENGINE_SRC, REPO_ROOT, compile_flags
 
 NVCPP = shutil.which("nvc++")
 pytestmark = pytest.mark.skipif(
@@ -52,13 +52,7 @@ def _build_gpu_stress(tmp_path: Path) -> Path:
     subprocess.run(
         [
             NVCPP,
-            "-std=c++17",
-            "-O2",
-            "-Wall",
-            "-Wextra",
-            "-Wshadow",
-            "-Wpedantic",
-            "-Werror",
+            *compile_flags.engine_flags(NVCPP),
             "-acc=gpu",
             "-gpu=mem:managed",
             f"-I{REPO_ROOT / 'src'}",

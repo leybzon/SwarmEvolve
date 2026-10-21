@@ -7,6 +7,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Fixed
+- One definition of the C++ compile flags, `scripts/compile_flags.py`
+  (ADR-0001 addendum), used by `fitness.py`, `orchestrator.py`,
+  `tests/_build_helper.py`, the Makefile, `docker/entrypoint.sh` and the
+  other engine builds. The sandbox now compiles with the same flags as the
+  host, and the GCC 13+ `-Wmaybe-uninitialized` / `-Wstringop-overflow`
+  false positives in `src/engine.cpp` no longer fail the orchestrator
+  path and its seven tests.
 - Dual-LLM loops (`evolve_dual.py`, `evolve_coevolve.py`), defects D1–D3
   and D5 in `docs/paper/RESEARCH_BRIEF.md`:
   - D1: the planner and coder prompts now carry the evolving team's own

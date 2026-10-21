@@ -61,6 +61,11 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+import compile_flags  # noqa: E402
+
 ENGINE_SRC = REPO_ROOT / "src" / "engine.cpp"
 PLACEHOLDER = "TEAM_NS_PLACEHOLDER"
 
@@ -164,35 +169,11 @@ def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) 
     _render(team_a_src, "TeamA", a_dir / "ai.cpp")
     _render(team_b_src, "TeamB", b_dir / "ai.cpp")
     binary = work_dir / "swarmevolve"
-    # Compile-flag policy (see docs/adr/0001-compile-flag-policy.md):
-    #   * Keep -Werror on everything except *style* warnings. Correctness
-    #     failures (shadowing, pedantic violations, sign-compare, ABI
-    #     mismatches, uninitialized reads) stay hard errors.
-    #   * Explicitly suppress unused-{variable,parameter,function,
-    #     but-set-variable,const-variable}: both SOTA LLMs we evaluated
-    #     (Claude Sonnet 4.5, Claude Opus 4.7) reliably scaffold
-    #     bookkeeping variables in their first draft; rejecting those as
-    #     compile failures rather than as suboptimal tactics made the
-    #     evolutionary loop unable to accept *any* candidate, which
-    #     defeats RQ2/RQ3 before they can even run. Rejecting unused
-    #     scaffolding at the compiler level is a style judgement, not a
-    #     correctness one — so we let it through here and rely on the
-    #     LLM-driven retry loop + prompt guidance instead.
+    # Flags come from scripts/compile_flags.py (ADR-0001), shared with the
+    # orchestrator, the Makefile, the test helpers and the sandbox image.
     cmd = [
         compiler,
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wextra",
-        "-Wshadow",
-        "-Wpedantic",
-        "-Werror",
-        "-Wno-unknown-pragmas",
-        "-Wno-unused-variable",
-        "-Wno-unused-parameter",
-        "-Wno-unused-function",
-        "-Wno-unused-but-set-variable",
-        "-Wno-unused-const-variable",
+        *compile_flags.engine_flags(compiler),
         f"-I{REPO_ROOT / 'src'}",
         str(ENGINE_SRC),
         str(a_dir / "ai.cpp"),
@@ -200,24 +181,6 @@ def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) 
         "-o",
         str(binary),
     ]
-    # GCC 13 (Ubuntu 24.04 default) emits two false positives at -O2 on
-    # src/engine.cpp under -Werror that the same code compiles cleanly
-    # under Apple clang, nvc++ and earlier g++ versions:
-    #   * -Wmaybe-uninitialized at line 512 — the stack-allocated
-    #     `AttackEvent attack_events[2*MAX_DRONES]` is passed to
-    #     write_trace_line_v2() at tick 0 with event-count 0; the function
-    #     never reads the buffer but GCC can't tell across the call.
-    #   * -Wstringop-overflow on memset paths whose length is
-    #     `sizeof(T) * num_drones_*` (int the optimizer can't prove
-    #     non-negative).
-    # Suppress for g++ only — Apple clang would need
-    # -Wno-unknown-warning-option to silently accept the GCC-specific
-    # name, and we want the warnings active under every other toolchain.
-    # Same workaround in the Makefile (LINUX_GCC_EXTRA, BENCH_GCC_EXTRA).
-    compiler_basename = Path(compiler).name
-    if "g++" in compiler_basename and "clang" not in compiler_basename:
-        idx = cmd.index("-Werror") + 1
-        cmd[idx:idx] = ["-Wno-maybe-uninitialized", "-Wno-stringop-overflow"]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise CompileError(
