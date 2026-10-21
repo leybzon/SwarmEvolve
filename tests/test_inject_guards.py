@@ -359,6 +359,28 @@ def test_cli_check_mode_exits_1_if_changes_needed(tmp_path: Path) -> None:
     assert "would-rewrite" in proc.stdout
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        MARKER_COMMENT + "\nint main(){ return 0; }\n",  # already guarded
+        "int f(int x){ return x + 1; }\n",  # no loops at all
+    ],
+)
+def test_cli_stdout_emits_unchanged_source(tmp_path: Path, source: str) -> None:
+    """Regression: --stdout printed nothing for a source that needed no
+    change, so the sandbox compiled an empty AI file and failed to link."""
+    src = tmp_path / "t.cpp"
+    src.write_text(source)
+    proc = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "inject_guards.py"), "--stdout", str(src)],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == inject(source)
+    assert "int " in proc.stdout
+
+
 def test_cli_check_mode_exits_0_if_clean(tmp_path: Path) -> None:
     src = tmp_path / "t.cpp"
     src.write_text(MARKER_COMMENT + "\nint main(){ return 0; }\n")

@@ -46,7 +46,7 @@ BUILD_DIR    = build
         bench-build-cpu1 bench-build-cpu-omp bench-build-gpu \
         bench-cpu1 bench-cpu-omp bench-gpu bench-all \
         test test-cpp test-python lint format clean run-demo visualize-demo \
-        docker-build docker-test check doctor
+        docker-build docker-build-sandbox docker-test check doctor
 
 all: help
 
@@ -71,7 +71,8 @@ help:
 	@echo "  check                - lint + test (what CI runs)"
 	@echo "  run-demo             - Build and run a demo match producing a trace"
 	@echo "  visualize-demo       - Render data/traces/demo.jsonl to data/videos/demo.mp4"
-	@echo "  docker-build         - Build the sandbox container image (M8)"
+	@echo "  docker-build         - Build the eval container image (docker/Dockerfile.eval)"
+	@echo "  docker-build-sandbox - Build the legacy M8 sandbox image"
 	@echo "  docker-test          - Run sandbox test suite (M8)"
 	@echo "  clean                - Remove build artifacts and transient data"
 	@echo "  doctor               - Print toolchain versions"
@@ -218,17 +219,24 @@ visualize-demo:
 	$(PYTHON) scripts/visualizer.py data/traces/demo.jsonl data/videos/demo.mp4
 	@echo "Video written to data/videos/demo.mp4"
 
-# -------- docker (M8 sandbox) --------
-SANDBOX_IMAGE ?= swarmevolve-sandbox:latest
+# -------- docker (eval image; M8 sandbox) --------
+# docker/Dockerfile.eval is the canonical evaluation image (v2 study): it
+# runs scripts/eval_batch.py in `batch` mode and the M8 single-match mode.
+# The old docker/Dockerfile.sandbox image stays buildable for reference.
+SANDBOX_IMAGE ?= swarmevolve-eval:latest
+LEGACY_SANDBOX_IMAGE ?= swarmevolve-sandbox:latest
 
 docker-build:
-	@test -f docker/Dockerfile.sandbox || (echo "docker/Dockerfile.sandbox missing"; exit 1)
-	docker build -f docker/Dockerfile.sandbox -t $(SANDBOX_IMAGE) .
+	@test -f docker/Dockerfile.eval || (echo "docker/Dockerfile.eval missing"; exit 1)
+	docker build -f docker/Dockerfile.eval -t $(SANDBOX_IMAGE) .
+
+docker-build-sandbox:
+	docker build -f docker/Dockerfile.sandbox -t $(LEGACY_SANDBOX_IMAGE) .
 
 # Run only the sandbox test modules; other Python tests stay fast-path.
 docker-test:
 	SANDBOX_IMAGE=$(SANDBOX_IMAGE) $(PYTHON) -m pytest -v \
-	    tests/test_sandbox_ok.py tests/test_sandbox_escape.py
+	    tests/test_sandbox_ok.py tests/test_sandbox_escape.py tests/test_eval_sandbox.py
 
 # -------- maintenance --------
 clean:

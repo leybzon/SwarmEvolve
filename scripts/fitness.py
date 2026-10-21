@@ -7,27 +7,36 @@ mean, stdev, and a bootstrap 95% confidence interval on the mean.
 
 Design notes
 ------------
-* **Compile once per worker, run many matches.** Each worker process
-  renders both AIs, invokes the host compiler once, then reuses the
-  resulting binary across its subset of seeds. This keeps the cost
-  near the engine's ~20 ms/tick rather than the ~500 ms/compile.
-* **Host-side by default; sandbox opt-in.** The spec (§M9) eventually
-  routes matches through ``scripts.sandbox``; for M9 we keep the host
-  path as default so CI + local iteration stay fast. ``--sandbox``
-  opt-in calls :func:`sandbox.run_match_in_sandbox` per match.
+* **One batch runner, two backends.** ``scripts/eval_batch.py`` injects
+  loop guards, compiles once with ``compile_flags.eval_flags`` and plays
+  a list of seeds. ``backend="sandbox"`` (the default) runs it in the
+  eval container (``docker/Dockerfile.eval``) and splits the seeds across
+  parallel containers of ``container_cpus`` CPUs each; ``backend="host"``
+  runs it in-process. Both produce the same per-match rows.
+* **Sandbox by default.** LLM-written code is compiled and played only in
+  the container. ``backend=None`` resolves to ``$SWARMEVOLVE_FITNESS_BACKEND``
+  or ``"sandbox"``; the test suite sets the variable to ``host`` for its
+  trusted fixtures. Every result carries ``backend`` and a ``platform``
+  fingerprint (``scripts/platform_fingerprint.py``).
 * **Deterministic reductions.** Seed sequences are contiguous
   ``[seed_base, seed_base + n_matches)`` so two runs with the same
   ``(team_a, team_b, seed_base, n_matches)`` produce byte-identical
-  per-match scores and therefore identical aggregates. The bootstrap
-  CI uses a second, orthogonal seed (``ci_seed``) derived from
-  ``seed_base`` so it, too, reproduces.
-* **Score convention**: +1 for A_WIN, -1 for B_WIN, 0 for DRAW. A
-  match that crashes / times out is counted in ``invalid`` rather
-  than ``draws``. When the caller names the program under test
-  (``under_test="A"`` or ``"B"``), an invalid match scores as a loss
-  for that side; otherwise (symmetric uses such as tournaments) it
-  scores 0. Evolution loops always pass ``under_test`` so a crashing
-  candidate can never score as well as a draw.
+  per-match rows (apart from ``wall_ms``) and therefore identical
+  aggregates. The bootstrap CI uses a second, orthogonal seed
+  (``ci_seed``) derived from ``seed_base`` so it, too, reproduces.
+* **Score convention**: +1 for A_WIN, -1 for B_WIN, 0 for DRAW. A match
+  in one of the invalid categories (GUARD_FAIL, COMPILE_FAIL, CRASH,
+  TIMEOUT) is counted in ``invalid`` rather than ``draws``. When the
+  caller names the program under test (``under_test="A"`` or ``"B"``),
+  an invalid match scores as a loss for that side; otherwise (symmetric
+  uses such as tournaments) it scores 0. Evolution loops always pass
+  ``under_test`` so a crashing candidate can never score as well as a
+  draw.
+* **Build failures.** A guard or compile failure fills every seed with
+  GUARD_FAIL / COMPILE_FAIL rows. By default :func:`evaluate_fitness`
+  then raises :class:`CompileError` (:class:`GuardError` for the guard
+  case) with the full result attached as ``exc.result``; pass
+  ``raise_on_build_failure=False`` to get the result back instead.
 
 Public API
 ----------
@@ -53,8 +62,8 @@ import os
 import random
 import shutil
 import statistics
-import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -64,13 +73,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import compile_flags  # noqa: E402
+import eval_batch  # noqa: E402
+import platform_fingerprint  # noqa: E402
 
-ENGINE_SRC = REPO_ROOT / "src" / "engine.cpp"
+ENGINE_DIR = REPO_ROOT / "src"
+HARNESS_DIR = REPO_ROOT / "scripts"
 PLACEHOLDER = "TEAM_NS_PLACEHOLDER"
 
-_OUTCOME_BY_RC = {0: "A_WIN", 1: "B_WIN", 2: "DRAW"}
-_SCORE_BY_RC = {0: 1.0, 1: -1.0, 2: 0.0}
+BACKENDS = ("sandbox", "host")
+BACKEND_ENV = "SWARMEVOLVE_FITNESS_BACKEND"
+# CPUs (and concurrent matches) per eval container; see
+# reports/setup/EVAL_TIMING.md for the measurements behind the default.
+DEFAULT_CONTAINER_CPUS = 4
+
+INVALID_OUTCOMES = eval_batch.INVALID_OUTCOMES
+BUILD_FAILURES = ("GUARD_FAIL", "COMPILE_FAIL")
 
 
 # ---------------------------------------------------------------------------
@@ -90,13 +107,19 @@ class FitnessResult:
     ``ci_high``   ``n_matches < 2`` (CI undefined on a single sample).
     ``wins_a/b``  counts of A_WIN / B_WIN outcomes.
     ``draws``     count of DRAW outcomes.
-    ``invalid``   count of matches that crashed / timed out. They
+    ``invalid``   count of matches in an invalid category
+                  (GUARD_FAIL, COMPILE_FAIL, CRASH, TIMEOUT). They
                   score as a loss for ``under_test`` when it is set,
                   else 0.
     ``under_test`` "A", "B" or ``None``: the side whose program is
                   being evaluated.
     ``per_match`` list of per-match dicts: ``{seed, outcome, score,
-                  ticks, wall_ms, a_alive, b_alive}``.
+                  ticks, wall_ms, a_alive, b_alive, return_code}``, plus
+                  ``failed_side`` on GUARD_FAIL / COMPILE_FAIL rows.
+    ``backend``   "sandbox" or "host".
+    ``platform``  fingerprint of where the matches were compiled and
+                  played (``platform_fingerprint.from_status``), with
+                  its ``label`` against ``prereg/PLATFORM.json``.
     """
 
     team_a_path: str
@@ -116,6 +139,8 @@ class FitnessResult:
     compiler: str = ""
     per_match: list[dict[str, Any]] = field(default_factory=list)
     under_test: str | None = None
+    backend: str = "host"
+    platform: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation. Used by ``fitness.json``."""
@@ -149,7 +174,7 @@ def _find_compiler() -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Per-worker: render sources, compile once, run a batch of seeds
+# Rendering, errors, backend selection
 # ---------------------------------------------------------------------------
 
 
@@ -163,154 +188,123 @@ def _render(src_path: Path, namespace: str, dest: Path) -> None:
     dest.write_text(text)
 
 
-def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) -> Path:
-    a_dir = work_dir / "src" / "a"
-    b_dir = work_dir / "src" / "b"
-    _render(team_a_src, "TeamA", a_dir / "ai.cpp")
-    _render(team_b_src, "TeamB", b_dir / "ai.cpp")
-    binary = work_dir / "swarmevolve"
-    # Flags come from scripts/compile_flags.py (ADR-0001), shared with the
-    # orchestrator, the Makefile, the test helpers and the sandbox image.
-    cmd = [
-        compiler,
-        *compile_flags.engine_flags(compiler),
-        f"-I{REPO_ROOT / 'src'}",
-        str(ENGINE_SRC),
-        str(a_dir / "ai.cpp"),
-        str(b_dir / "ai.cpp"),
-        "-o",
-        str(binary),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
-        raise CompileError(
-            f"compile failed rc={proc.returncode}\n"
-            f"STDOUT:\n{proc.stdout[-2000:]}\n"
-            f"STDERR:\n{proc.stderr[-2000:]}"
-        )
-    return binary
-
-
 class CompileError(RuntimeError):
-    """Raised when the one-time per-worker compile fails."""
+    """A source failed to compile (or, as :class:`GuardError`, to take loop
+    guards). ``result`` holds the evaluation with every seed marked invalid."""
+
+    def __init__(self, message: str, result: FitnessResult | None = None):
+        super().__init__(message)
+        self.result = result
+
+
+class GuardError(CompileError):
+    """Loop-guard injection refused a source."""
+
+
+class StaleImageError(RuntimeError):
+    """The eval image's baked harness differs from the repo; rebuild it."""
 
 
 def _invalid_score(under_test: str | None) -> float:
-    """Score of a crashed / timed-out match: a loss for the side under test."""
-    if under_test == "A":
-        return -1.0
-    if under_test == "B":
-        return 1.0
-    return 0.0
+    """Score of an invalid match: a loss for the side under test."""
+    return eval_batch.invalid_score(under_test)
 
 
-def _run_one_match(
-    binary: Path,
-    seed: int,
-    max_ticks: int,
-    timeout: float,
-    *,
-    under_test: str | None = None,
-    record_path: Path | None = None,
-) -> dict[str, Any]:
-    """Execute a single match; return a dict of match stats."""
-    cmd = [str(binary), "--seed", str(seed), "--max-ticks", str(max_ticks)]
-    if record_path is not None:
-        # Schema-v2 trace: telemetry_aar needs the per-tick actions/attacks.
-        cmd += ["--record", str(record_path), "--record-actions"]
-    t0 = time.monotonic()
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return {
-            "seed": seed,
-            "outcome": "TIMEOUT",
-            "score": _invalid_score(under_test),
-            "ticks": 0,
-            "wall_ms": int(timeout * 1000),
-            "a_alive": 0,
-            "b_alive": 0,
-            "return_code": -1,
-        }
-    wall_ms = int((time.monotonic() - t0) * 1000)
-
-    rc = proc.returncode
-    if rc not in _OUTCOME_BY_RC:
-        return {
-            "seed": seed,
-            "outcome": "CRASH",
-            "score": _invalid_score(under_test),
-            "ticks": 0,
-            "wall_ms": wall_ms,
-            "a_alive": 0,
-            "b_alive": 0,
-            "return_code": rc,
-        }
-
-    ticks = 0
-    a_alive = 0
-    b_alive = 0
-    lines = [line for line in proc.stdout.strip().splitlines() if line]
-    if lines:
-        try:
-            fields = dict(tok.split("=", 1) for tok in lines[-1].split())
-            ticks = int(fields.get("ticks", 0))
-            a_alive = int(fields.get("a_alive", 0))
-            b_alive = int(fields.get("b_alive", 0))
-        except ValueError:
-            pass
-    return {
-        "seed": seed,
-        "outcome": _OUTCOME_BY_RC[rc],
-        "score": _SCORE_BY_RC[rc],
-        "ticks": ticks,
-        "wall_ms": wall_ms,
-        "a_alive": a_alive,
-        "b_alive": b_alive,
-        "return_code": rc,
-    }
+def resolve_backend(backend: str | None) -> str:
+    """``backend``, else ``$SWARMEVOLVE_FITNESS_BACKEND``, else ``"sandbox"``."""
+    chosen = backend or os.environ.get(BACKEND_ENV) or "sandbox"
+    if chosen not in BACKENDS:
+        raise ValueError(f"backend must be one of {BACKENDS}, got {chosen!r}")
+    return chosen
 
 
-def _worker_batch(
-    team_a_src: str,
-    team_b_src: str,
+def split_seeds(seeds: list[int], parts: int) -> list[list[int]]:
+    """Round-robin partition, deterministic in (seeds, parts); no empty parts."""
+    parts = max(1, min(parts, len(seeds)))
+    out: list[list[int]] = [[] for _ in range(parts)]
+    for idx, seed in enumerate(seeds):
+        out[idx % parts].append(seed)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Backends: each returns (rows, statuses, extra platform fields)
+# ---------------------------------------------------------------------------
+
+
+def _run_host(
+    a_src: Path,
+    b_src: Path,
     seeds: list[int],
+    eval_dir: Path,
+    *,
     compiler: str,
-    max_ticks: int,
-    timeout: float,
-    work_dir: str,
-    under_test: str | None = None,
-    record_seed: int | None = None,
-    record_path: str | None = None,
-) -> list[dict[str, Any]]:
-    """Top-level so ProcessPoolExecutor can pickle it.
+    workers: int,
+    batch_kwargs: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], Path | None]:
+    out = eval_dir / "out"
+    status = eval_batch.run_batch(
+        team_a=a_src,
+        team_b=b_src,
+        seeds=seeds,
+        out=out,
+        work=eval_dir / "work",
+        engine_dir=ENGINE_DIR,
+        harness_dir=HARNESS_DIR,
+        compiler=compiler,
+        jobs=workers,
+        **batch_kwargs,
+    )
+    trace = out / "trace.jsonl"
+    return eval_batch.read_results(out), [status], trace if trace.is_file() else None
 
-    Each worker gets a non-overlapping slice of seeds. It compiles once
-    into its private ``work_dir`` and then runs all of them.
-    """
-    wd = Path(work_dir)
-    wd.mkdir(parents=True, exist_ok=True)
-    binary = _compile(Path(team_a_src), Path(team_b_src), wd, compiler)
-    results: list[dict[str, Any]] = []
-    for seed in seeds:
-        record = Path(record_path) if record_path and seed == record_seed else None
-        results.append(
-            _run_one_match(
-                binary,
-                seed,
-                max_ticks,
-                timeout,
-                under_test=under_test,
-                record_path=record,
-            )
+
+def _run_sandbox(
+    a_src: Path,
+    b_src: Path,
+    seeds: list[int],
+    eval_dir: Path,
+    *,
+    image_id: str,
+    workers: int,
+    container_cpus: int,
+    batch_kwargs: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], Path | None]:
+    import sandbox
+
+    cpus = max(1, min(container_cpus, workers))
+    parts = split_seeds(seeds, -(-workers // cpus))
+
+    def one(i: int, part: list[int]) -> sandbox.BatchResult:
+        record_seed = batch_kwargs["record_seed"]
+        return sandbox.run_batch_in_sandbox(
+            a_src,
+            b_src,
+            part,
+            eval_dir / f"c{i}",
+            image_id=image_id,
+            cpus=cpus,
+            jobs=cpus,
+            max_ticks=batch_kwargs["max_ticks"],
+            timeout=batch_kwargs["timeout"],
+            under_test=batch_kwargs["under_test"],
+            record_seed=record_seed if record_seed in part else None,
+            drones_a=batch_kwargs["drones_a"],
+            drones_b=batch_kwargs["drones_b"],
         )
-    return results
+
+    with _futures.ThreadPoolExecutor(max_workers=len(parts)) as pool:
+        batches = list(pool.map(one, range(len(parts)), parts))
+    expected = eval_batch.harness_hashes(ENGINE_DIR, HARNESS_DIR)
+    for b in batches:
+        if b.status.get("harness_sha256") != expected:
+            raise StaleImageError(
+                f"eval image {image_id} was built from different harness files than the "
+                "repo; rebuild it with `make docker-build`"
+            )
+    rows = [r for b in batches for r in b.rows]
+    trace = next((b.trace_path for b in batches if b.trace_path is not None), None)
+    return rows, [b.status for b in batches], trace
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +363,12 @@ def evaluate_fitness(
     under_test: str | None = None,
     record_trace_for_match_idx: int | None = None,
     trace_output_path: Path | str | None = None,
+    backend: str | None = None,
+    image: str | None = None,
+    container_cpus: int = DEFAULT_CONTAINER_CPUS,
+    drones_a: int | None = None,
+    drones_b: int | None = None,
+    raise_on_build_failure: bool = True,
 ) -> FitnessResult:
     """Evaluate N seeded matches between ``team_a_src`` and ``team_b_src``.
 
@@ -384,44 +384,56 @@ def evaluate_fitness(
         First seed. Passing the same ``(srcs, seed_base, n_matches)``
         reproduces byte-identical per-match results.
     workers
-        Number of worker processes. ``None`` → ``min(os.cpu_count(),
-        n_matches)``. Matches are evenly partitioned across workers;
-        each worker compiles once.
+        CPUs to use. ``None`` → ``os.cpu_count()``, capped at
+        ``n_matches``. Host: concurrent matches after one compile.
+        Sandbox: ``ceil(workers / container_cpus)`` containers, each
+        compiling once and playing ``container_cpus`` matches at a time.
     max_ticks, timeout
-        Forwarded to the engine / match wrapper.
+        Forwarded to the engine / per-match wall-clock limit (seconds).
     compiler
-        Override path to the C++ compiler. ``None`` → auto-detect.
+        Host backend only: override path to the C++ compiler. ``None`` →
+        auto-detect. The sandbox always uses the image's g++.
     scratch_root
-        Parent directory for per-worker build dirs. Defaults to a
-        system temp dir. Callers pass an explicit path when they want
-        the build artifacts preserved (e.g. the orchestrator's
-        ``fitness_run/`` subdir).
+        Parent directory for the per-evaluation work directory. Defaults
+        to ``$SWARM_FITNESS_SCRATCH`` or ``~/.pytest-sandbox/fitness``
+        (under ``$HOME`` so Colima can bind-mount it). The work directory
+        is removed afterwards.
     bootstrap_iterations
         Iterations for the bootstrap CI. Default 2000 (~instant).
     under_test
         ``"A"`` or ``"B"``: the side whose program is being evaluated.
-        Crashed / timed-out matches score as a loss for that side.
-        ``None`` (symmetric comparison) scores them 0.
+        Invalid matches score as a loss for that side. ``None``
+        (symmetric comparison) scores them 0.
     record_trace_for_match_idx, trace_output_path
         When both are set, match number ``record_trace_for_match_idx``
         (seed ``seed_base + idx``) also writes a schema-v2 trace to
         ``trace_output_path``. Recording does not change the outcome.
-
-    Returns
-    -------
-    FitnessResult
-        Populated aggregate + per-match list.
+    backend
+        ``"sandbox"`` or ``"host"``; ``None`` → :func:`resolve_backend`.
+    image
+        Sandbox only: eval image tag; resolved to its ID once per call.
+    container_cpus
+        Sandbox only: ``--cpus`` and concurrent matches per container.
+    drones_a, drones_b
+        Team sizes; ``None`` keeps the engine default.
+    raise_on_build_failure
+        Raise :class:`CompileError` / :class:`GuardError` (with
+        ``exc.result``) on a build failure instead of returning.
 
     Raises
     ------
     FileNotFoundError
         If either source file is missing.
     CompileError
-        If the one-time compile fails in any worker. (We don't swallow
-        this: a compile failure is a pipeline-level bug, not a
-        per-match failure.)
+        On a guard or compile failure, unless ``raise_on_build_failure``
+        is false.
     RuntimeError
-        If no C++ compiler can be located.
+        If no C++ compiler can be located (host backend).
+    sandbox.SandboxError
+        Sandbox backend: no runtime, missing image, or a container that
+        produced no usable result (an infrastructure failure).
+    StaleImageError
+        Sandbox backend: the image was built from other harness files.
     """
     team_a = Path(team_a_src).resolve()
     team_b = Path(team_b_src).resolve()
@@ -433,8 +445,8 @@ def evaluate_fitness(
         raise ValueError(f"n_matches must be >= 1, got {n_matches}")
     if under_test not in (None, "A", "B"):
         raise ValueError(f"under_test must be 'A', 'B' or None, got {under_test!r}")
+    chosen = resolve_backend(backend)
     record_seed: int | None = None
-    record_path: str | None = None
     if record_trace_for_match_idx is not None and trace_output_path is not None:
         if not 0 <= record_trace_for_match_idx < n_matches:
             raise ValueError(
@@ -442,14 +454,6 @@ def evaluate_fitness(
                 f"got {record_trace_for_match_idx}"
             )
         record_seed = seed_base + record_trace_for_match_idx
-        record_path = str(Path(trace_output_path).resolve())
-        Path(record_path).parent.mkdir(parents=True, exist_ok=True)
-
-    cxx = compiler or _find_compiler()
-    if cxx is None:
-        raise RuntimeError(
-            "no C++ compiler found; set $CXX or install clang++/g++",
-        )
 
     if scratch_root is None:
         scratch_root_path = Path(
@@ -461,62 +465,79 @@ def evaluate_fitness(
 
     max_workers = max(1, min(workers or (os.cpu_count() or 1), n_matches))
     seeds = [seed_base + i for i in range(n_matches)]
-    # Round-robin seed assignment → balanced work even when n_matches
-    # doesn't divide workers evenly. Deterministic wrt. (workers, n_matches).
-    partitions: list[list[int]] = [[] for _ in range(max_workers)]
-    for idx, seed in enumerate(seeds):
-        partitions[idx % max_workers].append(seed)
+    batch_kwargs: dict[str, Any] = {
+        "max_ticks": max_ticks,
+        "timeout": timeout,
+        "under_test": under_test,
+        "record_seed": record_seed,
+        "drones_a": drones_a,
+        "drones_b": drones_b,
+    }
 
     t0 = time.monotonic()
+    eval_dir = Path(tempfile.mkdtemp(prefix=f"eval_{chosen}_", dir=scratch_root_path))
+    try:
+        a_src = eval_dir / "a.cpp"
+        b_src = eval_dir / "b.cpp"
+        _render(team_a, "TeamA", a_src)
+        _render(team_b, "TeamB", b_src)
+        if chosen == "host":
+            cxx = compiler or _find_compiler()
+            if cxx is None:
+                raise RuntimeError("no C++ compiler found; set $CXX or install clang++/g++")
+            results, statuses, trace = _run_host(
+                a_src,
+                b_src,
+                seeds,
+                eval_dir,
+                compiler=cxx,
+                workers=max_workers,
+                batch_kwargs=batch_kwargs,
+            )
+            image_tag = image_id = None
+        else:
+            import sandbox
 
-    results: list[dict[str, Any]] = []
-    if max_workers == 1:
-        # Keep the single-worker path synchronous so exceptions surface
-        # with their original traceback (easier debugging + avoids the
-        # ProcessPoolExecutor pickle boundary entirely).
-        wd = scratch_root_path / f"w0_{os.getpid()}"
-        results = _worker_batch(
-            str(team_a),
-            str(team_b),
-            partitions[0],
-            cxx,
-            max_ticks,
-            timeout,
-            str(wd),
-            under_test,
-            record_seed,
-            record_path,
-        )
-    else:
-        with _futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
-            futures = [
-                pool.submit(
-                    _worker_batch,
-                    str(team_a),
-                    str(team_b),
-                    part,
-                    cxx,
-                    max_ticks,
-                    timeout,
-                    str(scratch_root_path / f"w{i}_{os.getpid()}"),
-                    under_test,
-                    record_seed,
-                    record_path,
-                )
-                for i, part in enumerate(partitions)
-                if part  # skip empty partitions when workers > n_matches
-            ]
-            for fut in _futures.as_completed(futures):
-                results.extend(fut.result())
+            image_tag = image or sandbox.DEFAULT_IMAGE
+            image_id = sandbox.resolve_image_id(image_tag)
+            results, statuses, trace = _run_sandbox(
+                a_src,
+                b_src,
+                seeds,
+                eval_dir,
+                image_id=image_id,
+                workers=max_workers,
+                container_cpus=container_cpus,
+                batch_kwargs=batch_kwargs,
+            )
+            cxx = statuses[0].get("compiler", "g++")
+        if trace is not None and trace_output_path is not None:
+            dest = Path(trace_output_path).resolve()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(trace, dest)
+        build_log = ""
+        for name in ("compile.log", "inject_a.log", "inject_b.log"):
+            for log in sorted(eval_dir.glob(f"**/out/{name}")):
+                build_log += f"--- {name}\n{log.read_text()[-2000:]}\n"
+                break
+    finally:
+        shutil.rmtree(eval_dir, ignore_errors=True)
 
-    # Sort by seed so the per-match list is deterministic regardless of
-    # worker completion order.
+    fingerprints = [
+        platform_fingerprint.from_status(st, backend=chosen, image=image_tag, image_id=image_id)
+        for st in statuses
+    ]
+    if any(fp != fingerprints[0] for fp in fingerprints):
+        raise RuntimeError("batches of one evaluation reported different platforms")
+    platform = dict(fingerprints[0])
+    platform["label"] = platform_fingerprint.platform_label(platform)
+
     results.sort(key=lambda r: r["seed"])
 
     wins_a = sum(1 for r in results if r["outcome"] == "A_WIN")
     wins_b = sum(1 for r in results if r["outcome"] == "B_WIN")
     draws = sum(1 for r in results if r["outcome"] == "DRAW")
-    invalid = sum(1 for r in results if r["outcome"] in ("TIMEOUT", "CRASH"))
+    invalid = sum(1 for r in results if r["outcome"] in INVALID_OUTCOMES)
     scores = [r["score"] for r in results]
     mean = statistics.fmean(scores) if scores else 0.0
     stdev = statistics.pstdev(scores) if len(scores) >= 2 else 0.0
@@ -537,7 +558,7 @@ def evaluate_fitness(
         )
 
     wall = time.monotonic() - t0
-    return FitnessResult(
+    result = FitnessResult(
         team_a_path=str(team_a),
         team_b_path=str(team_b),
         n_matches=n_matches,
@@ -555,7 +576,18 @@ def evaluate_fitness(
         compiler=cxx,
         per_match=results,
         under_test=under_test,
+        backend=chosen,
+        platform=platform,
     )
+    failure = next((r for r in results if r["outcome"] in BUILD_FAILURES), None)
+    if failure is not None and raise_on_build_failure:
+        error = GuardError if failure["outcome"] == "GUARD_FAIL" else CompileError
+        raise error(
+            f"{failure['outcome'].lower().replace('_', ' ')}: side={failure.get('failed_side')} "
+            f"rc={failure['return_code']}\n{build_log}",
+            result,
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -574,6 +606,8 @@ def _main(argv: list[str] | None = None) -> int:
     p.add_argument("--workers", type=int, default=None)
     p.add_argument("--max-ticks", type=int, default=1000)
     p.add_argument("--timeout", type=float, default=10.0)
+    p.add_argument("--backend", choices=BACKENDS, default=None)
+    p.add_argument("--container-cpus", type=int, default=DEFAULT_CONTAINER_CPUS)
     args = p.parse_args(argv)
     try:
         result = evaluate_fitness(
@@ -584,13 +618,15 @@ def _main(argv: list[str] | None = None) -> int:
             workers=args.workers,
             max_ticks=args.max_ticks,
             timeout=args.timeout,
+            backend=args.backend,
+            container_cpus=args.container_cpus,
         )
-    except (FileNotFoundError, RuntimeError, ValueError) as exc:
-        print(f"fitness error: {exc}", file=sys.stderr)
-        return 2
     except CompileError as exc:
         print(f"compile failed: {exc}", file=sys.stderr)
         return 3
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        print(f"fitness error: {exc}", file=sys.stderr)
+        return 2
 
     # Print a compact summary; the full dict is a lot.
     summary = {k: v for k, v in result.to_dict().items() if k != "per_match"}
@@ -598,7 +634,14 @@ def _main(argv: list[str] | None = None) -> int:
     return 0
 
 
-__all__ = ["CompileError", "FitnessResult", "evaluate_fitness"]
+__all__ = [
+    "CompileError",
+    "FitnessResult",
+    "GuardError",
+    "StaleImageError",
+    "evaluate_fitness",
+    "resolve_backend",
+]
 
 
 if __name__ == "__main__":  # pragma: no cover

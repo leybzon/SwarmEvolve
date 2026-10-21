@@ -32,6 +32,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+import fitness
 import sandbox
 
 BASELINES = REPO_ROOT / "src" / "baselines"
@@ -388,3 +389,152 @@ def test_memory_cgroup_oom_kills_large_alloc(colima_safe_tmp):
     assert status in {"ok", "engine_crashed", "timeout", "no_status_written", "compile_failed"}, (
         result.status
     )
+
+
+# -----------------------------------------------------------------------
+# Batch mode (eval image, scripts/eval_batch.py via fitness.py)
+# -----------------------------------------------------------------------
+#
+# The same breaches through the path every reported match takes. These
+# assertions are strict: a breach that "worked" traps the match (CRASH),
+# so any CRASH outcome below means containment failed.
+
+
+_BREACH_TRAPS = "    __builtin_trap();  // reached only if the breach succeeded\n"
+
+
+def _batch(tmp: Path, body: str, *, n: int = 2, timeout: float = 10.0, extra_includes=""):
+    src = tmp / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    a = src / "a.cpp"
+    a.write_text(
+        _COMMON_HEADER.replace(
+            "#include <sys/types.h>\n", "#include <sys/types.h>\n" + extra_includes
+        )
+        + body
+        + _COMMON_FOOTER
+    )
+    b = _good_opponent_b(src)
+    t0 = time.monotonic()
+    result = fitness.evaluate_fitness(
+        a,
+        b,
+        n_matches=n,
+        seed_base=0,
+        workers=1,
+        max_ticks=50,
+        timeout=timeout,
+        under_test="A",
+        backend="sandbox",
+        image=IMAGE,
+        scratch_root=tmp / "scratch",
+        raise_on_build_failure=False,
+    )
+    return result, time.monotonic() - t0
+
+
+def _outcomes(result) -> list[str]:
+    return [m["outcome"] for m in result.per_match]
+
+
+GAME_OUTCOMES = {"A_WIN", "B_WIN", "DRAW"}
+
+
+def test_batch_network_egress_blocked(colima_safe_tmp):
+    _image_or_skip(_runtime_or_skip())
+    body = (
+        "    int s = socket(AF_INET, SOCK_STREAM, 0);\n"
+        "    if (s >= 0) {\n"
+        "        sockaddr_in a;\n"
+        "        memset(&a, 0, sizeof(a));\n"
+        "        a.sin_family = AF_INET;\n"
+        "        a.sin_port = htons(80);\n"
+        "        a.sin_addr.s_addr = htonl(0x08080808);\n"
+        "        if (connect(s, (sockaddr*)&a, sizeof(a)) == 0) {\n" + _BREACH_TRAPS + "        }\n"
+        "        close(s);\n"
+        "    }\n"
+    )
+    result, _ = _batch(colima_safe_tmp / "bnet", body)
+    assert set(_outcomes(result)) <= GAME_OUTCOMES, result.per_match
+
+
+def test_batch_readonly_rootfs_blocks_writes(colima_safe_tmp):
+    _image_or_skip(_runtime_or_skip())
+    body = (
+        '    const char* targets[] = {"/etc/evil", "/opt/swarmevolve/engine.cpp",\n'
+        '                             "/opt/swarmevolve/hijacked", "/work/src/a.cpp"};\n'
+        "    for (int i = 0; i < 4; ++i) {\n"
+        "        int fd = open(targets[i], O_CREAT | O_WRONLY, 0600);\n"
+        "        if (fd >= 0) {\n" + _BREACH_TRAPS + "        }\n"
+        "    }\n"
+    )
+    result, _ = _batch(colima_safe_tmp / "bro", body)
+    assert set(_outcomes(result)) <= GAME_OUTCOMES, result.per_match
+
+
+def test_batch_cannot_forge_results(colima_safe_tmp):
+    """A match that overwrites results.jsonl / status.json in /work/out
+    must not change the reported results: the runner writes them once,
+    after every match process group is dead."""
+    _image_or_skip(_runtime_or_skip())
+    body = (
+        '    const char* paths[] = {"/work/out/results.jsonl", "/work/out/status.json"};\n'
+        "    for (int i = 0; i < 2; ++i) {\n"
+        "        int fd = open(paths[i], O_CREAT | O_WRONLY | O_TRUNC, 0644);\n"
+        "        if (fd >= 0) {\n"
+        '            const char* forged = "{\\"seed\\": 0, \\"outcome\\": \\"A_WIN\\"}\\n";\n'
+        "            if (write(fd, forged, strlen(forged)) < 0) { forged = nullptr; }\n"
+        "            close(fd);\n"
+        "        }\n"
+        "    }\n"
+    )
+    clean_body = ""
+    forged_result, _ = _batch(colima_safe_tmp / "bforge", body, n=3)
+    clean_result, _ = _batch(colima_safe_tmp / "bclean", clean_body, n=3)
+    strip = lambda r: [{k: v for k, v in m.items() if k != "wall_ms"} for m in r.per_match]  # noqa: E731
+    assert strip(forged_result) == strip(clean_result)
+    assert [m["seed"] for m in forged_result.per_match] == [0, 1, 2]
+
+
+def test_batch_pid_limit_contains_fork_bomb(colima_safe_tmp):
+    _image_or_skip(_runtime_or_skip())
+    body = (
+        "    for (int i = 0; i < 500; ++i) {\n"
+        "        pid_t pid = fork();\n"
+        "        if (pid == 0) {\n"
+        "            for (volatile int j = 0; j < 1000000; ++j) { }\n"
+        "            _exit(0);\n"
+        "        }\n"
+        "    }\n"
+    )
+    result, elapsed = _batch(colima_safe_tmp / "bfork", body, n=3)
+    # Every seed is reported (the runner keeps working after the bomb)
+    # and the batch finishes well inside the per-match budget.
+    assert [m["seed"] for m in result.per_match] == [0, 1, 2]
+    assert set(_outcomes(result)) <= GAME_OUTCOMES | {"CRASH"}, result.per_match
+    assert elapsed < 60.0
+
+
+def test_batch_per_match_timeout(colima_safe_tmp):
+    _image_or_skip(_runtime_or_skip())
+    result, elapsed = _batch(colima_safe_tmp / "bsleep", "    (void)sleep(30);\n", timeout=2.0)
+    assert _outcomes(result) == ["TIMEOUT", "TIMEOUT"]
+    assert result.mean == -1.0  # a loss for A, the program under test
+    assert elapsed < 30.0
+
+
+def test_batch_memory_bomb_is_killed(colima_safe_tmp):
+    _image_or_skip(_runtime_or_skip())
+    body = (
+        "    size_t n = (size_t)2 * 1024 * 1024 * 1024;  // 2 GiB\n"
+        "    void* p = mmap(nullptr, n, PROT_READ|PROT_WRITE,\n"
+        "                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);\n"
+        # One memset, not a loop: the guard injector would cut a loop
+        # off after 1000 pages and the bomb would never go off.
+        "    if (p != (void*)-1) { memset(p, 1, n); munmap(p, n); }\n"
+    )
+    result, elapsed = _batch(
+        colima_safe_tmp / "boom", body, extra_includes="#include <sys/mman.h>\n", timeout=20.0
+    )
+    assert _outcomes(result) == ["CRASH", "CRASH"], result.per_match
+    assert elapsed < 60.0

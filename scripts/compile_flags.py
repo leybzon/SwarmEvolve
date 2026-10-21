@@ -27,12 +27,18 @@ Flag sets
     ``sizeof(T) * num_drones_*`` (an int the optimiser cannot prove
     non-negative). Clang rejects these GCC-specific names, so they are
     added for the GCC family only.
+``FP_DETERMINISM``
+    Evaluation builds only (``eval_flags``): ``-ffp-contract=off`` stops
+    the compiler fusing a*b+c into an FMA, whose single rounding would
+    make match outcomes depend on the target's FMA support. Both fitness
+    backends and the eval container's batch mode compile with it.
 
 The CLI prints the flags for one compiler, space-separated, for use from
 make and sh::
 
     python3 scripts/compile_flags.py --compiler g++
     python3 scripts/compile_flags.py --compiler clang++ --no-optimize
+    python3 scripts/compile_flags.py --compiler g++ --eval
 
 Stdlib only, and compatible with the sandbox image's Python 3.10.
 """
@@ -57,6 +63,7 @@ UNUSED_RELAXED: tuple[str, ...] = (
     "-Wno-unused-const-variable",
 )
 GCC_FALSE_POSITIVES: tuple[str, ...] = ("-Wno-maybe-uninitialized", "-Wno-stringop-overflow")
+FP_DETERMINISM: tuple[str, ...] = ("-ffp-contract=off",)
 
 FAMILIES = ("gcc", "clang", "nvhpc", "unknown")
 
@@ -124,6 +131,12 @@ def engine_flags(compiler: str, *, optimize: bool = True) -> list[str]:
     return [*STD, *(OPTIMIZE if optimize else ()), *warning_flags(compiler)]
 
 
+def eval_flags(compiler: str) -> list[str]:
+    """``engine_flags`` plus ``FP_DETERMINISM``: the flags every evaluation
+    build uses, on the host and in the eval container alike."""
+    return [*engine_flags(compiler), *FP_DETERMINISM]
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Print the shared C++ compile flags.")
     p.add_argument("--compiler", required=True, help="compiler executable, e.g. g++")
@@ -133,9 +146,16 @@ def main(argv: list[str] | None = None) -> int:
         help="omit the optimisation level (caller supplies its own, e.g. -O0 -g)",
     )
     p.add_argument("--family", action="store_true", help="print the compiler family only")
+    p.add_argument(
+        "--eval", action="store_true", help="print the evaluation flags (adds FP_DETERMINISM)"
+    )
     args = p.parse_args(argv)
     if args.family:
         print(compiler_family(args.compiler))
+    elif args.eval:
+        if args.no_optimize:
+            p.error("--eval and --no-optimize are mutually exclusive")
+        print(" ".join(eval_flags(args.compiler)))
     else:
         print(" ".join(engine_flags(args.compiler, optimize=not args.no_optimize)))
     return 0

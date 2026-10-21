@@ -63,6 +63,7 @@ def _evaluate(a: str, b: str, *, n: int, seed_base: int, workers: int, scratch: 
         seed_base=seed_base,
         workers=workers,
         scratch_root=scratch,
+        backend="host",  # a host check by design; fitness now defaults to the sandbox
     )
     return result.to_dict()
 

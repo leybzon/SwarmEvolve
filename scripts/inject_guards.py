@@ -348,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--stdout",
         action="store_true",
-        help="print rewritten source(s) to stdout and skip in-place writes",
+        help="print the (possibly unchanged) source(s) to stdout and skip in-place writes",
     )
     parser.add_argument(
         "--backend",
@@ -394,14 +394,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR kind=parse detail={exc} file={path}", file=sys.stderr)
             return 4
 
+        if args.stdout:
+            # Always emit the source: callers redirect stdout to the file
+            # they compile, so an unchanged (e.g. already-guarded) source
+            # must come through whole, not as an empty file.
+            sys.stdout.write(rewritten)
+            continue
+
         if rewritten == original:
             LOG.info("%s: unchanged", path)
             continue
 
         any_changed = True
-        if args.stdout:
-            sys.stdout.write(rewritten)
-        elif args.check:
+        if args.check:
             print(f"would-rewrite {path}")
         else:
             path.write_text(rewritten)

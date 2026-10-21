@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://swarmevolve.io/schemas/fitness.v1.json",
   "title": "FitnessResult",
-  "description": "Aggregate fitness output produced by scripts/fitness.py and written to <out-dir>/fitness.json by `orchestrator.py evaluate`. See IMPLEMENTATION_PLAN §M9.",
+  "description": "Aggregate fitness output produced by scripts/fitness.py and written to <out-dir>/fitness.json by `orchestrator.py evaluate`. See IMPLEMENTATION_PLAN \u00a7M9.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -24,22 +24,75 @@
     "per_match"
   ],
   "properties": {
-    "team_a_path": {"type": "string"},
-    "team_b_path": {"type": "string"},
-    "n_matches": {"type": "integer", "minimum": 1},
-    "seed_base": {"type": "integer", "minimum": 0},
-    "wins_a": {"type": "integer", "minimum": 0},
-    "wins_b": {"type": "integer", "minimum": 0},
-    "draws": {"type": "integer", "minimum": 0},
-    "invalid": {"type": "integer", "minimum": 0},
-    "mean": {"type": "number", "minimum": -1, "maximum": 1},
-    "stdev": {"type": "number", "minimum": 0},
-    "ci_low": {"type": ["number", "null"]},
-    "ci_high": {"type": ["number", "null"]},
-    "wall_seconds": {"type": "number", "minimum": 0},
-    "workers": {"type": "integer", "minimum": 1},
-    "compiler": {"type": "string"},
-    "under_test": {"enum": ["A", "B", null]},
+    "team_a_path": {
+      "type": "string"
+    },
+    "team_b_path": {
+      "type": "string"
+    },
+    "n_matches": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "seed_base": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wins_a": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wins_b": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "draws": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mean": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "stdev": {
+      "type": "number",
+      "minimum": 0
+    },
+    "ci_low": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "ci_high": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "wall_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "workers": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "compiler": {
+      "type": "string"
+    },
+    "under_test": {
+      "enum": [
+        "A",
+        "B",
+        null
+      ]
+    },
     "per_match": {
       "type": "array",
       "items": {
@@ -56,16 +109,129 @@
           "return_code"
         ],
         "properties": {
-          "seed": {"type": "integer", "minimum": 0},
-          "outcome": {
-            "enum": ["A_WIN", "B_WIN", "DRAW", "TIMEOUT", "CRASH"]
+          "seed": {
+            "type": "integer",
+            "minimum": 0
           },
-          "score": {"type": "number", "minimum": -1, "maximum": 1},
-          "ticks": {"type": "integer", "minimum": 0},
-          "wall_ms": {"type": "integer", "minimum": 0},
-          "a_alive": {"type": "integer", "minimum": 0},
-          "b_alive": {"type": "integer", "minimum": 0},
-          "return_code": {"type": "integer"}
+          "outcome": {
+            "enum": [
+              "A_WIN",
+              "B_WIN",
+              "DRAW",
+              "GUARD_FAIL",
+              "COMPILE_FAIL",
+              "CRASH",
+              "TIMEOUT"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "ticks": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wall_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "a_alive": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "b_alive": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "return_code": {
+            "type": "integer"
+          },
+          "failed_side": {
+            "enum": [
+              "A",
+              "B",
+              "both",
+              "engine",
+              "link"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "backend": {
+      "enum": [
+        "sandbox",
+        "host"
+      ]
+    },
+    "platform": {
+      "type": "object",
+      "description": "Where the matches were compiled and played (scripts/platform_fingerprint.py), with its label against prereg/PLATFORM.json.",
+      "required": [
+        "backend",
+        "image",
+        "image_id",
+        "compiler_version",
+        "flags",
+        "cpu_model",
+        "kernel",
+        "harness_sha256",
+        "label"
+      ],
+      "properties": {
+        "backend": {
+          "enum": [
+            "sandbox",
+            "host"
+          ]
+        },
+        "image": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compiler_version": {
+          "type": "string"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cpu_model": {
+          "type": "string"
+        },
+        "kernel": {
+          "type": "string"
+        },
+        "harness_sha256": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "build_info": {
+          "type": "object"
+        },
+        "label": {
+          "enum": [
+            "canonical",
+            "canonical-draft",
+            "dev"
+          ]
         }
       }
     }

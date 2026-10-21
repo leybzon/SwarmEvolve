@@ -459,54 +459,33 @@ def _capture_aar(
     compute failure). Failures are logged but never raised — AAR is
     best-effort so it never blocks the evolutionary loop.
     """
-    # Compile via fitness._compile (reused) against the correct team layout.
-    try:
-        if team_letter == "A":
-            ta, tb = injected_path, opponent_path
-        else:
-            ta, tb = opponent_path, injected_path
-        work_dir = gen_dir / "aar_build"
-        work_dir.mkdir(parents=True, exist_ok=True)
-        compiler = fitness_mod._find_compiler()
-        if not compiler:
-            logger.warning("aar-compile-skipped gen=%s no-compiler", gen_dir.name)
-            return None
-        binary = fitness_mod._compile(ta, tb, work_dir, compiler)
-    except Exception as exc:  # pragma: no cover - compile path exercised in M10 tests
-        logger.warning("aar-compile-failed gen=%s err=%s", gen_dir.name, exc)
-        return None
-
+    # Play the recorded match through fitness.evaluate_fitness so it runs
+    # on the same backend (the eval container by default) as every other
+    # match of the candidate.
+    if team_letter == "A":
+        ta, tb = injected_path, opponent_path
+    else:
+        ta, tb = opponent_path, injected_path
     trace_path, md_path, json_path = _aar_paths(gen_dir)
     try:
-        import subprocess
-
-        proc = subprocess.run(
-            [
-                str(binary),
-                "--seed",
-                str(seed),
-                "--max-ticks",
-                str(max_ticks),
-                "--record",
-                str(trace_path),
-                "--record-actions",
-            ],
-            capture_output=True,
-            text=True,
+        result = fitness_mod.evaluate_fitness(
+            ta,
+            tb,
+            n_matches=1,
+            seed_base=seed,
+            workers=1,
+            max_ticks=max_ticks,
             timeout=timeout,
-            check=False,
+            scratch_root=gen_dir / "aar_build",
+            record_trace_for_match_idx=0,
+            trace_output_path=trace_path,
         )
-        # Outcome exit codes (0/1/2) are all valid terminations.
-        if proc.returncode not in (0, 1, 2):
-            logger.warning(
-                "aar-engine-nonoutcome gen=%s rc=%d stderr=%r",
-                gen_dir.name,
-                proc.returncode,
-                proc.stderr[:200],
-            )
-            return None
     except Exception as exc:
-        logger.warning("aar-engine-failed gen=%s err=%s", gen_dir.name, exc)
+        logger.warning("aar-match-failed gen=%s err=%s", gen_dir.name, exc)
+        return None
+    outcome = result.per_match[0]["outcome"]
+    if outcome not in ("A_WIN", "B_WIN", "DRAW") or not trace_path.is_file():
+        logger.warning("aar-engine-nonoutcome gen=%s outcome=%s", gen_dir.name, outcome)
         return None
 
     try:

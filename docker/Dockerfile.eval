@@ -1,0 +1,88 @@
+# SwarmEvolve evaluation image (v2 study): the canonical container in which
+# every reported match is compiled and played.
+#
+# Derived from docker/Dockerfile.sandbox (same layout, same non-root user,
+# same baked-in engine and injector) with three changes:
+#   * The base image is pinned by digest and every package by version.
+#     Packages come from a dated Ubuntu snapshot, so a rebuild resolves the
+#     same versions. ca-certificates is fetched first from the stock
+#     (signed) archive, since the snapshot is served over HTTPS only.
+#   * docker/entrypoint_eval.sh adds a `batch` mode (scripts/eval_batch.py):
+#     inject guards and compile once, then play a list of seeds.
+#   * The unused builder stage and venv are dropped; the runtime needs only
+#     the stdlib.
+#
+# The image ID, not the tag, identifies the canonical platform
+# (prereg/PLATFORM.json); a rebuild produces a new ID.
+#
+# Build:
+#   make docker-build-eval
+#
+# Run (flags must match scripts/sandbox.py; scripts/fitness.py adds them):
+#   docker run --rm --network=none --cap-drop=ALL \
+#       --security-opt no-new-privileges --read-only \
+#       --tmpfs /tmp:size=64m,mode=1777,exec,nosuid,nodev \
+#       --memory=512m --pids-limit=64 --cpus=2 --user 65534:65534 \
+#       -v <src>:/work/src:ro -v <out>:/work/out \
+#       swarmevolve-eval:latest batch --seeds-file /work/src/seeds.txt --jobs 2
+
+FROM ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
+
+ARG UBUNTU_SNAPSHOT=20261015T000000Z
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/usr/bin:/bin"
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates=20260816ubuntu0.22.04.1 \
+ && printf 'deb https://snapshot.ubuntu.com/ubuntu/%s jammy main universe\ndeb https://snapshot.ubuntu.com/ubuntu/%s jammy-updates main universe\ndeb https://snapshot.ubuntu.com/ubuntu/%s jammy-security main universe\n' \
+        "$UBUNTU_SNAPSHOT" "$UBUNTU_SNAPSHOT" "$UBUNTU_SNAPSHOT" >/etc/apt/sources.list \
+ && rm -f /etc/apt/sources.list.d/* \
+ && rm -rf /var/lib/apt/lists/* \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        g++=4:11.2.0-1ubuntu1 \
+        g++-11=11.4.0-1ubuntu1~22.04.3 \
+        gcc-11=11.4.0-1ubuntu1~22.04.3 \
+        cpp-11=11.4.0-1ubuntu1~22.04.3 \
+        gcc-11-base=11.4.0-1ubuntu1~22.04.3 \
+        libgcc-11-dev=11.4.0-1ubuntu1~22.04.3 \
+        libstdc++-11-dev=11.4.0-1ubuntu1~22.04.3 \
+        binutils=2.38-4ubuntu2.12 \
+        libc6-dev=2.35-0ubuntu3.15 \
+        python3=3.10.6-1~22.04.1 \
+        python3.10=3.10.12-1~22.04.18 \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /work/src /work/out /opt/swarmevolve \
+ && chown -R 65534:65534 /work/out \
+ && dpkg-query -W -f '${Package}=${Version}\n' | sort >/opt/swarmevolve/PACKAGES.txt \
+ && printf '{"base_image":"ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956","ubuntu_snapshot":"%s","packages_sha256":"%s"}\n' \
+        "$UBUNTU_SNAPSHOT" "$(sha256sum /opt/swarmevolve/PACKAGES.txt | cut -d' ' -f1)" \
+        >/opt/swarmevolve/BUILD_INFO.json
+
+# Engine, headers, injector and runners are baked in so a malicious mount
+# cannot swap them out. scripts/fitness.py checks their hashes against the
+# repo before trusting a batch (a stale image is refused).
+COPY src/engine.cpp             /opt/swarmevolve/engine.cpp
+COPY src/engine.h               /opt/swarmevolve/engine.h
+COPY src/types.h                /opt/swarmevolve/types.h
+COPY src/ai_abi.h               /opt/swarmevolve/ai_abi.h
+COPY src/baselines              /opt/swarmevolve/baselines
+COPY scripts/inject_guards.py   /opt/swarmevolve/inject_guards.py
+COPY scripts/compile_flags.py   /opt/swarmevolve/compile_flags.py
+COPY scripts/eval_batch.py      /opt/swarmevolve/eval_batch.py
+COPY docker/entrypoint.sh       /opt/swarmevolve/entrypoint.sh
+COPY docker/entrypoint_eval.sh  /opt/swarmevolve/entrypoint_eval.sh
+RUN chmod 0555 /opt/swarmevolve/entrypoint.sh /opt/swarmevolve/entrypoint_eval.sh \
+ && chmod -R a-w /opt/swarmevolve
+
+USER 65534:65534
+WORKDIR /work
+
+ENTRYPOINT ["/opt/swarmevolve/entrypoint_eval.sh"]
+CMD []

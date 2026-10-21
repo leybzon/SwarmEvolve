@@ -74,7 +74,7 @@ fi
 # Flags come from the same scripts/compile_flags.py that fitness.py, the
 # orchestrator and the Makefile use (ADR-0001), so a candidate compiles
 # identically on the host and in the sandbox.
-CXXFLAGS_SHARED=$(python3 "$ASSETS/compile_flags.py" --compiler g++)
+CXXFLAGS_SHARED=$(python3 "$ASSETS/compile_flags.py" --compiler g++ --eval)
 set +e
 # shellcheck disable=SC2086  # word-splitting the flag list is intended
 g++ $CXXFLAGS_SHARED \

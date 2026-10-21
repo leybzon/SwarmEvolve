@@ -15,7 +15,9 @@ import re
 import shutil
 import subprocess
 import sys
+import types
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -23,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import compile_flags
-import fitness
+import eval_batch
 import orchestrator
 
 from tests import _build_helper
@@ -135,12 +137,68 @@ class _Capture:
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
 
+class _FakePopen:
+    """Stands in for the compiler in eval_batch.build: records argv, succeeds."""
+
+    cmds: ClassVar[list[list[str]]] = []
+
+    def __init__(self, cmd, *args, **kwargs):
+        self.cmd = [str(c) for c in cmd]
+        _FakePopen.cmds.append(self.cmd)
+        self.returncode = 0
+
+    def communicate(self):
+        return "", None
+
+
 @pytest.mark.parametrize("compiler", ["/nonexistent/g++", "/nonexistent/clang++"])
-def test_fitness_compile_uses_shared_flags(tmp_path, monkeypatch, compiler):
-    cap = _Capture()
-    monkeypatch.setattr(subprocess, "run", cap)
-    fitness._compile(BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp", tmp_path, compiler)
-    assert _contains_run(cap.cmds[-1], compile_flags.engine_flags(compiler))
+def test_eval_batch_compile_uses_eval_flags(tmp_path, monkeypatch, compiler):
+    """Both fitness backends build through eval_batch.build, with the shared
+    flags plus FP_DETERMINISM on every translation unit and the link."""
+    _FakePopen.cmds = []
+    links: list[list[str]] = []
+
+    def fake_run(cmd, *args, **kwargs):
+        cmd = [str(c) for c in cmd]
+        if cmd[0] == sys.executable:  # the guard injector runs for real
+            return _REAL_RUN(cmd, *args, **kwargs)
+        links.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    fake_subprocess = types.SimpleNamespace(
+        Popen=_FakePopen, run=fake_run, PIPE=subprocess.PIPE, STDOUT=subprocess.STDOUT
+    )
+    monkeypatch.setattr(eval_batch, "subprocess", fake_subprocess)
+    for team, base in (("TeamA", "pursuit_v1.cpp"), ("TeamB", "cluster_v1.cpp")):
+        text = (BASELINES / base).read_text().replace("TEAM_NS_PLACEHOLDER", team)
+        (tmp_path / f"{team}.cpp").write_text(text)
+    out = tmp_path / "out"
+    out.mkdir()
+    eval_batch.build(
+        team_a=tmp_path / "TeamA.cpp",
+        team_b=tmp_path / "TeamB.cpp",
+        engine_dir=REPO_ROOT / "src",
+        injector=REPO_ROOT / "scripts" / "inject_guards.py",
+        work=tmp_path / "work",
+        out=out,
+        compiler=compiler,
+        flags=compile_flags.eval_flags(compiler),
+    )
+    expected = compile_flags.eval_flags(compiler)
+    assert "-ffp-contract=off" in expected
+    assert len(_FakePopen.cmds) == 3 and len(links) == 1
+    for cmd in [*_FakePopen.cmds, *links]:
+        assert _contains_run(cmd, expected), cmd
+
+
+def test_eval_flags_cli_matches_python_api():
+    out = subprocess.run(
+        [sys.executable, str(FLAGS_MODULE), "--compiler", "/nonexistent/g++", "--eval"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert out == compile_flags.eval_flags("/nonexistent/g++")
 
 
 @pytest.mark.parametrize("compiler", ["/nonexistent/g++", "/nonexistent/clang++"])
@@ -193,7 +251,7 @@ def test_makefile_targets_use_shared_flags(target, var, compiler, optimize):
 
 def test_entrypoint_compiles_with_shared_flags():
     text = (REPO_ROOT / "docker" / "entrypoint.sh").read_text()
-    assert 'CXXFLAGS_SHARED=$(python3 "$ASSETS/compile_flags.py" --compiler g++)' in text
+    assert 'CXXFLAGS_SHARED=$(python3 "$ASSETS/compile_flags.py" --compiler g++ --eval)' in text
     assert re.search(r"^g\+\+ \$CXXFLAGS_SHARED \\$", text, re.MULTILINE)
     dockerfile = (REPO_ROOT / "docker" / "Dockerfile.sandbox").read_text()
     assert "COPY scripts/compile_flags.py /opt/swarmevolve/compile_flags.py" in dockerfile

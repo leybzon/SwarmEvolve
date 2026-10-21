@@ -29,8 +29,15 @@ Runtime detection: prefers ``$CONTAINER_RUNTIME`` if set, else tries
 :class:`SandboxUnavailableError` is raised so callers / tests can skip
 cleanly.
 
+Batch mode (v2 study): :func:`run_batch_in_sandbox` runs
+``docker/entrypoint_eval.sh batch`` in the eval image
+(``docker/Dockerfile.eval``) with the same isolation flags, except that
+``--cpus`` is set per container. One container compiles once and plays a
+list of seeds; ``scripts/fitness.py`` splits an evaluation across several.
+
 This module is **host-side only**. Nothing here runs inside the
-container; the in-container logic lives in ``docker/entrypoint.sh``.
+container; the in-container logic lives in ``docker/entrypoint.sh``,
+``docker/entrypoint_eval.sh`` and ``scripts/eval_batch.py``.
 """
 
 from __future__ import annotations
@@ -40,10 +47,25 @@ import json
 import os
 import shutil
 import subprocess
+import time
+import uuid
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
-DEFAULT_IMAGE = "swarmevolve-sandbox:latest"
+# The eval image (docker/Dockerfile.eval) also serves the M8 single-match
+# mode, so one image covers both paths.
+DEFAULT_IMAGE = "swarmevolve-eval:latest"
+
+# Container-side limit on concurrent matches. Each match and each runner
+# thread counts against --pids-limit=64.
+MAX_JOBS_PER_CONTAINER = 16
+
+
+def isolation_flags(cpus: int | float = 2) -> tuple[str, ...]:
+    """The M8 isolation flags with ``--cpus`` set to ``cpus``."""
+    return tuple(f"--cpus={cpus}" if f == "--cpus=2" else f for f in SANDBOX_FLAGS)
+
 
 # Spec-exact sandbox flags. Keep this tuple in one place so tests can
 # assert on it and the plan-level audit trail is obvious.
@@ -246,8 +268,6 @@ def run_match_in_sandbox(
         timeout=timeout,
     )
 
-    import time
-
     t0 = time.monotonic()
     try:
         proc = subprocess.run(
@@ -293,6 +313,181 @@ def run_match_in_sandbox(
         stdout=stdout,
         stderr=stderr,
         wall_seconds=wall,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Batch mode (eval image)
+# ---------------------------------------------------------------------------
+
+
+class SandboxInfraError(SandboxError):
+    """The container did not produce a usable batch result (runtime error,
+    container-level timeout, missing or unparseable output). This is an
+    infrastructure failure, never a verdict on the programs under test."""
+
+
+def resolve_image_id(image: str = DEFAULT_IMAGE, runtime: str | None = None) -> str:
+    """Content-addressed ID (``sha256:...``) of ``image``.
+
+    Batches run by ID so a retag mid-evaluation cannot mix two images.
+    """
+    rt = runtime or detect_runtime()
+    proc = subprocess.run(
+        [rt, "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        raise SandboxError(f"image '{image}' not found; run `make docker-build` first")
+    return proc.stdout.strip()
+
+
+@dataclasses.dataclass(frozen=True)
+class BatchResult:
+    """Outcome of one :func:`run_batch_in_sandbox` call."""
+
+    image_id: str
+    rows: list[dict[str, Any]]
+    status: dict[str, Any]
+    wall_seconds: float
+    trace_path: Path | None
+
+
+def build_batch_command(
+    *,
+    staging: Path,
+    out_dir: Path,
+    image: str,
+    runtime: str,
+    name: str,
+    cpus: int | float,
+    batch_args: Iterable[str],
+) -> list[str]:
+    """argv for one batch container. Separate so tests can check the flags."""
+    return [
+        runtime,
+        "run",
+        *isolation_flags(cpus),
+        "--name",
+        name,
+        "-v",
+        f"{staging.resolve()}:/work/src:ro",
+        "-v",
+        f"{out_dir.resolve()}:/work/out",
+        image,
+        "batch",
+        *batch_args,
+    ]
+
+
+def run_batch_in_sandbox(
+    team_a_src: Path,
+    team_b_src: Path,
+    seeds: list[int],
+    work_dir: Path,
+    *,
+    image_id: str,
+    cpus: int = 2,
+    jobs: int | None = None,
+    max_ticks: int = 1000,
+    timeout: float = 10.0,
+    under_test: str | None = None,
+    record_seed: int | None = None,
+    drones_a: int | None = None,
+    drones_b: int | None = None,
+    runtime: str | None = None,
+) -> BatchResult:
+    """Compile ``team_a_src`` + ``team_b_src`` once in a container and play ``seeds``.
+
+    Both sources must already carry their ``TeamA`` / ``TeamB`` namespaces.
+    ``work_dir`` receives ``src/`` (staged inputs, mounted read-only) and
+    ``out/`` (results.jsonl, status.json, logs, trace.jsonl). Raises
+    :class:`SandboxInfraError` when the container yields no usable result.
+    """
+    rt = runtime or detect_runtime()
+    jobs = max(1, min(jobs or cpus, MAX_JOBS_PER_CONTAINER, len(seeds)))
+    staging = work_dir / "src"
+    out_dir = work_dir / "out"
+    staging.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(out_dir, 0o777)  # see build_command: the container runs as 65534
+    shutil.copyfile(team_a_src, staging / "a.cpp")
+    shutil.copyfile(team_b_src, staging / "b.cpp")
+    (staging / "seeds.txt").write_text("\n".join(str(s) for s in seeds) + "\n")
+
+    batch_args = [
+        "--seeds-file",
+        "/work/src/seeds.txt",
+        "--jobs",
+        str(jobs),
+        "--max-ticks",
+        str(max_ticks),
+        "--timeout",
+        repr(float(timeout)),
+    ]
+    if under_test is not None:
+        batch_args += ["--under-test", under_test]
+    if record_seed is not None:
+        batch_args += ["--record-seed", str(record_seed)]
+    if drones_a is not None:
+        batch_args += ["--drones-a", str(drones_a)]
+    if drones_b is not None:
+        batch_args += ["--drones-b", str(drones_b)]
+
+    name = f"swarmevolve-batch-{uuid.uuid4().hex[:12]}"
+    cmd = build_batch_command(
+        staging=staging,
+        out_dir=out_dir,
+        image=image_id,
+        runtime=rt,
+        name=name,
+        cpus=cpus,
+        batch_args=batch_args,
+    )
+    # Per-match timeouts are enforced inside the container; this outer
+    # bound only catches a wedged container or runtime.
+    rounds = -(-len(seeds) // jobs)
+    container_timeout = 180.0 + (rounds + 1) * timeout * 1.5
+
+    t0 = time.monotonic()
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, timeout=container_timeout
+        )
+    except subprocess.TimeoutExpired as exc:
+        subprocess.run([rt, "kill", name], capture_output=True, check=False)
+        raise SandboxInfraError(
+            f"batch container {name} exceeded {container_timeout:.0f}s"
+        ) from exc
+    wall = time.monotonic() - t0
+
+    status_path = out_dir / "status.json"
+    results_path = out_dir / "results.jsonl"
+    try:
+        status = json.loads(status_path.read_text())
+        rows = [json.loads(line) for line in results_path.read_text().splitlines() if line]
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SandboxInfraError(
+            f"batch container {name} exited rc={proc.returncode} without a usable result: "
+            f"{exc}; stderr: {proc.stderr[-500:]}"
+        ) from exc
+    if proc.returncode != 0 or status.get("n_done") != len(seeds):
+        raise SandboxInfraError(
+            f"batch container {name} exited rc={proc.returncode} with status "
+            f"{status.get('status')!r}, {status.get('n_done')} of {len(seeds)} matches; "
+            f"stderr: {proc.stderr[-500:]}"
+        )
+    if sorted(r["seed"] for r in rows) != sorted(seeds):
+        raise SandboxInfraError(f"batch container {name} returned a different seed set")
+    trace = out_dir / "trace.jsonl"
+    return BatchResult(
+        image_id=image_id,
+        rows=rows,
+        status=status,
+        wall_seconds=wall,
+        trace_path=trace if record_seed is not None and trace.is_file() else None,
     )
 
 
