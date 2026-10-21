@@ -1,0 +1,26 @@
+{
+  "arch": "x86_64",
+  "cpu_model": "Intel(R) Core(TM) i9-14900KF",
+  "disk_free_bytes": 1431257890816,
+  "disk_path": "/home/gene/Documents/SwarmEvolve",
+  "disk_total_bytes": 1944921735168,
+  "hostname": "cuda",
+  "kernel": "7.0.0-38-generic",
+  "logical_cpus": 32,
+  "os": "Ubuntu 26.04.1 LTS",
+  "physical_cores": 24,
+  "platform_label": "dev",
+  "ram_total_bytes": 66042204160,
+  "recorded_utc": "2026-10-21T19:03:38Z",
+  "threads_per_core": 2,
+  "toolchain": {
+    "clang++": "Ubuntu clang version 21.1.8 (6ubuntu1)",
+    "docker": "Docker version 29.8.2, build 7fc2dff",
+    "g++": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+    "git": "git version 2.55.0",
+    "jq": "jq-1.8.1",
+    "make": "GNU Make 4.4.1",
+    "python3.11": "Python 3.11.17",
+    "tmux": "tmux 3.6"
+  }
+}
