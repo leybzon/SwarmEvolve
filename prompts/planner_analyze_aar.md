@@ -11,6 +11,12 @@ Analyze the After-Action Report (AAR) below and produce **one** tactical specifi
 ## Your Team
 You are Team **{TEAM_LETTER}**.
 
+Your team's current champion (the parent program). A new candidate replaces it only if it scores better against the same opponent on the same seeds:
+
+```cpp
+{PARENT_SOURCE}
+```
+
 ## Opponent
 You are fighting **{OPPONENT_NAME}**. Its source code:
 
@@ -65,7 +71,7 @@ Action {
 - **Focus-fire penalty:** Multiple attackers on same target all pay cooldown, but target dies only once
 - **Information asymmetry:** You cannot see enemy cooldowns
 
-# After-Action Report (Last Generation)
+# After-Action Report (Current Champion)
 
 {AAR}
 

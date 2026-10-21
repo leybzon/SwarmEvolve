@@ -109,9 +109,49 @@ def evolve_coevolve(
             opponent_source = champion_a
             opponent_name = f"champion_a_r{round_num}"
             namespace = "TeamB"
+        champion_code = champion_a if evolving_team == "A" else champion_b
+
+        # Champion and candidate play the same seeds this round.
+        seed_base = seed + round_num * 1000
 
         # Initialize variables
         aar_metrics = None
+
+        # Re-measure the evolving team's champion against the current
+        # opponent before generating a candidate. The opponent may have
+        # changed since the champion was last scored, so the stored value
+        # is stale; the trace of this run is also the AAR the planner sees.
+        opponent_path = round_dir / f"opponent_{static_team}.cpp"
+        champion_path = round_dir / f"champion_{evolving_team}.cpp"
+        trace_path = round_dir / "trace_sample.jsonl"
+        try:
+            _write_guarded(opponent_path, opponent_source)
+            _write_guarded(champion_path, champion_code)
+            champion_result = _evaluate(
+                champion_path,
+                opponent_path,
+                evolving_team=evolving_team,
+                n_matches=n_matches,
+                seed_base=seed_base,
+                result_path=round_dir / "fitness_champion.json",
+                trace_path=trace_path,
+            )
+        except Exception as e:
+            _LOG.warning("champion-eval-failed round=%d err=%s", round_num, e)
+            _write_stall_journal_entry(
+                journal_path=journal_path,
+                round_num=round_num,
+                evolving_team=evolving_team,
+                reason=f"champion eval failed: {e}",
+                model=f"{planner_model}+{coder_model}",
+                seed=seed,
+            )
+            continue
+        champion_fitness = _team_score(champion_result.mean, evolving_team)
+        if evolving_team == "A":
+            champion_a_fitness = champion_fitness
+        else:
+            champion_b_fitness = champion_fitness
 
         # Special handling for round 0/1: skip LLM, evaluate init-champions
         skip_llm = (round_num == 0 and evolving_team == "A") or (
@@ -121,7 +161,7 @@ def evolve_coevolve(
         if skip_llm:
             _LOG.info("init-round: evaluating init-champion for Team %s", evolving_team)
             candidate_path = round_dir / "candidate.cpp"
-            current_code = champion_a if evolving_team == "A" else champion_b
+            current_code = champion_code
             candidate_path.write_text(current_code)
 
             # Create minimal metadata
@@ -162,6 +202,22 @@ def evolve_coevolve(
                 total_prompt_tokens=0,
                 total_completion_tokens=0,
             )
+            # Lint (init champions are linted like any candidate)
+            violations = lint_ai_tokens.scan_file(candidate_path)
+            if violations:
+                _LOG.warning("lint-failed round=%d n_violations=%d", round_num, len(violations))
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    round_num=round_num,
+                    evolving_team=evolving_team,
+                    reason=f"{len(violations)} lint violations",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
+
+            # The candidate is the champion itself: reuse its measurement.
+            fitness_result = champion_result
 
         else:
             # Normal path: Dual-LLM generation
@@ -176,29 +232,22 @@ def evolve_coevolve(
                     recent = team_entries[-3:]  # Last 3 rounds
                     prior_lessons = _format_lessons(recent)
 
-            # Get AAR from previous round (for this team)
+            # AAR of the champion's match against the current opponent
             aar_markdown = "(none - first generation)"
-            aar_metrics = None
+            try:
+                aar_report = telemetry_aar.render_aar(
+                    trace_path,
+                    perspective=evolving_team,
+                    fmt="both",
+                )
+                aar_markdown = aar_report.markdown
+                aar_metrics = aar_report.structured
+            except Exception as e:
+                _LOG.warning("aar-failed round=%d err=%s", round_num, e)
 
-            # Find previous round where this team evolved
-            prev_round = round_num - 2  # Two rounds ago (last time this team evolved)
-            if prev_round >= 0:
-                prev_round_dir = out_dir / f"round_{prev_round:04d}"
-                prev_trace = prev_round_dir / "trace_sample.jsonl"
-                if prev_trace.exists():
-                    try:
-                        aar_report = telemetry_aar.render_aar(
-                            prev_trace,
-                            perspective=evolving_team,
-                            fmt="both",
-                        )
-                        aar_markdown = aar_report.markdown
-                        aar_metrics = aar_report.structured
-                    except Exception as e:
-                        _LOG.warning("aar-failed round=%d err=%s", prev_round, e)
+            prev_round = round_num - 2  # Last time this team evolved
 
             # Get context for iteration-aware prompting
-            champion_fitness = champion_a_fitness if evolving_team == "A" else champion_b_fitness
             last_entry = None
             if journal_path.exists() and round_num > 0:
                 entries = journal_mod.read_entries(journal_path)
@@ -215,6 +264,7 @@ def evolve_coevolve(
                     namespace=namespace,
                     opponent_name=opponent_name,
                     opponent_source=opponent_source,
+                    parent_source=champion_code,
                     aar_markdown=aar_markdown,
                     prior_lessons=prior_lessons,
                     champion_fitness=champion_fitness,
@@ -243,103 +293,73 @@ def evolve_coevolve(
             candidate_path = round_dir / "candidate.cpp"
             candidate_path.write_text(result.cpp_code)
 
-        # Lint
-        violations = lint_ai_tokens.scan_file(candidate_path)
-        if violations:
-            _LOG.warning("lint-failed round=%d n_violations=%d", round_num, len(violations))
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                round_num=round_num,
-                evolving_team=evolving_team,
-                reason=f"{len(violations)} lint violations",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
+            # Lint
+            violations = lint_ai_tokens.scan_file(candidate_path)
+            if violations:
+                _LOG.warning("lint-failed round=%d n_violations=%d", round_num, len(violations))
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    round_num=round_num,
+                    evolving_team=evolving_team,
+                    reason=f"{len(violations)} lint violations",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-        # Inject guards
-        injected_path = round_dir / "candidate.injected.cpp"
-        try:
-            source_code = candidate_path.read_text(encoding="utf-8")
-            injected_code = inject_guards.inject(source_code)
-            injected_path.write_text(injected_code, encoding="utf-8")
-        except Exception as e:
-            _LOG.warning("inject-failed round=%d err=%s", round_num, e)
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                round_num=round_num,
-                evolving_team=evolving_team,
-                reason=f"inject failed: {e}",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
+            # Inject guards
+            injected_path = round_dir / "candidate.injected.cpp"
+            try:
+                _write_guarded(injected_path, candidate_path.read_text(encoding="utf-8"))
+            except Exception as e:
+                _LOG.warning("inject-failed round=%d err=%s", round_num, e)
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    round_num=round_num,
+                    evolving_team=evolving_team,
+                    reason=f"inject failed: {e}",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-        # Evaluate fitness
-        # Create temporary opponent file for the static champion
-        opponent_path = round_dir / f"opponent_{static_team}.cpp"
-        opponent_code = champion_a if static_team == "A" else champion_b
-        opponent_path.write_text(opponent_code)
+            # Evaluate the candidate on the champion's seeds
+            try:
+                fitness_result = _evaluate(
+                    injected_path,
+                    opponent_path,
+                    evolving_team=evolving_team,
+                    n_matches=n_matches,
+                    seed_base=seed_base,
+                    result_path=round_dir / "fitness_candidate.json",
+                )
+            except Exception as e:
+                _LOG.warning("fitness-failed round=%d err=%s", round_num, e)
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    round_num=round_num,
+                    evolving_team=evolving_team,
+                    reason=f"fitness eval failed: {e}",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-        try:
-            # fitness.evaluate_fitness takes (team_a_src, team_b_src, ...)
-            if evolving_team == "A":
-                team_a_src = injected_path
-                team_b_src = opponent_path
-            else:
-                team_a_src = opponent_path
-                team_b_src = injected_path
-
-            fitness_result = fitness_mod.evaluate_fitness(
-                team_a_src,
-                team_b_src,
-                n_matches=n_matches,
-                seed_base=seed + round_num * 1000,
-            )
-        except Exception as e:
-            _LOG.warning("fitness-failed round=%d err=%s", round_num, e)
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                round_num=round_num,
-                evolving_team=evolving_team,
-                reason=f"fitness eval failed: {e}",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
-
-        # Convert fitness from Team A perspective to evolving team perspective
-        if evolving_team == "A":
-            team_fitness = fitness_result.mean  # Already Team A perspective
-        else:
-            team_fitness = -fitness_result.mean  # Flip to Team B perspective
+        team_fitness = _team_score(fitness_result.mean, evolving_team)
 
         # Accept candidate based on acceptance mode
         if acceptance_mode == "relative":
-            current_champion_fitness = (
-                champion_a_fitness if evolving_team == "A" else champion_b_fitness
+            # Accept if better than the freshly measured champion (with small
+            # epsilon for noise)
+            accepted = team_fitness > (champion_fitness - 0.05)
+            _LOG.info(
+                "acceptance-check mode=relative champion=%.3f candidate=%.3f team=%s accepted=%s",
+                champion_fitness,
+                team_fitness,
+                evolving_team,
+                accepted,
             )
-            if current_champion_fitness is None:
-                # First evaluation for this team - always accept
-                accepted = True
-                _LOG.info(
-                    "acceptance-check mode=relative first_eval=True team=%s fitness=%.3f accepted=%s",
-                    evolving_team,
-                    team_fitness,
-                    accepted,
-                )
-            else:
-                # Accept if better than current champion (with small epsilon for noise)
-                accepted = team_fitness > (current_champion_fitness - 0.05)
-                _LOG.info(
-                    "acceptance-check mode=relative champion=%.3f candidate=%.3f team=%s accepted=%s",
-                    current_champion_fitness,
-                    team_fitness,
-                    evolving_team,
-                    accepted,
-                )
         else:
-            # Absolute threshold
             accepted = team_fitness > 0.0
             _LOG.info(
                 "acceptance-check mode=absolute candidate=%.3f team=%s accepted=%s",
@@ -387,6 +407,49 @@ def evolve_coevolve(
     _LOG.info("final-champion-a-fitness=%.3f", champion_a_fitness or -1.0)
     _LOG.info("final-champion-b-fitness=%.3f", champion_b_fitness or -1.0)
     return 0
+
+
+def _team_score(mean_a: float, team: str) -> float:
+    """Convert a Team-A-perspective fitness mean to team's perspective."""
+    return mean_a if team == "A" else -mean_a
+
+
+def _write_guarded(path: Path, source: str) -> None:
+    """Write source with loop guards injected (idempotent)."""
+    path.write_text(inject_guards.inject(source), encoding="utf-8")
+
+
+def _evaluate(
+    program_path: Path,
+    opponent_path: Path,
+    *,
+    evolving_team: str,
+    n_matches: int,
+    seed_base: int,
+    result_path: Path,
+    trace_path: Path | None = None,
+) -> fitness_mod.FitnessResult:
+    """Play program_path (on evolving_team's side) against opponent_path.
+
+    Crashes and timeouts count as losses for the program under test. The
+    full result, including per-match rows, is written to result_path.
+    With trace_path the first match also records a schema-v2 trace.
+    """
+    if evolving_team == "A":
+        team_a_src, team_b_src = program_path, opponent_path
+    else:
+        team_a_src, team_b_src = opponent_path, program_path
+    result = fitness_mod.evaluate_fitness(
+        team_a_src,
+        team_b_src,
+        n_matches=n_matches,
+        seed_base=seed_base,
+        under_test=evolving_team,
+        record_trace_for_match_idx=0 if trace_path is not None else None,
+        trace_output_path=trace_path,
+    )
+    result_path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n")
+    return result
 
 
 def _format_lessons(entries: list[dict]) -> str:

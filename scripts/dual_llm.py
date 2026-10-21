@@ -66,6 +66,7 @@ def render_planner_prompt(
     team_letter: str,
     opponent_name: str,
     opponent_source: str,
+    parent_source: str,
     aar_markdown: str,
     prior_lessons: str,
     champion_fitness: float | None = None,
@@ -74,7 +75,11 @@ def render_planner_prompt(
     last_fitness: float | None = None,
     use_v2_prompt: bool = True,
 ) -> str:
-    """Render the planner prompt template with context."""
+    """Render the planner prompt template with context.
+
+    ``parent_source`` is the evolving team's current champion code; the
+    template must carry a ``{PARENT_SOURCE}`` slot for it.
+    """
     if use_v2_prompt:
         template_path = PROMPTS / "planner_analyze_aar_v2.md"
     else:
@@ -84,12 +89,14 @@ def render_planner_prompt(
         raise FileNotFoundError(f"Planner template not found: {template_path}")
 
     template = template_path.read_text(encoding="utf-8")
+    _require_slot(template, "{PARENT_SOURCE}", template_path)
 
     # Use simple string replacement to avoid issues with literal braces
     replacements = {
         "{TEAM_LETTER}": team_letter,
         "{OPPONENT_NAME}": opponent_name,
         "{OPPONENT_SOURCE}": opponent_source,
+        "{PARENT_SOURCE}": parent_source,
         "{AAR}": aar_markdown,
         "{PRIOR_LESSONS}": prior_lessons,
         "{CHAMPION_FITNESS}": f"{champion_fitness:.3f}"
@@ -113,16 +120,18 @@ def render_coder_prompt(
     namespace: str,
     opponent_name: str,
     opponent_source: str,
+    parent_source: str,
     tactic_spec_json: str,
     types_header: str,
     abi_header: str,
 ) -> str:
-    """Render the coder prompt template with tactic spec."""
+    """Render the coder prompt template with tactic spec and parent code."""
     template_path = PROMPTS / "coder_implement_tactic.md"
     if not template_path.exists():
         raise FileNotFoundError(f"Coder template not found: {template_path}")
 
     template = template_path.read_text(encoding="utf-8")
+    _require_slot(template, "{PARENT_SOURCE}", template_path)
 
     # Parse tactic spec to extract implementation guidance
     spec_dict = json.loads(tactic_spec_json)
@@ -140,6 +149,7 @@ def render_coder_prompt(
         "{NAMESPACE}": namespace,
         "{OPPONENT_NAME}": opponent_name,
         "{OPPONENT_SOURCE}": opponent_source,
+        "{PARENT_SOURCE}": parent_source,
         "{TACTIC_SPEC}": tactic_spec_json,
         "{TYPES_HEADER}": types_header,
         "{ABI_HEADER}": abi_header,
@@ -155,6 +165,12 @@ def render_coder_prompt(
         result = result.replace(placeholder, value)
 
     return result
+
+
+def _require_slot(template: str, slot: str, template_path: Path) -> None:
+    """Fail loudly rather than silently dropping context from a prompt."""
+    if slot not in template:
+        raise ValueError(f"{template_path.name} has no {slot} placeholder")
 
 
 def extract_json_from_response(text: str) -> str:
@@ -296,6 +312,7 @@ def dual_llm_generate(
     namespace: str,
     opponent_name: str,
     opponent_source: str,
+    parent_source: str,
     aar_markdown: str,
     prior_lessons: str,
     champion_fitness: float | None = None,
@@ -315,6 +332,7 @@ def dual_llm_generate(
         namespace: "TeamA" or "TeamB"
         opponent_name: e.g., "pursuit_v1"
         opponent_source: opponent's C++ source code
+        parent_source: the evolving team's current champion C++ source
         aar_markdown: After-Action Report from last generation
         prior_lessons: Journal recall from prior generations
         planner_max_retries: How many times to retry planner on validation failure
@@ -332,6 +350,7 @@ def dual_llm_generate(
         team_letter=team_letter,
         opponent_name=opponent_name,
         opponent_source=opponent_source,
+        parent_source=parent_source,
         aar_markdown=aar_markdown,
         prior_lessons=prior_lessons,
         champion_fitness=champion_fitness,
@@ -357,6 +376,7 @@ def dual_llm_generate(
         namespace=namespace,
         opponent_name=opponent_name,
         opponent_source=opponent_source,
+        parent_source=parent_source,
         tactic_spec_json=json.dumps(spec.to_dict(), indent=2),
         types_header=types_header,
         abi_header=abi_header,
@@ -462,6 +482,7 @@ if __name__ == "__main__":
             namespace="TeamA",
             opponent_name="test_opponent",
             opponent_source="// opponent code",
+            parent_source="// parent code",
             aar_markdown="Outcome: DRAW",
             prior_lessons="None",
         )

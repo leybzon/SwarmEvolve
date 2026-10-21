@@ -6,6 +6,24 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Dual-LLM loops (`evolve_dual.py`, `evolve_coevolve.py`), defects D1–D3
+  and D5 in `docs/paper/RESEARCH_BRIEF.md`:
+  - D1: the planner and coder prompts now carry the evolving team's own
+    champion code (`{PARENT_SOURCE}`).
+  - D2: each round records a schema-v2 trace of the champion's match
+    (`trace_sample.jsonl`), and the planner's AAR is rendered from it.
+  - D3: the champion is re-measured against the current opponent every
+    round, on the same seeds as the candidate, and acceptance compares
+    against that fresh score.
+  - D5: `fitness.evaluate_fitness(under_test=...)` scores crashes and
+    timeouts as losses for the program under test; both loops pass it and
+    save every evaluation, per-match rows included, to
+    `fitness_{champion,candidate}.json`.
+  - `evolve_dual.py --as-team B` now scores from Team B's perspective
+    (it used Team A's mean).
+  - Opponent and champion sources are guard-injected before they run.
+
 ### Added
 - M13 GPU scaling study scaffolding: `--benchmark` mode in the engine
   (one JSON line per match, no file output), compile-time

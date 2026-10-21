@@ -107,6 +107,38 @@ def evolve_dual_llm(
         # Initialize variables that may be set conditionally
         aar_metrics = None
 
+        # Champion and candidate play the same seeds this generation.
+        seed_base = seed + gen * 1000
+
+        # Measure the current champion on this generation's seeds. The
+        # trace of this run is the AAR the planner sees.
+        guarded_opponent = gen_dir / "opponent.cpp"
+        champion_path = gen_dir / "champion.cpp"
+        trace_path = gen_dir / "trace_sample.jsonl"
+        try:
+            _write_guarded(guarded_opponent, opponent_source)
+            _write_guarded(champion_path, current_champion)
+            champion_result = _evaluate(
+                champion_path,
+                guarded_opponent,
+                as_team=as_team,
+                n_matches=n_matches,
+                seed_base=seed_base,
+                result_path=gen_dir / "fitness_champion.json",
+                trace_path=trace_path,
+            )
+        except Exception as e:
+            _LOG.warning("champion-eval-failed gen=%d err=%s", gen, e)
+            _write_stall_journal_entry(
+                journal_path=journal_path,
+                generation=gen,
+                reason=f"champion eval failed: {e}",
+                model=f"{planner_model}+{coder_model}",
+                seed=seed,
+            )
+            continue
+        champion_fitness = _team_score(champion_result.mean, as_team)
+
         # Special handling for gen 0 with init-champion: skip LLM, just evaluate
         skip_llm = gen == 0 and init_champion
 
@@ -155,6 +187,22 @@ def evolve_dual_llm(
                 total_completion_tokens=0,
             )
 
+            # Lint (the init champion is linted like any candidate)
+            violations = lint_ai_tokens.scan_file(candidate_path)
+            if violations:
+                _LOG.warning("lint-failed gen=%d n_violations=%d", gen, len(violations))
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    generation=gen,
+                    reason=f"{len(violations)} lint violations",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
+
+            # The candidate is the champion itself: reuse its measurement.
+            fitness_result = champion_result
+
         else:
             # Normal path: Dual-LLM generation
             # Recall prior lessons from journal
@@ -165,26 +213,20 @@ def evolve_dual_llm(
                 if recalled:
                     prior_lessons = journal_mod.render_for_prompt(recalled, max_tokens=1500)
 
-            # Get AAR from previous generation (if exists)
+            # AAR of the champion's match on this generation's seeds
             aar_markdown = "(none - first generation)"
-            aar_metrics = None
-            if gen > 0:
-                prev_gen_dir = out_dir / f"gen_{gen - 1:04d}"
-                prev_trace = prev_gen_dir / "trace_sample.jsonl"
-                if prev_trace.exists():
-                    try:
-                        aar_report = telemetry_aar.render_aar(
-                            prev_trace,
-                            perspective=as_team,
-                            fmt="both",
-                        )
-                        aar_markdown = aar_report.markdown
-                        aar_metrics = aar_report.structured
-                    except Exception as e:
-                        _LOG.warning("aar-failed gen=%d err=%s", gen - 1, e)
+            try:
+                aar_report = telemetry_aar.render_aar(
+                    trace_path,
+                    perspective=as_team,
+                    fmt="both",
+                )
+                aar_markdown = aar_report.markdown
+                aar_metrics = aar_report.structured
+            except Exception as e:
+                _LOG.warning("aar-failed gen=%d err=%s", gen, e)
 
             # Get context for iteration-aware prompting
-            champion_fitness = _get_champion_fitness(journal_path) if gen > 0 else None
             last_entry = None
             if journal_path.exists() and gen > 0:
                 entries = journal_mod.read_entries(journal_path)
@@ -200,6 +242,7 @@ def evolve_dual_llm(
                     namespace=namespace,
                     opponent_name=opponent_name,
                     opponent_source=opponent_source,
+                    parent_source=current_champion,
                     aar_markdown=aar_markdown,
                     prior_lessons=prior_lessons,
                     champion_fitness=champion_fitness,
@@ -231,80 +274,74 @@ def evolve_dual_llm(
             candidate_path = gen_dir / "candidate.cpp"
             candidate_path.write_text(result.cpp_code)
 
-        # Lint
-        violations = lint_ai_tokens.scan_file(candidate_path)
-        if violations:
-            _LOG.warning("lint-failed gen=%d n_violations=%d", gen, len(violations))
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                generation=gen,
-                reason=f"{len(violations)} lint violations",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
+            # Lint
+            violations = lint_ai_tokens.scan_file(candidate_path)
+            if violations:
+                _LOG.warning("lint-failed gen=%d n_violations=%d", gen, len(violations))
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    generation=gen,
+                    reason=f"{len(violations)} lint violations",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-        # Inject guards
-        injected_path = gen_dir / "candidate.injected.cpp"
-        try:
-            source_code = candidate_path.read_text(encoding="utf-8")
-            injected_code = inject_guards.inject(source_code)
-            injected_path.write_text(injected_code, encoding="utf-8")
-        except Exception as e:
-            _LOG.warning("inject-failed gen=%d err=%s", gen, e)
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                generation=gen,
-                reason=f"inject failed: {e}",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
+            # Inject guards
+            injected_path = gen_dir / "candidate.injected.cpp"
+            try:
+                _write_guarded(injected_path, candidate_path.read_text(encoding="utf-8"))
+            except Exception as e:
+                _LOG.warning("inject-failed gen=%d err=%s", gen, e)
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    generation=gen,
+                    reason=f"inject failed: {e}",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-        # Evaluate fitness
-        try:
-            # fitness.evaluate_fitness takes (team_a_src, team_b_src, ...)
-            if as_team == "A":
-                team_a_src = injected_path
-                team_b_src = opponent_path
-            else:
-                team_a_src = opponent_path
-                team_b_src = injected_path
+            # Evaluate the candidate on the champion's seeds
+            try:
+                fitness_result = _evaluate(
+                    injected_path,
+                    guarded_opponent,
+                    as_team=as_team,
+                    n_matches=n_matches,
+                    seed_base=seed_base,
+                    result_path=gen_dir / "fitness_candidate.json",
+                )
+            except Exception as e:
+                _LOG.warning("fitness-failed gen=%d err=%s", gen, e)
+                _write_stall_journal_entry(
+                    journal_path=journal_path,
+                    generation=gen,
+                    reason=f"fitness eval failed: {e}",
+                    model=f"{planner_model}+{coder_model}",
+                    seed=seed,
+                )
+                continue
 
-            fitness_result = fitness_mod.evaluate_fitness(
-                team_a_src,
-                team_b_src,
-                n_matches=n_matches,
-                seed_base=seed + gen * 1000,
-            )
-        except Exception as e:
-            _LOG.warning("fitness-failed gen=%d err=%s", gen, e)
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                generation=gen,
-                reason=f"fitness eval failed: {e}",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
-            continue
+        team_fitness = _team_score(fitness_result.mean, as_team)
 
         # Accept candidate based on acceptance mode
         if acceptance_mode == "relative":
-            champion_fitness = _get_champion_fitness(journal_path)
-            # Accept if better than current champion (with small epsilon for noise)
-            accepted = fitness_result.mean > (champion_fitness - 0.05)
+            # Accept if better than the champion on the same seeds (with
+            # small epsilon for noise)
+            accepted = team_fitness > (champion_fitness - 0.05)
             _LOG.info(
                 "acceptance-check mode=relative champion=%.3f candidate=%.3f accepted=%s",
                 champion_fitness,
-                fitness_result.mean,
+                team_fitness,
                 accepted,
             )
         else:
             # M22 behavior: absolute threshold
-            accepted = fitness_result.mean > 0.0
+            accepted = team_fitness > 0.0
             _LOG.info(
                 "acceptance-check mode=absolute candidate=%.3f accepted=%s",
-                fitness_result.mean,
+                team_fitness,
                 accepted,
             )
 
@@ -316,7 +353,7 @@ def evolve_dual_llm(
         _write_journal_entry(
             journal_path=journal_path,
             generation=gen,
-            fitness_result=fitness_result,
+            fitness=team_fitness,
             aar_metrics=aar_metrics,
             tactic_spec=result.tactic_spec,
             accepted=accepted,
@@ -328,7 +365,7 @@ def evolve_dual_llm(
         _LOG.info(
             "gen-complete gen=%d fitness=%.3f accepted=%s tokens=%d",
             gen,
-            fitness_result.mean,
+            team_fitness,
             accepted,
             result.total_prompt_tokens + result.total_completion_tokens,
         )
@@ -337,23 +374,47 @@ def evolve_dual_llm(
     return 0
 
 
-def _get_champion_fitness(journal_path: Path) -> float:
-    """Get fitness of most recent accepted champion from journal.
+def _team_score(mean_a: float, team: str) -> float:
+    """Convert a Team-A-perspective fitness mean to ``team``'s perspective."""
+    return mean_a if team == "A" else -mean_a
 
-    Returns:
-        Fitness of last accepted entry, or -1.0 if no champion exists yet.
+
+def _write_guarded(path: Path, source: str) -> None:
+    """Write ``source`` with loop guards injected (idempotent)."""
+    path.write_text(inject_guards.inject(source), encoding="utf-8")
+
+
+def _evaluate(
+    program_path: Path,
+    opponent_path: Path,
+    *,
+    as_team: str,
+    n_matches: int,
+    seed_base: int,
+    result_path: Path,
+    trace_path: Path | None = None,
+) -> fitness_mod.FitnessResult:
+    """Play ``program_path`` (on ``as_team``'s side) against ``opponent_path``.
+
+    Crashes and timeouts count as losses for the program under test. The
+    full result, including per-match rows, is written to ``result_path``.
+    With ``trace_path`` the first match also records a schema-v2 trace.
     """
-    if not journal_path.exists():
-        return -1.0
-
-    entries = journal_mod.read_entries(journal_path)
-    accepted_entries = [e for e in entries if e.get("verdict") == "confirmed"]
-
-    if not accepted_entries:
-        return -1.0
-
-    # Return fitness of most recent accepted entry
-    return accepted_entries[-1]["fitness"]
+    if as_team == "A":
+        team_a_src, team_b_src = program_path, opponent_path
+    else:
+        team_a_src, team_b_src = opponent_path, program_path
+    result = fitness_mod.evaluate_fitness(
+        team_a_src,
+        team_b_src,
+        n_matches=n_matches,
+        seed_base=seed_base,
+        under_test=as_team,
+        record_trace_for_match_idx=0 if trace_path is not None else None,
+        trace_output_path=trace_path,
+    )
+    result_path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n")
+    return result
 
 
 def _slugify_tag(s: str) -> str:
@@ -401,7 +462,7 @@ def _write_stall_journal_entry(
 def _write_journal_entry(
     journal_path: Path,
     generation: int,
-    fitness_result,
+    fitness: float,
     aar_metrics: dict | None,
     tactic_spec,
     accepted: bool,
@@ -426,13 +487,13 @@ def _write_journal_entry(
         "model": model,
         "seed": seed,
         "status": "ok",
-        "fitness": fitness_result.mean,
+        "fitness": fitness,
         "fitness_delta": None,  # TODO: compute from parent
         "hypothesis_tested": f"{tactic_spec.tactic_name}: {tactic_spec.why_this_counters_failure[:150]}",
         "mechanism_expected": tactic_spec.mechanism[:400],  # Journal schema limit ~400
         "mechanism_observed": tactic_spec.why_this_counters_failure[:400],
         "verdict": verdict,
-        "outcome_summary": f"{'accepted' if accepted else 'rejected'}: mean={fitness_result.mean:.3f}",
+        "outcome_summary": f"{'accepted' if accepted else 'rejected'}: mean={fitness:.3f}",
         "advice_to_future_self": f"predicted metrics: {predicted_metrics}",
         "tactic_tags": [_slugify_tag(m) for m in tactic_spec.key_metrics[:6]]
         if tactic_spec.key_metrics

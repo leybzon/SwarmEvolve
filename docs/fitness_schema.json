@@ -39,6 +39,7 @@
     "wall_seconds": {"type": "number", "minimum": 0},
     "workers": {"type": "integer", "minimum": 1},
     "compiler": {"type": "string"},
+    "under_test": {"enum": ["A", "B", null]},
     "per_match": {
       "type": "array",
       "items": {

@@ -22,9 +22,12 @@ Design notes
   CI uses a second, orthogonal seed (``ci_seed``) derived from
   ``seed_base`` so it, too, reproduces.
 * **Score convention**: +1 for A_WIN, -1 for B_WIN, 0 for DRAW. A
-  match that crashes / times out is recorded as ``score=0`` and
-  counted in ``invalid`` rather than ``draws``, so the fitness mean
-  reflects strategy quality rather than engine stability.
+  match that crashes / times out is counted in ``invalid`` rather
+  than ``draws``. When the caller names the program under test
+  (``under_test="A"`` or ``"B"``), an invalid match scores as a loss
+  for that side; otherwise (symmetric uses such as tournaments) it
+  scores 0. Evolution loops always pass ``under_test`` so a crashing
+  candidate can never score as well as a draw.
 
 Public API
 ----------
@@ -82,8 +85,11 @@ class FitnessResult:
     ``ci_high``   ``n_matches < 2`` (CI undefined on a single sample).
     ``wins_a/b``  counts of A_WIN / B_WIN outcomes.
     ``draws``     count of DRAW outcomes.
-    ``invalid``   count of matches that crashed / timed out (these
-                  contribute ``score=0`` to the mean).
+    ``invalid``   count of matches that crashed / timed out. They
+                  score as a loss for ``under_test`` when it is set,
+                  else 0.
+    ``under_test`` "A", "B" or ``None``: the side whose program is
+                  being evaluated.
     ``per_match`` list of per-match dicts: ``{seed, outcome, score,
                   ticks, wall_ms, a_alive, b_alive}``.
     """
@@ -104,6 +110,7 @@ class FitnessResult:
     workers: int = 1
     compiler: str = ""
     per_match: list[dict[str, Any]] = field(default_factory=list)
+    under_test: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation. Used by ``fitness.json``."""
@@ -225,12 +232,33 @@ class CompileError(RuntimeError):
     """Raised when the one-time per-worker compile fails."""
 
 
-def _run_one_match(binary: Path, seed: int, max_ticks: int, timeout: float) -> dict[str, Any]:
+def _invalid_score(under_test: str | None) -> float:
+    """Score of a crashed / timed-out match: a loss for the side under test."""
+    if under_test == "A":
+        return -1.0
+    if under_test == "B":
+        return 1.0
+    return 0.0
+
+
+def _run_one_match(
+    binary: Path,
+    seed: int,
+    max_ticks: int,
+    timeout: float,
+    *,
+    under_test: str | None = None,
+    record_path: Path | None = None,
+) -> dict[str, Any]:
     """Execute a single match; return a dict of match stats."""
+    cmd = [str(binary), "--seed", str(seed), "--max-ticks", str(max_ticks)]
+    if record_path is not None:
+        # Schema-v2 trace: telemetry_aar needs the per-tick actions/attacks.
+        cmd += ["--record", str(record_path), "--record-actions"]
     t0 = time.monotonic()
     try:
         proc = subprocess.run(
-            [str(binary), "--seed", str(seed), "--max-ticks", str(max_ticks)],
+            cmd,
             capture_output=True,
             text=True,
             check=False,
@@ -240,7 +268,7 @@ def _run_one_match(binary: Path, seed: int, max_ticks: int, timeout: float) -> d
         return {
             "seed": seed,
             "outcome": "TIMEOUT",
-            "score": 0.0,
+            "score": _invalid_score(under_test),
             "ticks": 0,
             "wall_ms": int(timeout * 1000),
             "a_alive": 0,
@@ -254,7 +282,7 @@ def _run_one_match(binary: Path, seed: int, max_ticks: int, timeout: float) -> d
         return {
             "seed": seed,
             "outcome": "CRASH",
-            "score": 0.0,
+            "score": _invalid_score(under_test),
             "ticks": 0,
             "wall_ms": wall_ms,
             "a_alive": 0,
@@ -294,6 +322,9 @@ def _worker_batch(
     max_ticks: int,
     timeout: float,
     work_dir: str,
+    under_test: str | None = None,
+    record_seed: int | None = None,
+    record_path: str | None = None,
 ) -> list[dict[str, Any]]:
     """Top-level so ProcessPoolExecutor can pickle it.
 
@@ -305,7 +336,17 @@ def _worker_batch(
     binary = _compile(Path(team_a_src), Path(team_b_src), wd, compiler)
     results: list[dict[str, Any]] = []
     for seed in seeds:
-        results.append(_run_one_match(binary, seed, max_ticks, timeout))
+        record = Path(record_path) if record_path and seed == record_seed else None
+        results.append(
+            _run_one_match(
+                binary,
+                seed,
+                max_ticks,
+                timeout,
+                under_test=under_test,
+                record_path=record,
+            )
+        )
     return results
 
 
@@ -362,6 +403,9 @@ def evaluate_fitness(
     compiler: str | None = None,
     scratch_root: Path | str | None = None,
     bootstrap_iterations: int = 2000,
+    under_test: str | None = None,
+    record_trace_for_match_idx: int | None = None,
+    trace_output_path: Path | str | None = None,
 ) -> FitnessResult:
     """Evaluate N seeded matches between ``team_a_src`` and ``team_b_src``.
 
@@ -391,6 +435,14 @@ def evaluate_fitness(
         ``fitness_run/`` subdir).
     bootstrap_iterations
         Iterations for the bootstrap CI. Default 2000 (~instant).
+    under_test
+        ``"A"`` or ``"B"``: the side whose program is being evaluated.
+        Crashed / timed-out matches score as a loss for that side.
+        ``None`` (symmetric comparison) scores them 0.
+    record_trace_for_match_idx, trace_output_path
+        When both are set, match number ``record_trace_for_match_idx``
+        (seed ``seed_base + idx``) also writes a schema-v2 trace to
+        ``trace_output_path``. Recording does not change the outcome.
 
     Returns
     -------
@@ -416,6 +468,19 @@ def evaluate_fitness(
         raise FileNotFoundError(f"team B source not found: {team_b}")
     if n_matches < 1:
         raise ValueError(f"n_matches must be >= 1, got {n_matches}")
+    if under_test not in (None, "A", "B"):
+        raise ValueError(f"under_test must be 'A', 'B' or None, got {under_test!r}")
+    record_seed: int | None = None
+    record_path: str | None = None
+    if record_trace_for_match_idx is not None and trace_output_path is not None:
+        if not 0 <= record_trace_for_match_idx < n_matches:
+            raise ValueError(
+                f"record_trace_for_match_idx must be in [0, {n_matches}), "
+                f"got {record_trace_for_match_idx}"
+            )
+        record_seed = seed_base + record_trace_for_match_idx
+        record_path = str(Path(trace_output_path).resolve())
+        Path(record_path).parent.mkdir(parents=True, exist_ok=True)
 
     cxx = compiler or _find_compiler()
     if cxx is None:
@@ -455,6 +520,9 @@ def evaluate_fitness(
             max_ticks,
             timeout,
             str(wd),
+            under_test,
+            record_seed,
+            record_path,
         )
     else:
         with _futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
@@ -468,6 +536,9 @@ def evaluate_fitness(
                     max_ticks,
                     timeout,
                     str(scratch_root_path / f"w{i}_{os.getpid()}"),
+                    under_test,
+                    record_seed,
+                    record_path,
                 )
                 for i, part in enumerate(partitions)
                 if part  # skip empty partitions when workers > n_matches
@@ -520,6 +591,7 @@ def evaluate_fitness(
         workers=max_workers,
         compiler=cxx,
         per_match=results,
+        under_test=under_test,
     )
 
 

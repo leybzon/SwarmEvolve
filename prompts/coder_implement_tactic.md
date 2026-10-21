@@ -12,6 +12,14 @@ Implement the tactical specification below as **one complete C++17 source file**
 {TACTIC_SPEC}
 ```
 
+# Parent Program (Your Team's Current Champion)
+
+The tactical specification describes how to change this program. Keep whatever the specification does not ask you to change.
+
+```cpp
+{PARENT_SOURCE}
+```
+
 # Opponent (Reference Only)
 
 You are fighting **{OPPONENT_NAME}**:
