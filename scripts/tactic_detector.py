@@ -1,39 +1,59 @@
 #!/usr/bin/env python3
-"""Tactic Detector (M18).
+"""Tactic Detector (M18; schema 2 after the v2 calibration).
 
 Deterministic feature extractor over v2 traces (see M15a). Fires one
 first-appearance event per (track, model, seed, generation) per tactic,
-written to ``tactic_events.jsonl`` (one record per line).
+written to ``tactic_events.jsonl`` (one record per line). Each detector
+has a ``measure_*`` function that returns its underlying quantities
+whether or not it fires; ``detect_*`` wraps it into a ``TacticEvent``.
 
-Detected tactics (all frozen thresholds; any change bumps
-``SCHEMA_VERSION``):
+Every detector ignores tick 0: it holds the spawn positions and
+zero-filled actions (``target_id`` 0 for every drone), not decisions.
+
+Detected tactics (frozen thresholds; any change bumps ``SCHEMA_VERSION``):
 
 Flanking
-    Two ally clusters with ≥ 90° angular separation from the enemy
-    centroid sustained ≥ 50 ticks. Clustering is done deterministically
-    by projecting alive allies onto the principal axis passing through
-    the enemy centroid and splitting at the median projection value.
+    Two distinct ally groups closing on the enemy from sides at least 90°
+    apart, sustained >= 50 ticks. Per tick: alive allies are split at the
+    median projection on the axis perpendicular to (enemy centroid ->
+    ally centroid); the angle between the two group centroids seen from
+    the enemy centroid is >= 90°; each group's mean distance to its own
+    centroid is <= 0.5 x the distance between the group centroids (two
+    groups, not one scattered cloud); each group centroid is within 250
+    units of the enemy centroid; and the allies' mean speed is >= 1.0
+    (the team is manoeuvring).
 
 Kiting
-    Sustained retreat velocity aligned with the (enemy centroid → ally)
-    vector. A drone is "kiting" this tick when its velocity has a
-    positive component along ``(ally - enemy_centroid)`` with cosine
-    similarity ≥ cos(30°) ≈ 0.866. A tick is a "kite tick" when at least
-    50% of alive allies satisfy this. The detector fires when the team
-    sustains ≥ 100 consecutive kite ticks.
+    Sustained retreat velocity aligned with the (enemy centroid -> ally)
+    vector. A drone is "kiting" this tick when its velocity has cosine
+    similarity >= cos(30°) with ``(ally - enemy_centroid)``. A tick is a
+    "kite tick" when at least 50% of moving allies satisfy this. Fires on
+    >= 100 consecutive kite ticks.
 
-Focus-fire discipline
-    Low redundant fire: the fraction of attack attempts aimed at an
-    already-dead target stays ≤ 0.10 over a window of ≥ 200 attempts.
-    (We use a 200-attempt rolling window rather than a tick window so
-    early-game no-combat phases don't starve the detector.)
+Focus fire
+    Concentrated fire: a hit is *focused* when at least one other ally
+    hits the same target in the same tick. Fires when at least half of the
+    team's hits are focused, over at least as many hits as the enemy team
+    had drones.
 
 Message-coded targeting
     Normalised mutual information (NMI) between a drone's ``target_id``
-    and any single float channel of its outgoing message bus, computed
-    over the set of ticks where target changed. Fires when
-    ``max_channel_NMI ≥ 0.25`` on ≥ 20 target-change events with ≥ 100
-    observation ticks.
+    and one channel of its outgoing message, over the ticks where it has
+    a target. A channel with at most 16 distinct values is used as
+    categories; otherwise it is cut into 4 equal-width bins over its
+    observed range (no clipping). Fires when the best channel's NMI is
+    >= 0.25 and above the 99th percentile of the same statistic with the
+    targets permuted (200 permutations), on >= 20 target-change events
+    and >= 100 observation ticks. ``measure_message_coded_targeting``
+    accepts several traces and pools them, since single matches are too
+    short to reach the minimums.
+
+Schema history: 1 = M18 (flanking without the group, range and speed
+conditions; ``focus_fire_discipline`` = few shots at dead targets over a
+200-attempt window; message channels clipped to [-1, 1]; tick 0
+included). Calibration showed schema 1 firing flanking from spawn
+geometry and for a stationary team, and the other two unable to fire
+(reports/calibration/CALIBRATION.md).
 
 CLI
 ---
@@ -43,9 +63,9 @@ CLI
         [--perspective a|b] [--pretty]
     tactic_detector.py dump-config      # prints the frozen thresholds
 
-Acceptance (NEXT_PHASE_PLAN.md §M18): each detector must fire on a
-handcrafted positive fixture and stay silent on a handcrafted
-counter-example. See ``tests/test_tactic_detector.py``.
+Acceptance: each detector must fire on a handcrafted positive fixture
+and stay silent on handcrafted counter-examples. See
+``tests/test_tactic_detector.py``.
 """
 
 from __future__ import annotations
@@ -54,6 +74,7 @@ import argparse
 import json
 import logging
 import math
+import random
 import sys
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
@@ -72,36 +93,45 @@ import telemetry_aar  # noqa: E402
 # Constants (frozen; bump SCHEMA_VERSION on change)
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 #: All tactic names in canonical order.
 TACTICS: tuple[str, ...] = (
     "flanking",
     "kiting",
-    "focus_fire_discipline",
+    "focus_fire",
     "message_coded_targeting",
 )
+
+#: Tick 0 holds spawn positions and zero-filled actions, not decisions.
+FIRST_DECISION_TICK: int = 1
 
 # --- Flanking thresholds
 FLANK_MIN_ANGLE_DEG: float = 90.0
 FLANK_MIN_STREAK_TICKS: int = 50
-FLANK_MIN_ALLIES_ALIVE: int = 3  # need ≥3 so the two clusters both have ≥1
+FLANK_MIN_ALLIES_ALIVE: int = 3  # need >=3 so the two clusters both have >=1
+FLANK_MAX_SPREAD_RATIO: float = 0.5  # group spread / distance between groups
+FLANK_MAX_RANGE: float = 250.0  # group centroid to enemy centroid
+FLANK_MIN_MEAN_SPEED: float = 1.0  # units per tick (max velocity is 5)
 
 # --- Kiting thresholds
-KITE_COS_MIN: float = math.cos(math.radians(30.0))  # ≈ 0.866
+KITE_COS_MIN: float = math.cos(math.radians(30.0))  # ~0.866
 KITE_MIN_FRACTION: float = 0.5
 KITE_MIN_STREAK_TICKS: int = 100
 KITE_MIN_VEL_MAG: float = 0.05  # ignore near-stationary drones
 
-# --- Focus-fire discipline thresholds
-FF_WINDOW_ATTEMPTS: int = 200
-FF_MAX_REDUNDANT_RATIO: float = 0.10
+# --- Focus-fire thresholds
+FF_MIN_FOCUSED_SHARE: float = 0.5
+FF_MIN_HITS_PER_ENEMY: float = 1.0  # minimum hits = this x enemy team size
 
 # --- Message-coded targeting thresholds
 MSG_MIN_NMI: float = 0.25
 MSG_MIN_TARGET_EVENTS: int = 20
 MSG_MIN_TICKS: int = 100
 MSG_CHANNEL_BINS: int = 4
+MSG_MAX_CATEGORIES: int = 16
+MSG_PERMUTATIONS: int = 200
+MSG_PERM_QUANTILE: float = 0.99
 MSG_SIZE: int = 4  # matches engine MSG_SIZE
 
 _LOG = logging.getLogger("swarmevolve.tactic_detector")
@@ -203,67 +233,115 @@ def _split_allies_by_median_projection(
     return low, high
 
 
-def detect_flanking(
-    ticks: list[dict[str, Any]],
-    perspective: str,
-) -> TacticEvent | None:
-    """Fire if two ally clusters maintain ≥ FLANK_MIN_ANGLE_DEG angular
-    separation (as seen from enemy centroid) for ≥ FLANK_MIN_STREAK_TICKS
-    consecutive ticks."""
+def _decisions(ticks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [t for t in ticks if int(t["tick"]) >= FIRST_DECISION_TICK]
+
+
+def _event(
+    tactic: str, perspective: str, first_tick: int, sustained: int, evidence: dict
+) -> TacticEvent:
+    return TacticEvent(
+        schema_version=SCHEMA_VERSION,
+        tactic=tactic,
+        first_tick=first_tick,
+        sustained_ticks=sustained,
+        track="",
+        model="",
+        seed=-1,
+        generation=-1,
+        perspective=perspective,
+        evidence=evidence,
+    )
+
+
+def _mean_dist(drones: list[dict[str, Any]], c: tuple[float, float]) -> float:
+    return sum(math.hypot(d["x"] - c[0], d["y"] - c[1]) for d in drones) / len(drones)
+
+
+def measure_flanking(ticks: list[dict[str, Any]], perspective: str) -> dict[str, Any]:
+    """Per-tick flank conditions, the longest streak meeting all of them,
+    and the first streak that reaches FLANK_MIN_STREAK_TICKS."""
     us_key, them_key = _perspective_teams(perspective)
-    streak = 0
-    best_streak = 0
-    streak_start: int | None = None
-    best_start: int | None = None
-    for t in ticks:
-        allies = _alive(t[us_key])
-        enemies = _alive(t[them_key])
-        if len(allies) < FLANK_MIN_ALLIES_ALIVE or not enemies:
-            streak = 0
-            streak_start = None
-            continue
-        enemy_c = _centroid(enemies)
-        assert enemy_c is not None
-        low, high = _split_allies_by_median_projection(allies, enemy_c)
-        if not low or not high:
-            streak = 0
-            streak_start = None
-            continue
-        c_low = _centroid(low)
-        c_high = _centroid(high)
-        assert c_low is not None and c_high is not None
-        v_low = (c_low[0] - enemy_c[0], c_low[1] - enemy_c[1])
-        v_high = (c_high[0] - enemy_c[0], c_high[1] - enemy_c[1])
-        angle = _angle_between(v_low, v_high)
-        if angle >= FLANK_MIN_ANGLE_DEG:
+    act_key = "actions_a" if perspective == "a" else "actions_b"
+    counts = {"eligible": 0, "angle": 0, "groups": 0, "range": 0, "moving": 0, "all": 0}
+    streak = best = 0
+    start: int | None = None
+    fired: dict[str, Any] | None = None
+    for t in _decisions(ticks):
+        allies, enemies = _alive(t[us_key]), _alive(t[them_key])
+        ok = False
+        if len(allies) >= FLANK_MIN_ALLIES_ALIVE and enemies:
+            ec = _centroid(enemies)
+            assert ec is not None
+            low, high = _split_allies_by_median_projection(allies, ec)
+            if low and high:
+                counts["eligible"] += 1
+                cl, ch = _centroid(low), _centroid(high)
+                assert cl is not None and ch is not None
+                angle = _angle_between(
+                    (cl[0] - ec[0], cl[1] - ec[1]), (ch[0] - ec[0], ch[1] - ec[1])
+                )
+                gap = math.hypot(cl[0] - ch[0], cl[1] - ch[1])
+                spread = max(_mean_dist(low, cl), _mean_dist(high, ch))
+                reach = max(
+                    math.hypot(cl[0] - ec[0], cl[1] - ec[1]),
+                    math.hypot(ch[0] - ec[0], ch[1] - ec[1]),
+                )
+                actions = {a["id"]: a for a in t.get(act_key, [])}
+                speeds = [
+                    math.hypot(actions[d["id"]]["vx"], actions[d["id"]]["vy"])
+                    if d["id"] in actions
+                    else 0.0
+                    for d in allies
+                ]
+                conds = {
+                    "angle": angle >= FLANK_MIN_ANGLE_DEG,
+                    "groups": gap > 0 and spread <= FLANK_MAX_SPREAD_RATIO * gap,
+                    "range": reach <= FLANK_MAX_RANGE,
+                    "moving": sum(speeds) / len(speeds) >= FLANK_MIN_MEAN_SPEED,
+                }
+                for k, v in conds.items():
+                    counts[k] += int(v)
+                ok = all(conds.values())
+                if ok:
+                    counts["all"] += 1
+        if ok:
             if streak == 0:
-                streak_start = int(t["tick"])
+                start = int(t["tick"])
             streak += 1
-            if streak > best_streak:
-                best_streak = streak
-                best_start = streak_start
-                if streak >= FLANK_MIN_STREAK_TICKS and best_start is not None:
-                    return TacticEvent(
-                        schema_version=SCHEMA_VERSION,
-                        tactic="flanking",
-                        first_tick=best_start,
-                        sustained_ticks=streak,
-                        track="",
-                        model="",
-                        seed=-1,
-                        generation=-1,
-                        perspective=perspective,
-                        evidence={
-                            "angle_deg": round(angle, 2),
-                            "cluster_sizes": [len(low), len(high)],
-                            "threshold_angle_deg": FLANK_MIN_ANGLE_DEG,
-                            "threshold_streak_ticks": FLANK_MIN_STREAK_TICKS,
-                        },
-                    )
+            best = max(best, streak)
+            if fired is None and streak >= FLANK_MIN_STREAK_TICKS and start is not None:
+                fired = {
+                    "first_tick": start,
+                    "angle_deg": round(angle, 2),
+                    "cluster_sizes": [len(low), len(high)],
+                    "spread_ratio": round(spread / gap, 3),
+                    "max_range": round(reach, 1),
+                }
         else:
             streak = 0
-            streak_start = None
-    return None
+    return {
+        "tick_counts": counts,
+        "longest_streak": best,
+        "fires": fired is not None,
+        "event": fired,
+    }
+
+
+def detect_flanking(ticks: list[dict[str, Any]], perspective: str) -> TacticEvent | None:
+    m = measure_flanking(ticks, perspective)
+    if not m["fires"]:
+        return None
+    ev = dict(m["event"])
+    first = ev.pop("first_tick")
+    ev.update(
+        threshold_angle_deg=FLANK_MIN_ANGLE_DEG,
+        threshold_streak_ticks=FLANK_MIN_STREAK_TICKS,
+        threshold_spread_ratio=FLANK_MAX_SPREAD_RATIO,
+        threshold_range=FLANK_MAX_RANGE,
+        threshold_mean_speed=FLANK_MIN_MEAN_SPEED,
+    )
+    return _event("flanking", perspective, first, FLANK_MIN_STREAK_TICKS, ev)
 
 
 # ---------------------------------------------------------------------------
@@ -271,140 +349,122 @@ def detect_flanking(
 # ---------------------------------------------------------------------------
 
 
-def detect_kiting(
-    ticks: list[dict[str, Any]],
-    perspective: str,
-) -> TacticEvent | None:
-    """Fire on the longest streak of ≥ KITE_MIN_STREAK_TICKS consecutive
-    ticks where ≥ KITE_MIN_FRACTION of alive allies are moving *away*
-    from the enemy centroid (velocity aligned with ally-from-enemy
-    vector within KITE_COS_MIN)."""
+def measure_kiting(ticks: list[dict[str, Any]], perspective: str) -> dict[str, Any]:
+    """Kite fraction per tick, longest streak of kite ticks, first streak
+    that reaches KITE_MIN_STREAK_TICKS."""
     us_key, them_key = _perspective_teams(perspective)
-    us_actions = "actions_a" if perspective == "a" else "actions_b"
-    streak = 0
-    streak_start: int | None = None
+    act_key = "actions_a" if perspective == "a" else "actions_b"
+    streak = best = 0
+    start: int | None = None
     best_frac = 0.0
-    for t in ticks:
-        allies = _alive(t[us_key])
-        enemies = _alive(t[them_key])
-        actions = t.get(us_actions, [])
-        if not allies or not enemies or not actions:
-            streak = 0
-            streak_start = None
-            continue
-        enemy_c = _centroid(enemies)
-        assert enemy_c is not None
-        actions_by_id = {a["id"]: a for a in actions}
-        kiting_count = 0
-        considered = 0
-        for d in allies:
-            a = actions_by_id.get(d["id"])
-            if a is None or not a.get("alive"):
-                continue
-            vx, vy = float(a["vx"]), float(a["vy"])
-            if _norm((vx, vy)) < KITE_MIN_VEL_MAG:
-                continue
-            considered += 1
-            radial = (d["x"] - enemy_c[0], d["y"] - enemy_c[1])
-            rn = _norm(radial)
-            if rn == 0.0:
-                continue
-            vn = _norm((vx, vy))
-            cos_sim = (vx * radial[0] + vy * radial[1]) / (vn * rn)
-            if cos_sim >= KITE_COS_MIN:
-                kiting_count += 1
-        if considered == 0:
-            streak = 0
-            streak_start = None
-            continue
-        frac = kiting_count / considered
-        if frac >= KITE_MIN_FRACTION:
+    fired: dict[str, Any] | None = None
+    for t in _decisions(ticks):
+        allies, enemies = _alive(t[us_key]), _alive(t[them_key])
+        actions = {a["id"]: a for a in t.get(act_key, [])}
+        frac: float | None = None
+        if allies and enemies and actions:
+            ec = _centroid(enemies)
+            assert ec is not None
+            considered = kiting = 0
+            for d in allies:
+                a = actions.get(d["id"])
+                if a is None or not a.get("alive"):
+                    continue
+                v = (float(a["vx"]), float(a["vy"]))
+                if _norm(v) < KITE_MIN_VEL_MAG:
+                    continue
+                considered += 1
+                radial = (d["x"] - ec[0], d["y"] - ec[1])
+                if _norm(radial) == 0.0:
+                    continue
+                if _dot(v, radial) / (_norm(v) * _norm(radial)) >= KITE_COS_MIN:
+                    kiting += 1
+            if considered:
+                frac = kiting / considered
+        if frac is not None and frac >= KITE_MIN_FRACTION:
             if streak == 0:
-                streak_start = int(t["tick"])
+                start = int(t["tick"])
             streak += 1
-            if frac > best_frac:
-                best_frac = frac
-            if streak >= KITE_MIN_STREAK_TICKS and streak_start is not None:
-                return TacticEvent(
-                    schema_version=SCHEMA_VERSION,
-                    tactic="kiting",
-                    first_tick=streak_start,
-                    sustained_ticks=streak,
-                    track="",
-                    model="",
-                    seed=-1,
-                    generation=-1,
-                    perspective=perspective,
-                    evidence={
-                        "kiting_fraction": round(frac, 3),
-                        "max_kiting_fraction": round(best_frac, 3),
-                        "threshold_fraction": KITE_MIN_FRACTION,
-                        "threshold_streak_ticks": KITE_MIN_STREAK_TICKS,
-                        "cos_min": round(KITE_COS_MIN, 4),
-                    },
-                )
+            best = max(best, streak)
+            best_frac = max(best_frac, frac)
+            if fired is None and streak >= KITE_MIN_STREAK_TICKS and start is not None:
+                fired = {
+                    "first_tick": start,
+                    "kiting_fraction": round(frac, 3),
+                    "max_kiting_fraction": round(best_frac, 3),
+                }
         else:
             streak = 0
-            streak_start = None
-    return None
+    return {"longest_streak": best, "fires": fired is not None, "event": fired}
+
+
+def detect_kiting(ticks: list[dict[str, Any]], perspective: str) -> TacticEvent | None:
+    m = measure_kiting(ticks, perspective)
+    if not m["fires"]:
+        return None
+    ev = dict(m["event"])
+    first = ev.pop("first_tick")
+    ev.update(
+        threshold_fraction=KITE_MIN_FRACTION,
+        threshold_streak_ticks=KITE_MIN_STREAK_TICKS,
+        cos_min=round(KITE_COS_MIN, 4),
+    )
+    return _event("kiting", perspective, first, KITE_MIN_STREAK_TICKS, ev)
 
 
 # ---------------------------------------------------------------------------
-# Focus-fire discipline detector
+# Focus-fire detector
 # ---------------------------------------------------------------------------
 
 
-def detect_focus_fire_discipline(
-    ticks: list[dict[str, Any]],
-    perspective: str,
-) -> TacticEvent | None:
-    """Fire when the redundant-shot ratio over a rolling
-    FF_WINDOW_ATTEMPTS window stays ≤ FF_MAX_REDUNDANT_RATIO.
-
-    A "redundant" shot is one whose target was already dead at resolution
-    time — the engine emits those as AttackEvent(hit=False, dist=…) when
-    the target had ``alive=False`` on its team snapshot the *previous*
-    tick (we approximate that from the trace by flagging any attempt
-    against an id that is not alive in the current tick's team snapshot
-    and whose attack has ``hit=False``).
-    """
+def measure_focus_fire(ticks: list[dict[str, Any]], perspective: str) -> dict[str, Any]:
+    """Share of the team's hits that land on a target another ally hits in
+    the same tick."""
     us_team_id = 0 if perspective == "a" else 1
-    them_team_key = "team_b" if perspective == "a" else "team_a"
-    window_attempts: list[int] = []  # 1 = redundant, 0 = not redundant
-    first_tick_of_qualifying_window: int | None = None
-    for t in ticks:
-        tgt_alive = {d["id"]: d["alive"] for d in t[them_team_key]}
+    _, them_key = _perspective_teams(perspective)
+    enemy_team_size = len(ticks[0][them_key]) if ticks else 0
+    hits = focused = 0
+    first_focused: int | None = None
+    for t in _decisions(ticks):
+        per_target: dict[int, int] = {}
         for atk in t.get("attacks", []):
-            if atk["atk_team"] != us_team_id:
-                continue
-            # Redundant ↔ target id was not alive at resolution time.
-            is_redundant = not atk["hit"] and not tgt_alive.get(atk["tgt_id"], True)
-            window_attempts.append(1 if is_redundant else 0)
-            if len(window_attempts) > FF_WINDOW_ATTEMPTS:
-                window_attempts.pop(0)
-            if len(window_attempts) < FF_WINDOW_ATTEMPTS:
-                continue
-            ratio = sum(window_attempts) / len(window_attempts)
-            if ratio <= FF_MAX_REDUNDANT_RATIO:
-                if first_tick_of_qualifying_window is None:
-                    first_tick_of_qualifying_window = int(t["tick"])
-                return TacticEvent(
-                    schema_version=SCHEMA_VERSION,
-                    tactic="focus_fire_discipline",
-                    first_tick=first_tick_of_qualifying_window,
-                    sustained_ticks=FF_WINDOW_ATTEMPTS,
-                    track="",
-                    model="",
-                    seed=-1,
-                    generation=-1,
-                    perspective=perspective,
-                    evidence={
-                        "redundant_ratio": round(ratio, 4),
-                        "window_attempts": FF_WINDOW_ATTEMPTS,
-                        "threshold_max_ratio": FF_MAX_REDUNDANT_RATIO,
-                    },
-                )
-    return None
+            if atk["atk_team"] == us_team_id and atk["hit"]:
+                per_target[atk["tgt_id"]] = per_target.get(atk["tgt_id"], 0) + 1
+        for n in per_target.values():
+            hits += n
+            if n >= 2:
+                focused += n
+                if first_focused is None:
+                    first_focused = int(t["tick"])
+    min_hits = math.ceil(FF_MIN_HITS_PER_ENEMY * enemy_team_size)
+    share = focused / hits if hits else 0.0
+    return {
+        "hits": hits,
+        "focused_hits": focused,
+        "focused_share": round(share, 4),
+        "min_hits": min_hits,
+        "first_focused_tick": first_focused,
+        "fires": hits >= max(1, min_hits) and share >= FF_MIN_FOCUSED_SHARE,
+    }
+
+
+def detect_focus_fire(ticks: list[dict[str, Any]], perspective: str) -> TacticEvent | None:
+    m = measure_focus_fire(ticks, perspective)
+    if not m["fires"]:
+        return None
+    return _event(
+        "focus_fire",
+        perspective,
+        int(m["first_focused_tick"]),
+        int(m["hits"]),
+        {
+            "focused_share": m["focused_share"],
+            "hits": m["hits"],
+            "focused_hits": m["focused_hits"],
+            "threshold_focused_share": FF_MIN_FOCUSED_SHARE,
+            "threshold_min_hits": m["min_hits"],
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -451,73 +511,89 @@ def _nmi(xs: list[int], ys: list[int]) -> float:
     return 2.0 * mi / (hx + hy)
 
 
+def _channel_codes(values: list[float]) -> list[int]:
+    """Categories when the channel takes few distinct values, otherwise
+    MSG_CHANNEL_BINS equal-width bins over its observed range."""
+    distinct = sorted(set(values))
+    if len(distinct) <= MSG_MAX_CATEGORIES:
+        index = {v: i for i, v in enumerate(distinct)}
+        return [index[v] for v in values]
+    lo, hi = distinct[0], distinct[-1]
+    return [_quantise(v, MSG_CHANNEL_BINS, lo, hi) for v in values]
+
+
+def measure_message_coded_targeting(
+    traces: list[list[dict[str, Any]]], perspective: str
+) -> dict[str, Any]:
+    """NMI between target_id and each message channel, pooled over
+    ``traces`` (one list of ticks per match), with a permutation null."""
+    act_key = "actions_a" if perspective == "a" else "actions_b"
+    xs: list[int] = []
+    chans: list[list[float]] = [[] for _ in range(MSG_SIZE)]
+    target_events = observation_ticks = 0
+    first_tick: int | None = None
+    for ticks in traces:
+        prev_target: dict[int, int] = {}
+        for t in _decisions(ticks):
+            observed = False
+            for a in t.get(act_key, []):
+                if not a.get("alive") or int(a["target_id"]) < 0:
+                    continue
+                tid = int(a["target_id"])
+                if prev_target.get(a["id"]) != tid:
+                    target_events += 1
+                    prev_target[a["id"]] = tid
+                msg = a.get("msg", [0.0] * MSG_SIZE)
+                xs.append(tid)
+                for c in range(MSG_SIZE):
+                    chans[c].append(float(msg[c]))
+                observed = True
+            if observed:
+                observation_ticks += 1
+                if first_tick is None:
+                    first_tick = int(t["tick"])
+    codes = [_channel_codes(ch) for ch in chans] if xs else [[] for _ in chans]
+    nmi = [round(_nmi(xs, ys), 4) if xs else 0.0 for ys in codes]
+    best_c = max(range(MSG_SIZE), key=lambda c: nmi[c])
+    null_q: float | None = None
+    enough = target_events >= MSG_MIN_TARGET_EVENTS and observation_ticks >= MSG_MIN_TICKS
+    if enough and nmi[best_c] >= MSG_MIN_NMI:
+        rng = random.Random(len(xs))
+        shuffled = list(xs)
+        null = []
+        for _ in range(MSG_PERMUTATIONS):
+            rng.shuffle(shuffled)
+            null.append(max(_nmi(shuffled, ys) for ys in codes))
+        null.sort()
+        null_q = round(null[math.ceil(MSG_PERM_QUANTILE * MSG_PERMUTATIONS) - 1], 4)
+    return {
+        "target_events": target_events,
+        "observation_ticks": observation_ticks,
+        "nmi_per_channel": nmi,
+        "best_channel": best_c,
+        "null_quantile": null_q,
+        "first_tick": first_tick,
+        "fires": null_q is not None and nmi[best_c] > null_q,
+    }
+
+
 def detect_message_coded_targeting(
-    ticks: list[dict[str, Any]],
-    perspective: str,
+    ticks: list[dict[str, Any]], perspective: str
 ) -> TacticEvent | None:
-    """Fire when max-over-channels NMI between the team's collective
-    ``target_id`` and a single float channel of the outgoing message bus
-    exceeds ``MSG_MIN_NMI`` on a sufficiently long observation window."""
-    us_actions = "actions_a" if perspective == "a" else "actions_b"
-    # Collect (target_id, msg_channels[]) per alive ally with a valid target.
-    per_channel_xs: dict[int, list[int]] = {c: [] for c in range(MSG_SIZE)}
-    per_channel_ys: dict[int, list[int]] = {c: [] for c in range(MSG_SIZE)}
-    target_events = 0
-    prev_target: dict[int, int] = {}
-    ticks_counted = 0
-    for t in ticks:
-        actions = t.get(us_actions, [])
-        if not actions:
-            continue
-        any_obs = False
-        for a in actions:
-            if not a.get("alive"):
-                continue
-            tid = int(a["target_id"])
-            if tid < 0:
-                continue
-            if prev_target.get(a["id"]) != tid:
-                target_events += 1
-                prev_target[a["id"]] = tid
-            msg = a.get("msg", [0.0] * MSG_SIZE)
-            for c in range(MSG_SIZE):
-                per_channel_xs[c].append(tid)
-                per_channel_ys[c].append(_quantise(msg[c], MSG_CHANNEL_BINS))
-            any_obs = True
-        if any_obs:
-            ticks_counted += 1
-    if ticks_counted < MSG_MIN_TICKS or target_events < MSG_MIN_TARGET_EVENTS:
+    m = measure_message_coded_targeting([ticks], perspective)
+    if not m["fires"]:
         return None
-    best_c = -1
-    best_nmi = -1.0
-    for c in range(MSG_SIZE):
-        nmi = _nmi(per_channel_xs[c], per_channel_ys[c])
-        if nmi > best_nmi:
-            best_nmi = nmi
-            best_c = c
-    if best_nmi < MSG_MIN_NMI:
-        return None
-    # Find the earliest tick with any observation.
-    first_tick = 0
-    for t in ticks:
-        if any(a.get("alive") and int(a["target_id"]) >= 0 for a in t.get(us_actions, [])):
-            first_tick = int(t["tick"])
-            break
-    return TacticEvent(
-        schema_version=SCHEMA_VERSION,
-        tactic="message_coded_targeting",
-        first_tick=first_tick,
-        sustained_ticks=ticks_counted,
-        track="",
-        model="",
-        seed=-1,
-        generation=-1,
-        perspective=perspective,
-        evidence={
-            "best_channel": best_c,
-            "nmi": round(best_nmi, 4),
-            "target_events": target_events,
-            "observation_ticks": ticks_counted,
+    return _event(
+        "message_coded_targeting",
+        perspective,
+        int(m["first_tick"]),
+        int(m["observation_ticks"]),
+        {
+            "best_channel": m["best_channel"],
+            "nmi": m["nmi_per_channel"][m["best_channel"]],
+            "null_quantile": m["null_quantile"],
+            "target_events": m["target_events"],
+            "observation_ticks": m["observation_ticks"],
             "threshold_nmi": MSG_MIN_NMI,
         },
     )
@@ -540,7 +616,7 @@ def _perspective_teams(perspective: str) -> tuple[str, str]:
 _DETECTORS = {
     "flanking": detect_flanking,
     "kiting": detect_kiting,
-    "focus_fire_discipline": detect_focus_fire_discipline,
+    "focus_fire": detect_focus_fire,
     "message_coded_targeting": detect_message_coded_targeting,
 }
 
@@ -655,10 +731,14 @@ def _cmd_dump_config(_: argparse.Namespace) -> int:
     cfg = {
         "schema_version": SCHEMA_VERSION,
         "tactics": list(TACTICS),
+        "first_decision_tick": FIRST_DECISION_TICK,
         "flanking": {
             "min_angle_deg": FLANK_MIN_ANGLE_DEG,
             "min_streak_ticks": FLANK_MIN_STREAK_TICKS,
             "min_allies_alive": FLANK_MIN_ALLIES_ALIVE,
+            "max_spread_ratio": FLANK_MAX_SPREAD_RATIO,
+            "max_range": FLANK_MAX_RANGE,
+            "min_mean_speed": FLANK_MIN_MEAN_SPEED,
         },
         "kiting": {
             "cos_min": KITE_COS_MIN,
@@ -666,15 +746,18 @@ def _cmd_dump_config(_: argparse.Namespace) -> int:
             "min_streak_ticks": KITE_MIN_STREAK_TICKS,
             "min_vel_mag": KITE_MIN_VEL_MAG,
         },
-        "focus_fire_discipline": {
-            "window_attempts": FF_WINDOW_ATTEMPTS,
-            "max_redundant_ratio": FF_MAX_REDUNDANT_RATIO,
+        "focus_fire": {
+            "min_focused_share": FF_MIN_FOCUSED_SHARE,
+            "min_hits_per_enemy": FF_MIN_HITS_PER_ENEMY,
         },
         "message_coded_targeting": {
             "min_nmi": MSG_MIN_NMI,
             "min_target_events": MSG_MIN_TARGET_EVENTS,
             "min_ticks": MSG_MIN_TICKS,
             "channel_bins": MSG_CHANNEL_BINS,
+            "max_categories": MSG_MAX_CATEGORIES,
+            "permutations": MSG_PERMUTATIONS,
+            "permutation_quantile": MSG_PERM_QUANTILE,
             "msg_size": MSG_SIZE,
         },
     }
@@ -727,30 +810,41 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = [
-    "FF_MAX_REDUNDANT_RATIO",
-    "FF_WINDOW_ATTEMPTS",
-    "FLANK_MIN_ALLIES_ALIVE",
     # Thresholds (exported for tests + docs):
+    "FF_MIN_FOCUSED_SHARE",
+    "FF_MIN_HITS_PER_ENEMY",
+    "FIRST_DECISION_TICK",
+    "FLANK_MAX_RANGE",
+    "FLANK_MAX_SPREAD_RATIO",
+    "FLANK_MIN_ALLIES_ALIVE",
     "FLANK_MIN_ANGLE_DEG",
+    "FLANK_MIN_MEAN_SPEED",
     "FLANK_MIN_STREAK_TICKS",
     "KITE_COS_MIN",
     "KITE_MIN_FRACTION",
     "KITE_MIN_STREAK_TICKS",
     "KITE_MIN_VEL_MAG",
     "MSG_CHANNEL_BINS",
+    "MSG_MAX_CATEGORIES",
     "MSG_MIN_NMI",
     "MSG_MIN_TARGET_EVENTS",
     "MSG_MIN_TICKS",
+    "MSG_PERMUTATIONS",
+    "MSG_PERM_QUANTILE",
     "MSG_SIZE",
     "SCHEMA_VERSION",
     "TACTICS",
     "TacticEvent",
     "build_parser",
     "detect_flanking",
-    "detect_focus_fire_discipline",
+    "detect_focus_fire",
     "detect_kiting",
     "detect_message_coded_targeting",
     "main",
+    "measure_flanking",
+    "measure_focus_fire",
+    "measure_kiting",
+    "measure_message_coded_targeting",
     "read_events",
     "scan_trace",
     "write_events",

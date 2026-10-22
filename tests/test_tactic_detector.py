@@ -90,28 +90,37 @@ def _tick(idx: int, *, team_a, team_b, actions_a=None, actions_b=None, attacks=N
 
 
 def _build_flanking_ticks(
-    num_ticks: int, *, angle_deg: float = 180.0, r: float = 50.0
+    num_ticks: int,
+    *,
+    angle_deg: float = 180.0,
+    r: float = 50.0,
+    speed: float = 2.0,
+    member_offset: float = 1.0,
 ) -> list[dict]:
-    """Allies split into two perfectly symmetric clusters seen from the
-    enemy centroid at the origin. ``angle_deg`` controls the angular
-    separation (180° is maximum; 90° is the threshold).
-    """
+    """Allies in two compact groups seen from the enemy centroid at the
+    origin, ``angle_deg`` apart (180° is maximum; 90° is the threshold),
+    each moving at ``speed``. Tick 0 is included, as in real traces."""
     half = math.radians(angle_deg / 2.0)
-    # Low cluster at angle +half, high cluster at angle -half, both from origin.
     low_pos = (r * math.cos(half), r * math.sin(half))
     high_pos = (r * math.cos(half), -r * math.sin(half))
-    # 3 allies per cluster; enemies stacked at origin.
     team_a = [
         _drone(0, low_pos[0], low_pos[1]),
-        _drone(1, low_pos[0] + 1.0, low_pos[1] + 1.0),
+        _drone(1, low_pos[0] + member_offset, low_pos[1] + member_offset),
         _drone(2, high_pos[0], high_pos[1]),
-        _drone(3, high_pos[0] + 1.0, high_pos[1] + 1.0),
+        _drone(3, high_pos[0] + member_offset, high_pos[1] + member_offset),
     ]
     team_b = [_drone(0, 0.0, 0.0), _drone(1, 1.0, 0.0)]
-    ticks = []
-    for t in range(num_ticks):
-        ticks.append(_tick(t, team_a=[dict(d) for d in team_a], team_b=[dict(d) for d in team_b]))
-    return ticks
+    actions_a = [_action(i, vx=-speed, vy=0.0) for i in range(4)]
+    return [
+        _tick(
+            t,
+            team_a=[dict(d) for d in team_a],
+            team_b=[dict(d) for d in team_b],
+            actions_a=[dict(a) for a in actions_a],
+            actions_b=[_action(0), _action(1)],
+        )
+        for t in range(num_ticks)
+    ]
 
 
 def test_flanking_fires_on_symmetric_split():
@@ -119,21 +128,19 @@ def test_flanking_fires_on_symmetric_split():
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is not None, "flanking should fire on sustained 170° split"
     assert ev.tactic == "flanking"
-    assert ev.first_tick == 0
+    assert ev.first_tick == td.FIRST_DECISION_TICK  # tick 0 is spawn, not a decision
     assert ev.sustained_ticks >= td.FLANK_MIN_STREAK_TICKS
     assert ev.evidence["angle_deg"] >= td.FLANK_MIN_ANGLE_DEG
     assert ev.evidence["threshold_angle_deg"] == td.FLANK_MIN_ANGLE_DEG
 
 
 def test_flanking_silent_when_streak_too_short():
-    # 40 ticks of full separation, then break by collapsing the clusters.
     ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS - 10, angle_deg=170.0)
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is None, "streak below threshold must not fire"
 
 
 def test_flanking_silent_when_angle_below_threshold():
-    # 60° separation for plenty of ticks — no fire.
     ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 20, angle_deg=60.0)
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is None, "angle below 90° must not fire"
@@ -141,12 +148,40 @@ def test_flanking_silent_when_angle_below_threshold():
 
 def test_flanking_silent_when_too_few_allies():
     ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5, angle_deg=170.0)
-    # Kill all but 2 allies on every tick.
     for t in ticks:
         for d in t["team_a"][2:]:
             d["alive"] = False
     ev = td.detect_flanking(ticks, perspective="a")
     assert ev is None, "need at least FLANK_MIN_ALLIES_ALIVE allies"
+
+
+def test_flanking_silent_for_a_stationary_team():
+    """Regression (schema 1): fired for stationary_v1, which never moves."""
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 20, angle_deg=170.0, speed=0.0)
+    assert td.detect_flanking(ticks, perspective="a") is None
+    assert td.measure_flanking(ticks, "a")["tick_counts"]["moving"] == 0
+
+
+def test_flanking_silent_for_one_scattered_cloud():
+    """Regression (schema 1): a random spawn cloud split at the median looks
+    like two groups at a wide angle. Members as far from their group centre
+    as the groups are apart are one cloud, not two groups."""
+    ticks = _build_flanking_ticks(
+        td.FLANK_MIN_STREAK_TICKS + 20, angle_deg=170.0, member_offset=80.0
+    )
+    assert td.detect_flanking(ticks, perspective="a") is None
+
+
+def test_flanking_silent_when_far_from_the_enemy():
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 20, angle_deg=170.0, r=400.0)
+    assert td.detect_flanking(ticks, perspective="a") is None
+
+
+def test_flanking_ignores_spawn_tick():
+    """Regression (schema 1): fired with first_tick 0 from spawn geometry."""
+    ticks = _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS, angle_deg=170.0)
+    # Exactly FLANK_MIN_STREAK_TICKS ticks including tick 0: one short.
+    assert td.detect_flanking(ticks, perspective="a") is None
 
 
 # ===========================================================================
@@ -209,63 +244,60 @@ def test_kiting_silent_when_streak_too_short():
 
 
 # ===========================================================================
-# Focus-fire discipline
+# Focus fire
 # ===========================================================================
 
 
-def _build_focus_fire_ticks(num_attacks: int, redundant_ratio: float) -> list[dict]:
-    """Emit ``num_attacks`` attack events spread across ticks. A
-    ``redundant_ratio`` fraction of shots target an already-dead enemy.
-    Team B has 10 drones; B0 is dead throughout. Shots at B0 count as
-    redundant (not-hit + target alive=False).
-    """
-    team_a = [_drone(i, 0.0, float(i)) for i in range(5)]
-    # B0 is dead; B1..B4 alive.
-    team_b_base = [_drone(0, 20.0, 0.0, alive=False)] + [
-        _drone(i, 20.0 + i, 0.0) for i in range(1, 5)
-    ]
-    ticks = []
-    n_redundant = round(num_attacks * redundant_ratio)
-    n_total = num_attacks
-    # One attack per tick to make the rolling window progression obvious.
-    for i in range(n_total):
-        is_redundant = i < n_redundant
-        if is_redundant:
-            atk = _attack(0, i % 5, 1, 0, hit=False, dist=25.0)
-        else:
-            atk = _attack(0, i % 5, 1, 1, hit=True, dist=15.0)
+def _build_focus_fire_ticks(num_ticks: int, *, focused: bool) -> list[dict]:
+    """Four allies, four enemies. Every tick from 1 on, allies 0 and 1 hit
+    enemy 0 and allies 2 and 3 hit enemy 1 (focused), or each ally hits a
+    different enemy (spread)."""
+    team_a = [_drone(i, 0.0, float(i)) for i in range(4)]
+    team_b = [_drone(i, 20.0, float(i)) for i in range(4)]
+    ticks = [_tick(0, team_a=team_a, team_b=team_b)]
+    for t in range(1, num_ticks):
+        targets = [0, 0, 1, 1] if focused else [0, 1, 2, 3]
+        attacks = [_attack(0, i, 1, tgt, hit=True, dist=20.0) for i, tgt in enumerate(targets)]
         ticks.append(
             _tick(
-                i,
+                t,
                 team_a=[dict(d) for d in team_a],
-                team_b=[dict(d) for d in team_b_base],
-                attacks=[atk],
+                team_b=[dict(d) for d in team_b],
+                attacks=attacks,
             )
         )
     return ticks
 
 
-def test_focus_fire_fires_on_clean_window():
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.0)
-    ev = td.detect_focus_fire_discipline(ticks, perspective="a")
-    assert ev is not None, "zero redundant shots must fire the detector"
-    assert ev.tactic == "focus_fire_discipline"
-    assert ev.evidence["redundant_ratio"] <= td.FF_MAX_REDUNDANT_RATIO
-    assert ev.sustained_ticks == td.FF_WINDOW_ATTEMPTS
+def test_focus_fire_fires_on_concentrated_hits():
+    ticks = _build_focus_fire_ticks(3, focused=True)
+    ev = td.detect_focus_fire(ticks, perspective="a")
+    assert ev is not None
+    assert ev.tactic == "focus_fire"
+    assert ev.evidence["focused_share"] == 1.0
+    assert ev.evidence["hits"] >= ev.evidence["threshold_min_hits"] == 4
+    assert ev.first_tick == 1
 
 
-def test_focus_fire_silent_on_noisy_window():
-    # 30% redundant shots is well above the 10% budget.
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.30)
-    ev = td.detect_focus_fire_discipline(ticks, perspective="a")
-    assert ev is None, "30% redundant shots must not pass discipline"
+def test_focus_fire_silent_on_spread_hits():
+    ticks = _build_focus_fire_ticks(5, focused=False)
+    assert td.detect_focus_fire(ticks, perspective="a") is None
+    assert td.measure_focus_fire(ticks, "a")["focused_share"] == 0.0
 
 
-def test_focus_fire_silent_when_too_few_attempts():
-    # Only half a window of clean shots — the rolling window never fills.
-    ticks = _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS // 2, redundant_ratio=0.0)
-    ev = td.detect_focus_fire_discipline(ticks, perspective="a")
-    assert ev is None, "fewer than FF_WINDOW_ATTEMPTS attempts → silent"
+def test_focus_fire_silent_when_too_few_hits():
+    """Fewer hits than the enemy team has drones: no verdict."""
+    ticks = _build_focus_fire_ticks(2, focused=True)
+    ticks[1]["attacks"] = ticks[1]["attacks"][:2]  # 2 hits < 4 enemies
+    assert td.detect_focus_fire(ticks, perspective="a") is None
+
+
+def test_focus_fire_reaches_a_verdict_in_one_short_match():
+    """Regression (schema 1): the 200-attempt window could never fill in a
+    10-drone match (at most 39 attempts per side in calibration)."""
+    ticks = _build_focus_fire_ticks(3, focused=True)
+    m = td.measure_focus_fire(ticks, "a")
+    assert m["hits"] < 39 and m["fires"]
 
 
 # ===========================================================================
@@ -325,6 +357,48 @@ def test_message_coded_silent_when_too_few_ticks():
     ticks = _build_message_coded_ticks(td.MSG_MIN_TICKS - 10, coded=True)
     ev = td.detect_message_coded_targeting(ticks, perspective="a")
     assert ev is None, "fewer than MSG_MIN_TICKS observation ticks → silent"
+
+
+def _message_ticks_from(values_for_target, num_ticks: int) -> list[dict]:
+    """Like _build_message_coded_ticks but msg[0] = values_for_target(tid)."""
+    ticks = _build_message_coded_ticks(num_ticks, coded=True)
+    for t in ticks:
+        for a in t["actions_a"]:
+            a["msg"][0] = values_for_target(a["target_id"])
+    return ticks
+
+
+def test_message_coded_fires_on_values_outside_unit_range():
+    """Regression (schema 1): channels were clipped to [-1, 1], so a target
+    code in large values (e.g. msg = target id x 100) was invisible."""
+    ticks = _message_ticks_from(lambda tid: 100.0 * tid + 500.0, td.MSG_MIN_TICKS + 20)
+    ev = td.detect_message_coded_targeting(ticks, perspective="a")
+    assert ev is not None and ev.evidence["best_channel"] == 0
+    assert ev.evidence["nmi"] > ev.evidence["null_quantile"]
+
+
+def test_message_coded_silent_on_noise_channel():
+    rng = __import__("random").Random(3)
+    ticks = _message_ticks_from(lambda tid: rng.uniform(-500, 500), td.MSG_MIN_TICKS + 20)
+    assert td.detect_message_coded_targeting(ticks, perspective="a") is None
+
+
+def test_message_coded_ignores_tick0_zero_actions():
+    """Regression (schema 1): tick 0's zero-filled actions (target_id 0)
+    were counted as target events, even for a team that never targets."""
+    ticks = _build_message_coded_ticks(5, coded=True)
+    for t in ticks[1:]:
+        for a in t["actions_a"]:
+            a["target_id"] = -1
+    m = td.measure_message_coded_targeting([ticks], "a")
+    assert m["target_events"] == 0 and m["observation_ticks"] == 0
+
+
+def test_message_coded_pools_short_matches():
+    short = [_build_message_coded_ticks(30, coded=True) for _ in range(5)]
+    assert all(td.detect_message_coded_targeting(t, perspective="a") is None for t in short)
+    pooled = td.measure_message_coded_targeting(short, "a")
+    assert pooled["observation_ticks"] >= td.MSG_MIN_TICKS and pooled["fires"]
 
 
 # ===========================================================================
@@ -576,7 +650,8 @@ def test_cli_dump_config_prints_thresholds():
     assert set(cfg["tactics"]) == set(td.TACTICS)
     assert cfg["flanking"]["min_angle_deg"] == td.FLANK_MIN_ANGLE_DEG
     assert cfg["kiting"]["min_streak_ticks"] == td.KITE_MIN_STREAK_TICKS
-    assert cfg["focus_fire_discipline"]["window_attempts"] == td.FF_WINDOW_ATTEMPTS
+    assert cfg["focus_fire"]["min_focused_share"] == td.FF_MIN_FOCUSED_SHARE
+    assert cfg["first_decision_tick"] == td.FIRST_DECISION_TICK
     assert cfg["message_coded_targeting"]["min_nmi"] == td.MSG_MIN_NMI
 
 
@@ -657,7 +732,7 @@ def test_events_validate_against_schema():
     fixtures = [
         _build_flanking_ticks(td.FLANK_MIN_STREAK_TICKS + 5, angle_deg=170.0),
         _build_kiting_ticks(td.KITE_MIN_STREAK_TICKS + 5),
-        _build_focus_fire_ticks(td.FF_WINDOW_ATTEMPTS + 5, redundant_ratio=0.0),
+        _build_focus_fire_ticks(3, focused=True),
         _build_message_coded_ticks(td.MSG_MIN_TICKS + 20, coded=True),
     ]
     all_events: list[td.TacticEvent] = []

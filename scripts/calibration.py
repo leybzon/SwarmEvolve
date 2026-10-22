@@ -11,12 +11,18 @@ Steps (each a subcommand, run in this order)::
 
     python scripts/calibration.py crossplay    # 6 pairings x 2,000 seeds x both sides
     python scripts/calibration.py instruments  # 20 recorded matches, AAR + tactic detector
-    python scripts/calibration.py limits       # 5-50 drones x arena scale 1.0-2.0
+    python scripts/calibration.py limits       # 5-50 drones x arena scale 1.0-2.0, 1000-tick cap
+    python scripts/calibration.py limits-scaled  # the same grid, cap = 1000 x arena scale
     python scripts/calibration.py analyze      # stats, noise, power -> calibration_results.json
     python scripts/calibration.py render       # CALIBRATION.md from the results file
 
 Seed blocks (disjoint from each other and from the setup checks):
 crossplay 400000-401999, instruments 410000-410019, limits 420000-420049.
+
+History: ``instruments`` first wrote instruments.json with detector schema 1
+and AAR metrics schema 1 (commit e8b6174); it now writes instruments_v2.json
+with both at schema 2. ``limits`` ran with a fixed 1000-tick cap before the
+cap was tied to the arena scale; ``limits-scaled`` repeats the grid with it.
 """
 
 from __future__ import annotations
@@ -271,141 +277,41 @@ def check_aar_against_trace(
     return checks
 
 
-def probe_detectors(records: list[dict[str, Any]], perspective: str) -> dict[str, Any]:
-    """The quantities behind each tactic detector, computed with the
-    detector's own helpers and per-tick rules, whether or not it fires."""
-    us_key, them_key = td._perspective_teams(perspective)
-    act_key = "actions_a" if perspective == "a" else "actions_b"
-    us_team_id = 0 if perspective == "a" else 1
+def _max_speed(records: list[dict[str, Any]], perspective: str) -> float:
+    key = "actions_a" if perspective == "a" else "actions_b"
+    return max(
+        (math.hypot(a["vx"], a["vy"]) for t in records[1:] for a in t[key] if a["alive"]),
+        default=0.0,
+    )
 
-    # Flanking: angle between the two median-split ally clusters seen from the enemy centroid.
-    flank_streak = flank_best = flank_eligible = flank_wide = 0
-    flank_first_wide_tick = None
-    for t in records:
-        allies, enemies = td._alive(t[us_key]), td._alive(t[them_key])
-        if len(allies) < td.FLANK_MIN_ALLIES_ALIVE or not enemies:
-            flank_streak = 0
-            continue
-        ec = td._centroid(enemies)
-        assert ec is not None
-        low, high = td._split_allies_by_median_projection(allies, ec)
-        if not low or not high:
-            flank_streak = 0
-            continue
-        flank_eligible += 1
-        cl, ch = td._centroid(low), td._centroid(high)
-        assert cl is not None and ch is not None
-        angle = td._angle_between((cl[0] - ec[0], cl[1] - ec[1]), (ch[0] - ec[0], ch[1] - ec[1]))
-        if angle >= td.FLANK_MIN_ANGLE_DEG:
-            flank_wide += 1
-            flank_streak += 1
-            flank_best = max(flank_best, flank_streak)
-            if flank_first_wide_tick is None:
-                flank_first_wide_tick = int(t["tick"])
-        else:
-            flank_streak = 0
 
-    # Kiting: fraction of moving allies retreating from the enemy centroid.
-    kite_streak = kite_best = 0
-    max_speed = 0.0
-    for t in records:
-        allies, enemies = td._alive(t[us_key]), td._alive(t[them_key])
-        actions = {a["id"]: a for a in t.get(act_key, [])}
-        for a in actions.values():
-            if a.get("alive"):
-                max_speed = max(max_speed, math.hypot(a["vx"], a["vy"]))
-        if not allies or not enemies or not actions:
-            kite_streak = 0
-            continue
-        ec = td._centroid(enemies)
-        assert ec is not None
-        considered = kiting = 0
-        for d in allies:
-            a = actions.get(d["id"])
-            if a is None or not a.get("alive"):
-                continue
-            v = (float(a["vx"]), float(a["vy"]))
-            if td._norm(v) < td.KITE_MIN_VEL_MAG:
-                continue
-            considered += 1
-            radial = (d["x"] - ec[0], d["y"] - ec[1])
-            if td._norm(radial) == 0.0:
-                continue
-            if td._dot(v, radial) / (td._norm(v) * td._norm(radial)) >= td.KITE_COS_MIN:
-                kiting += 1
-        if considered and kiting / considered >= td.KITE_MIN_FRACTION:
-            kite_streak += 1
-            kite_best = max(kite_best, kite_streak)
-        else:
-            kite_streak = 0
-
-    # Focus-fire discipline: share of attempts at a target already dead.
-    attempts: list[int] = []
-    for t in records:
-        tgt_alive = {d["id"]: d["alive"] for d in t[them_key]}
-        for atk in t.get("attacks", []):
-            if atk["atk_team"] == us_team_id:
-                attempts.append(int(not atk["hit"] and not tgt_alive.get(atk["tgt_id"], True)))
-    w = td.FF_WINDOW_ATTEMPTS
-    windows = [sum(attempts[i - w : i]) / w for i in range(w, len(attempts) + 1)]
-
-    # Message-coded targeting: NMI(target_id, quantised channel) as the detector computes it,
-    # plus the same NMI with each channel quantised over its observed range.
-    xs: list[int] = []
-    chans: list[list[float]] = [[] for _ in range(td.MSG_SIZE)]
-    target_events = 0
-    observation_ticks = 0
-    prev_target: dict[int, int] = {}
-    for t in records:
-        observed = False
-        for a in t.get(act_key, []):
-            if not a.get("alive") or int(a["target_id"]) < 0:
-                continue
-            observed = True
-            tid = int(a["target_id"])
-            if prev_target.get(a["id"]) != tid:
-                target_events += 1
-                prev_target[a["id"]] = tid
-            xs.append(tid)
-            for c in range(td.MSG_SIZE):
-                chans[c].append(float(a["msg"][c]))
-        observation_ticks += int(observed)
-    nmi_detector = [
-        round(td._nmi(xs, [td._quantise(v, td.MSG_CHANNEL_BINS) for v in ch]), 4) if xs else 0.0
-        for ch in chans
-    ]
-
-    def ranged(ch: list[float]) -> list[int]:
-        lo, hi = min(ch), max(ch)
-        return [0 if hi <= lo else td._quantise(v, td.MSG_CHANNEL_BINS, lo, hi) for v in ch]
-
-    nmi_ranged = [round(td._nmi(xs, ranged(ch)), 4) if xs else 0.0 for ch in chans]
-    msg_range = [[min(ch), max(ch)] if ch else [0.0, 0.0] for ch in chans]
+def _measures(records: list[dict[str, Any]], perspective: str) -> dict[str, Any]:
+    """Every detector's underlying quantities (schema 2 exposes them)."""
     return {
-        "flanking_eligible_ticks": flank_eligible,
-        "flanking_wide_ticks": flank_wide,
-        "flanking_longest_streak": flank_best,
-        "flanking_first_wide_tick": flank_first_wide_tick,
-        "kiting_longest_streak": kite_best,
-        "max_speed": round(max_speed, 4),
-        "focus_fire_attempts": len(attempts),
-        "focus_fire_redundant": sum(attempts),
-        "focus_fire_min_window_ratio": round(min(windows), 4) if windows else None,
-        "message_target_events": target_events,
-        "message_observations": len(xs),
-        "message_observation_ticks": observation_ticks,
-        "message_nmi_detector": nmi_detector,
-        "message_nmi_observed_range": nmi_ranged,
-        "message_channel_range": msg_range,
+        "flanking": td.measure_flanking(records, perspective),
+        "kiting": td.measure_kiting(records, perspective),
+        "focus_fire": td.measure_focus_fire(records, perspective),
+        "message_coded_targeting": td.measure_message_coded_targeting([records], perspective),
+        "max_speed": round(_max_speed(records, perspective), 4),
     }
 
 
 def cmd_instruments(args: argparse.Namespace) -> None:
+    """Record the instrument matches, run the AAR and tactic-detector CLIs on
+    both perspectives, check the AAR against the traces and store every
+    detector's measures. Writes instruments_v2.json (detector schema 2,
+    AAR metrics schema 2). The schema-1 run is instruments.json."""
     scratch = _scratch()
     trace_dir = OUT / "traces"
     trace_dir.mkdir(parents=True, exist_ok=True)
+    schema1 = {}
+    if (OUT / "instruments.json").is_file():
+        schema1 = {
+            m["match"]: m for m in json.loads((OUT / "instruments.json").read_text())["matches"]
+        }
     jobs = instrument_jobs()
     results = []
+    by_program: dict[str, list[tuple[list[dict[str, Any]], str]]] = {}
     for job in jobs:
         _write_status("instruments", state="running", done=job["match"], total=len(jobs))
         trace = scratch / f"trace_{job['match']:02d}.jsonl"
@@ -421,15 +327,22 @@ def cmd_instruments(args: argparse.Namespace) -> None:
         )
         row = r.per_match[0]
         data = trace.read_bytes()
-        stored = trace_dir / f"{trace.name}.gz"
-        stored.write_bytes(gzip.compress(data, mtime=0))
+        sha = hashlib.sha256(data).hexdigest()
+        old = schema1.get(job["match"])
+        if old is not None and old["trace_sha256"] == sha:
+            stored = REPO_ROOT / old["trace"]  # same bytes as the schema-1 run
+        else:
+            stored = OUT / "traces_v2" / f"{trace.name}.gz"
+            stored.parent.mkdir(parents=True, exist_ok=True)
+            stored.write_bytes(gzip.compress(data, mtime=0))
         records = telemetry_aar.load_v2_trace(trace)
         entry: dict[str, Any] = {
             **job,
             "row": row,
             "platform_label": r.platform["label"],
             "trace": str(stored.relative_to(REPO_ROOT)),
-            "trace_sha256": hashlib.sha256(data).hexdigest(),
+            "trace_sha256": sha,
+            "trace_identical_to_schema1_run": old is not None and old["trace_sha256"] == sha,
             "perspectives": {},
         }
         for persp in ("A", "B"):
@@ -462,16 +375,29 @@ def cmd_instruments(args: argparse.Namespace) -> None:
                 ]
             )
             events = td.read_events(events_path) if det.returncode == 0 else []
+            program = job["team_a"] if persp == "A" else job["team_b"]
+            by_program.setdefault(program, []).append((records, persp.lower()))
             entry["perspectives"][persp] = {
-                "program": job["team_a"] if persp == "A" else job["team_b"],
+                "program": program,
                 "aar_rc": cli.returncode,
                 "aar": aar,
                 "aar_checks": check_aar_against_trace(records, aar, row, persp) if aar else {},
                 "detector_rc": det.returncode,
                 "detector_events": events,
-                "probe": probe_detectors(records, persp.lower()),
+                "measures": _measures(records, persp.lower()),
             }
         results.append(entry)
+    pooled = {}
+    for program, items in sorted(by_program.items()):
+        # Pool per perspective letter, since the measure takes one perspective.
+        parts = {
+            persp: td.measure_message_coded_targeting(
+                [rec for rec, pp in items if pp == persp], persp
+            )
+            for persp in ("a", "b")
+            if any(pp == persp for _, pp in items)
+        }
+        pooled[program] = parts
     meta = {
         "started_git_sha": _git_sha(),
         "finished_utc": _now(),
@@ -480,8 +406,9 @@ def cmd_instruments(args: argparse.Namespace) -> None:
         ),
         "aar_metrics_schema_version": telemetry_aar.METRICS_SCHEMA_VERSION,
         "matches": results,
+        "pooled_message_coded_targeting": pooled,
     }
-    (OUT / "instruments.json").write_text(json.dumps(meta, indent=1, sort_keys=True) + "\n")
+    (OUT / "instruments_v2.json").write_text(json.dumps(meta, indent=1, sort_keys=True) + "\n")
     shutil.rmtree(scratch, ignore_errors=True)
     _write_status("instruments", state="done", done=len(jobs), total=len(jobs))
 
@@ -491,14 +418,17 @@ def cmd_instruments(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-def cmd_limits(args: argparse.Namespace) -> None:
+def cmd_limits(args: argparse.Namespace, *, scaled_cap: bool = False) -> None:
+    """The drones x arena-scale grid. With ``scaled_cap`` the tick cap is
+    fitness.scaled_max_ticks(scale) (decided 2026-10-22); otherwise 1000."""
+    name = "limits_scaled" if scaled_cap else "limits"
     scratch = _scratch()
     ordered = list(itertools.product(BASELINES, BASELINES))
     configs = [(n, s, a, b) for n in LIMITS_DRONES for s in LIMITS_SCALES for a, b in ordered]
     rows: list[dict[str, Any]] = []
     runs: list[dict[str, Any]] = []
     for i, (n, scale, a, b) in enumerate(configs):
-        _write_status("limits", state="running", done=i, total=len(configs))
+        _write_status(name, state="running", done=i, total=len(configs))
         t0 = time.monotonic()
         r = _evaluate(
             a,
@@ -509,6 +439,7 @@ def cmd_limits(args: argparse.Namespace) -> None:
             drones_a=n,
             drones_b=n,
             arena_scale=scale,
+            max_ticks=None if scaled_cap else MAX_TICKS,
             scratch_root=scratch,
         )
         runs.append(
@@ -516,6 +447,7 @@ def cmd_limits(args: argparse.Namespace) -> None:
                 r,
                 drones=n,
                 arena_scale=scale,
+                max_ticks=fitness.scaled_max_ticks(scale) if scaled_cap else MAX_TICKS,
                 team_a=a,
                 team_b=b,
                 host_wall_seconds=round(time.monotonic() - t0, 3),
@@ -523,13 +455,13 @@ def cmd_limits(args: argparse.Namespace) -> None:
         )
         for m in r.per_match:
             rows.append({"drones": n, "arena_scale": scale, "team_a": a, "team_b": b, **m})
-    with (OUT / "limits_matches.jsonl").open("w") as f:
+    with (OUT / f"{name}_matches.jsonl").open("w") as f:
         for row in rows:
             f.write(json.dumps(row, sort_keys=True) + "\n")
     meta = {"started_git_sha": _git_sha(), "finished_utc": _now(), "runs": runs}
-    (OUT / "limits_runs.json").write_text(json.dumps(meta, indent=1, sort_keys=True) + "\n")
+    (OUT / f"{name}_runs.json").write_text(json.dumps(meta, indent=1, sort_keys=True) + "\n")
     shutil.rmtree(scratch, ignore_errors=True)
-    _write_status("limits", state="done", done=len(configs), total=len(configs))
+    _write_status(name, state="done", done=len(configs), total=len(configs))
 
 
 # ---------------------------------------------------------------------------
@@ -813,83 +745,74 @@ def analyze_power(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def schema1_summary(inst1: dict[str, Any]) -> dict[str, Any]:
+    """Fire rates of the schema-1 detectors, from the events stored in
+    instruments.json (the full schema-1 analysis is in CALIBRATION.md at
+    commit 924c3d4)."""
+    fired: dict[str, dict[str, int]] = {}
+    runs: dict[str, int] = {}
+    for m in inst1["matches"]:
+        for p in m["perspectives"].values():
+            runs[p["program"]] = runs.get(p["program"], 0) + 1
+            for ev in p["detector_events"]:
+                fired.setdefault(p["program"], {})
+                fired[p["program"]][ev["tactic"]] = fired[p["program"]].get(ev["tactic"], 0) + 1
+    tactics = sorted({t for d in fired.values() for t in d})
+    return {
+        "detector_schema": inst1["detector_config"]["schema_version"],
+        "fire_rate": {
+            prog: {t: round(fired.get(prog, {}).get(t, 0) / n, 4) for t in tactics}
+            for prog, n in sorted(runs.items())
+        },
+    }
+
+
+def _agg(vals: list[float]) -> dict[str, float] | None:
+    if not vals:
+        return None
+    return {"min": min(vals), "max": max(vals), "mean": round(sum(vals) / len(vals), 4)}
+
+
 def analyze_instruments(inst: dict[str, Any]) -> dict[str, Any]:
-    per_program: dict[str, dict[str, Any]] = {}
+    """AAR checks, detector fire rates and measures per baseline, and the
+    plausibility flags, for the schema-2 run (instruments_v2.json)."""
     check_totals: dict[str, list[int]] = {}
-    aar_failures = 0
+    cli_failures = 0
+    runs: dict[str, list[dict[str, Any]]] = {}
     for m in inst["matches"]:
-        for persp, p in m["perspectives"].items():
-            if p["aar_rc"] != 0 or p["detector_rc"] != 0:
-                aar_failures += 1
+        for p in m["perspectives"].values():
+            cli_failures += int(p["aar_rc"] != 0 or p["detector_rc"] != 0)
             for k, ok in p["aar_checks"].items():
                 check_totals.setdefault(k, [0, 0])
                 check_totals[k][0] += int(ok)
                 check_totals[k][1] += 1
-            prog = per_program.setdefault(
-                p["program"], {"perspectives": 0, "fired": {t: 0 for t in td.TACTICS}, "probes": []}
-            )
-            prog["perspectives"] += 1
-            for ev in p["detector_events"]:
-                prog["fired"][ev["tactic"]] += 1
-            pr = dict(p["probe"])
-            pr["fired"] = sorted(ev["tactic"] for ev in p["detector_events"])
-            pr["first_ticks"] = {ev["tactic"]: ev["first_tick"] for ev in p["detector_events"]}
-            other = m["perspectives"]["B" if persp == "A" else "A"]
-            pr["opponent_kiting_longest_streak"] = other["probe"]["kiting_longest_streak"]
-            pr["aar"] = p["aar"]
-            pr["match"] = m["match"]
-            pr["perspective"] = persp
-            prog["probes"].append(pr)
+            runs.setdefault(p["program"], []).append(p)
 
     summary: dict[str, Any] = {}
     flags: list[dict[str, Any]] = []
-    probe_agreement = True
-    for name, d in sorted(per_program.items()):
-        probes = d["probes"]
-
-        def agg(key: str, probes: list[dict[str, Any]] = probes) -> dict[str, float] | None:
-            vals = [p[key] for p in probes if p[key] is not None]
-            if not vals:
-                return None
-            return {"min": min(vals), "max": max(vals), "mean": round(sum(vals) / len(vals), 4)}
-
-        def agg_aar(key: str, probes: list[dict[str, Any]] = probes) -> dict[str, float] | None:
-            vals = [p["aar"][key] for p in probes if p["aar"]]
-            vals = [float(v) for v in vals]
-            if not vals:
-                return None
-            return {"min": min(vals), "max": max(vals), "mean": round(sum(vals) / len(vals), 4)}
-
-        for p in probes:
-            expect = {
-                "flanking": p["flanking_longest_streak"] >= td.FLANK_MIN_STREAK_TICKS,
-                "kiting": p["kiting_longest_streak"] >= td.KITE_MIN_STREAK_TICKS,
-                "focus_fire_discipline": p["focus_fire_min_window_ratio"] is not None
-                and p["focus_fire_min_window_ratio"] <= td.FF_MAX_REDUNDANT_RATIO,
-            }
-            for tactic, should in expect.items():
-                if should != (tactic in p["fired"]):
-                    probe_agreement = False
-        summary[name] = {
-            "perspectives": d["perspectives"],
-            "fire_rate": {t: round(c / d["perspectives"], 4) for t, c in d["fired"].items()},
-            "flanking_longest_streak": agg("flanking_longest_streak"),
-            "flanking_first_wide_tick": agg("flanking_first_wide_tick"),
-            "kiting_longest_streak": agg("kiting_longest_streak"),
-            "max_speed": agg("max_speed"),
-            "focus_fire_attempts": agg("focus_fire_attempts"),
-            "focus_fire_min_window_ratio": agg("focus_fire_min_window_ratio"),
-            "message_nmi_detector_max": {
-                "max": max(max(p["message_nmi_detector"]) for p in probes),
-            },
-            "message_nmi_observed_range_max": {
-                "max": max(max(p["message_nmi_observed_range"]) for p in probes),
-            },
-            "message_channel_abs_max": max(
-                max(abs(v) for rng in p["message_channel_range"] for v in rng) for p in probes
-            ),
+    for name, ps in sorted(runs.items()):
+        n = len(ps)
+        fired = {
+            t: sum(any(e["tactic"] == t for e in p["detector_events"]) for p in ps)
+            for t in td.TACTICS
+        }
+        mz = [p["measures"] for p in ps]
+        ff = [x["focus_fire"] for x in mz]
+        pooled = inst["pooled_message_coded_targeting"][name]
+        s_ = {
+            "runs": n,
+            "fire_rate": {t: round(c / n, 4) for t, c in fired.items()},
+            "max_speed": _agg([x["max_speed"] for x in mz]),
+            "flanking_longest_streak": _agg([x["flanking"]["longest_streak"] for x in mz]),
+            "flanking_all_condition_ticks": _agg([x["flanking"]["tick_counts"]["all"] for x in mz]),
+            "flanking_angle_ticks": _agg([x["flanking"]["tick_counts"]["angle"] for x in mz]),
+            "kiting_longest_streak": _agg([x["kiting"]["longest_streak"] for x in mz]),
+            "focus_fire_hits": _agg([x["hits"] for x in ff]),
+            "focus_fire_share": _agg([x["focused_share"] for x in ff if x["hits"]]),
+            "focus_fire_runs_with_verdict": sum(x["hits"] >= max(1, x["min_hits"]) for x in ff),
+            "message_pooled": pooled,
             "aar": {
-                k: agg_aar(k)
+                k: _agg([float(p["aar"][k]) for p in ps if p["aar"]])
                 for k in (
                     "shots_fired_us",
                     "shots_hit_us",
@@ -898,25 +821,14 @@ def analyze_instruments(inst: dict[str, Any]) -> dict[str, Any]:
                     "mean_pairwise_distance_us",
                     "dispersion_index_us",
                     "message_bus_entropy",
-                    "kiting_score_them",
+                    "long_range_shot_share_them",
                     "engagement_range_mean",
                 )
             },
         }
-        s = summary[name]
-        s["message_target_events"] = agg("message_target_events")
-        s["message_observation_ticks"] = agg("message_observation_ticks")
-        s["flanking_fired_at_tick0"] = sum(p["first_ticks"].get("flanking") == 0 for p in probes)
-        s["aar_kiting_score_them_high_without_kiting"] = sum(
-            1
-            for p in probes
-            if p["aar"]
-            and p["aar"]["kiting_score_them"] >= 0.5
-            and p["opponent_kiting_longest_streak"] < 10
-        )
-        # --- implausibility rules -------------------------------------
-        moves = bool(s["max_speed"]) and s["max_speed"]["max"] > 0
-        for tactic, rate in s["fire_rate"].items():
+        summary[name] = s_
+        moves = bool(s_["max_speed"]) and s_["max_speed"]["max"] > 0
+        for tactic, rate in s_["fire_rate"].items():
             if rate > 0 and not moves and tactic in ("flanking", "kiting"):
                 flags.append(
                     {
@@ -935,110 +847,62 @@ def analyze_instruments(inst: dict[str, Any]) -> dict[str, Any]:
                         "fire_rate": rate,
                     }
                 )
-        if s["flanking_fired_at_tick0"]:
+        if s_["focus_fire_runs_with_verdict"] == 0 and any(x["hits"] for x in ff):
             flags.append(
                 {
                     "program": name,
-                    "tactic": "flanking",
-                    "rule": "fired with first_tick 0, so the random spawn alone met the condition",
-                    "runs_fired_at_tick0": s["flanking_fired_at_tick0"],
-                    "runs_fired": d["fired"]["flanking"],
+                    "tactic": "focus_fire",
+                    "rule": "never reaches the minimum number of hits for a verdict",
+                    "max_hits": s_["focus_fire_hits"]["max"] if s_["focus_fire_hits"] else 0,
                 }
             )
-        attempts = s["focus_fire_attempts"]
-        if attempts and attempts["max"] < td.FF_WINDOW_ATTEMPTS:
-            flags.append(
-                {
-                    "program": name,
-                    "tactic": "focus_fire_discipline",
-                    "rule": "cannot fire in these matches: too few attack attempts for one window",
-                    "max_attempts_per_match": attempts["max"],
-                    "window_attempts_needed": td.FF_WINDOW_ATTEMPTS,
-                }
-            )
-        events, obs_ticks = s["message_target_events"], s["message_observation_ticks"]
-        if (events and events["max"] < td.MSG_MIN_TARGET_EVENTS) or (
-            obs_ticks and obs_ticks["max"] < td.MSG_MIN_TICKS
-        ):
-            flags.append(
-                {
-                    "program": name,
-                    "tactic": "message_coded_targeting",
-                    "rule": (
-                        "cannot fire in these matches: too few target events or observation "
-                        "ticks (its NMI on so few samples is not informative)"
-                    ),
-                    "max_target_events": events["max"] if events else 0,
-                    "target_events_needed": td.MSG_MIN_TARGET_EVENTS,
-                    "max_observation_ticks": obs_ticks["max"] if obs_ticks else 0,
-                    "observation_ticks_needed": td.MSG_MIN_TICKS,
-                }
-            )
-        if s["message_channel_abs_max"] > 1.0:
-            flags.append(
-                {
-                    "program": name,
-                    "tactic": "message_coded_targeting",
-                    "rule": (
-                        "message values leave [-1, 1], which the detector clips into its end "
-                        "bins, so a code carried in larger values is invisible to it"
-                    ),
-                    "message_channel_abs_max": s["message_channel_abs_max"],
-                }
-            )
-        if s["aar_kiting_score_them_high_without_kiting"]:
-            flags.append(
-                {
-                    "program": name,
-                    "tactic": "AAR kiting_score_them",
-                    "rule": (
-                        "AAR reports the opponent kiting (>= 0.5 of its shots from beyond 80% "
-                        "of range) while the opponent never retreats for 10 straight ticks; "
-                        "the metric measures shot distance, not retreat"
-                    ),
-                    "runs": s["aar_kiting_score_them_high_without_kiting"],
-                    "of_runs": d["perspectives"],
-                }
-            )
-    # Tick 0 carries zero-filled actions (engine.cpp). target_id 0 there is
-    # not a choice, but detectors that read actions from tick 0 count it.
-    tick0_targeting = 0
-    for m in inst["matches"]:
-        first = json.loads(gzip.decompress((REPO_ROOT / m["trace"]).read_bytes()).splitlines()[0])
-        tick0_targeting += sum(
-            1
-            for key in ("actions_a", "actions_b")
-            for a in first[key]
-            if a["alive"] and a["target_id"] >= 0
-        )
-    if tick0_targeting:
-        flags.append(
-            {
-                "program": "all",
-                "tactic": "message_coded_targeting",
-                "rule": (
-                    "tick 0's zero-filled actions show target_id 0 for every drone, and the "
-                    "detector counts them as target events (also for stationary_v1, which "
-                    "never targets)"
-                ),
-                "tick0_drone_actions_with_target_0": tick0_targeting,
-                "matches": len(inst["matches"]),
-            }
-        )
+        for persp, pm in pooled.items():
+            if pm["fires"]:
+                flags.append(
+                    {
+                        "program": name,
+                        "tactic": "message_coded_targeting",
+                        "rule": "fires when this baseline's matches are pooled, i.e. at round-0 level",
+                        "perspective": persp,
+                        "nmi": pm["nmi_per_channel"][pm["best_channel"]],
+                        "null_quantile": pm["null_quantile"],
+                        "best_channel": pm["best_channel"],
+                    }
+                )
+            elif pm["observation_ticks"] and (
+                pm["observation_ticks"] < td.MSG_MIN_TICKS
+                or pm["target_events"] < td.MSG_MIN_TARGET_EVENTS
+            ):
+                flags.append(
+                    {
+                        "program": name,
+                        "tactic": "message_coded_targeting",
+                        "rule": "no verdict even pooled: too few observation ticks or target events",
+                        "perspective": persp,
+                        "observation_ticks": pm["observation_ticks"],
+                        "target_events": pm["target_events"],
+                    }
+                )
     return {
         "n_matches": len(inst["matches"]),
         "n_perspectives": sum(len(m["perspectives"]) for m in inst["matches"]),
-        "cli_failures": aar_failures,
+        "cli_failures": cli_failures,
+        "detector_schema": inst["detector_config"]["schema_version"],
+        "aar_metrics_schema": inst["aar_metrics_schema_version"],
+        "traces_identical_to_schema1_run": all(
+            m["trace_identical_to_schema1_run"] for m in inst["matches"]
+        ),
         "aar_checks": {k: {"passed": v[0], "total": v[1]} for k, v in check_totals.items()},
         "aar_checks_all_pass": all(v[0] == v[1] for v in check_totals.values()),
-        "probe_agrees_with_detector": probe_agreement,
         "per_program": summary,
         "flags": flags,
         "platform_labels": sorted({m["platform_label"] for m in inst["matches"]}),
     }
 
 
-def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> dict[str, Any]:
+def analyze_limits(
+    rows: list[dict[str, Any]], runs: list[dict[str, Any]], *, scaled_cap: bool = False
+) -> dict[str, Any]:
     import numpy as np
 
     cells = []
@@ -1048,6 +912,7 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
             moving = [
                 r for r in sel if r["team_a"] != "stationary_v1" or r["team_b"] != "stationary_v1"
             ]
+            cap = fitness.scaled_max_ticks(scale) if scaled_cap else MAX_TICKS
             ticks = np.asarray([r["ticks"] for r in moving])
             walls = np.asarray([r["wall_ms"] for r in sel])
             cells.append(
@@ -1061,8 +926,9 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
                     "draw_rate_excluding_stationary_mirror": round(
                         float(np.mean([r["outcome"] == "DRAW" for r in moving])), 4
                     ),
+                    "max_ticks": cap,
                     "share_at_max_ticks_excluding_stationary_mirror": round(
-                        float((ticks >= MAX_TICKS).mean()), 4
+                        float((ticks >= cap).mean()), 4
                     ),
                     "median_ticks_excluding_stationary_mirror": float(np.median(ticks)),
                     "share_at_max_ticks_by_pairing": {
@@ -1070,7 +936,7 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
                             float(
                                 np.mean(
                                     [
-                                        r["ticks"] >= MAX_TICKS
+                                        r["ticks"] >= cap
                                         for r in moving
                                         if r["team_a"] == a and r["team_b"] == b
                                     ]
@@ -1086,6 +952,7 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
                 }
             )
     return {
+        "scaled_cap": scaled_cap,
         "matches": len(rows),
         "invalid_total": sum(r["outcome"] in fitness.INVALID_OUTCOMES for r in rows),
         "cells": cells,
@@ -1093,15 +960,15 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
     }
 
 
-def instruments_rerun(inst: dict[str, Any]) -> dict[str, Any] | None:
-    """The instruments step ran twice: first with an outcome check that
-    compared TEAM_A_WIN to A_WIN verbatim, then with the fix. The first
-    run's trace hashes are kept; the matches must not have changed."""
+def instruments_rerun(inst1: dict[str, Any]) -> dict[str, Any] | None:
+    """The schema-1 instruments step ran twice: first with an outcome check
+    that compared TEAM_A_WIN to A_WIN verbatim, then with the fix. The
+    first run's trace hashes are kept; the matches must not have changed."""
     path = OUT / "instruments_run1_trace_sha256.json"
     if not path.is_file():
         return None
     run1 = json.loads(path.read_text())
-    now = {m["trace"]: m["trace_sha256"] for m in inst["matches"]}
+    now = {m["trace"]: m["trace_sha256"] for m in inst1["matches"]}
     return {"source": path.name, "traces": len(now), "identical_to_run1": run1 == now}
 
 
@@ -1111,15 +978,18 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     rng = np.random.default_rng(20261022)
     cross_rows = _read_jsonl(OUT / "crossplay_matches.jsonl")
     cross_meta = json.loads((OUT / "crossplay_runs.json").read_text())
-    inst = json.loads((OUT / "instruments.json").read_text())
-    lim_rows = _read_jsonl(OUT / "limits_matches.jsonl")
-    lim_meta = json.loads((OUT / "limits_runs.json").read_text())
+    inst1 = json.loads((OUT / "instruments.json").read_text())
+    inst2 = json.loads((OUT / "instruments_v2.json").read_text())
+    limits = {}
+    for name, scaled in (("limits", False), ("limits_scaled", True)):
+        lim_rows = _read_jsonl(OUT / f"{name}_matches.jsonl")
+        lim_meta = json.loads((OUT / f"{name}_runs.json").read_text())
+        limits[name] = (analyze_limits(lim_rows, lim_meta["runs"], scaled_cap=scaled), lim_meta)
     platforms = [r["platform"] for r in cross_meta["runs"]] + [
-        r["platform"] for r in lim_meta["runs"]
+        r["platform"] for _, meta in limits.values() for r in meta["runs"]
     ]
-    canonical = {
-        k: platforms[0][k] for k in ("image_id", "compiler_version", "cpu_model", "kernel")
-    }
+    keys = ("image_id", "compiler_version", "cpu_model", "kernel")
+    canonical = {k: platforms[0][k] for k in keys}
     results = {
         "generated_utc": _now(),
         "git_sha": _git_sha(),
@@ -1127,21 +997,26 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             "crossplay_matches.jsonl",
             "crossplay_runs.json",
             "instruments.json",
+            "instruments_run1_trace_sha256.json",
+            "instruments_v2.json",
             "limits_matches.jsonl",
             "limits_runs.json",
-            "instruments_run1_trace_sha256.json",
+            "limits_scaled_matches.jsonl",
+            "limits_scaled_runs.json",
         ],
         "platform": {**canonical, "labels": sorted({p["label"] for p in platforms})},
-        "platform_consistent": all({k: p[k] for k in canonical} == canonical for p in platforms),
+        "platform_consistent": all({k: p[k] for k in keys} == canonical for p in platforms),
         "crossplay": {
             "seeds": [CROSSPLAY_SEED_BASE, CROSSPLAY_SEED_BASE + CROSSPLAY_SEEDS - 1],
             "matches": len(cross_rows),
             "pairings": analyze_crossplay(cross_rows, rng),
         },
         "power": analyze_power(cross_rows),
-        "instruments": analyze_instruments(inst),
-        "instruments_rerun": instruments_rerun(inst),
-        "limits": analyze_limits(lim_rows, lim_meta["runs"]),
+        "instruments_schema1": schema1_summary(inst1),
+        "instruments_rerun": instruments_rerun(inst1),
+        "instruments": analyze_instruments(inst2),
+        "limits": limits["limits"][0],
+        "limits_scaled": limits["limits_scaled"][0],
     }
     (OUT / "calibration_results.json").write_text(
         json.dumps(results, indent=1, sort_keys=True) + "\n"
@@ -1165,7 +1040,6 @@ def render(res: dict[str, Any]) -> str:
     cp = res["crossplay"]
     pw = res["power"]
     ins = res["instruments"]
-    lim = res["limits"]
     plat = res["platform"]
     L: list[str] = []
     a = L.append
@@ -1306,35 +1180,63 @@ def render(res: dict[str, Any]) -> str:
     a("")
 
     # ---- 3. Instruments
+    s1 = res["instruments_schema1"]
+    rr = res.get("instruments_rerun")
     a("## 3. Instruments: AAR and tactic detector")
     a("")
     a(
-        f"{ins['n_matches']} recorded matches (schema v2, `--record-actions`), seeds "
+        f"{ins['n_matches']} recorded matches (schema-v2 traces, `--record-actions`), seeds "
         f"{INSTRUMENT_SEED_BASE}-{INSTRUMENT_SEED_BASE + INSTRUMENT_MATCHES - 1}, match i on "
         "ordered pairing i mod 9 (mirrors included); traces in `traces/` (gzip). "
         "`scripts/telemetry_aar.py` and `scripts/tactic_detector.py scan` ran from their "
         f"CLIs on both perspectives of each trace ({ins['n_perspectives']} runs; CLI failures: "
         f"{ins['cli_failures']})."
     )
-    rr = res.get("instruments_rerun")
-    if rr:
-        a("")
-        a(
-            "This step ran twice. In the first run the outcome check compared the trace's "
-            "`TEAM_A_WIN` with the result row's `A_WIN` verbatim and failed every win; the check "
-            "was fixed (regression test in `tests/test_calibration.py`) and the step re-run. The "
-            f"{rr['traces']} traces of the re-run are byte-identical to the first run's "
-            f"(`{rr['source']}`): {'yes' if rr['identical_to_run1'] else '**no**'}."
-        )
+    a("")
+    a("### History")
     a("")
     a(
-        "AAR against the traces. `check_aar_against_trace` recomputes each quantity from the "
-        "raw trace and the engine's own summary line, without telemetry_aar's code: outcome, "
-        "ticks and survivors against the engine; every attack event against the engine's "
-        "combat rules (attacker alive and off cooldown on the previous tick, distance from "
-        "this tick's positions, hit iff in range and target alive, after a hit the target dead "
-        "and the attacker's cooldown at 9, or 10 if it died the same tick); every death explained by a hit; then shot counts, cooldown utilisation, "
-        "mean pairwise distance and message-bus use."
+        f"The first calibration ran detector schema {s1['detector_schema']} and AAR metrics "
+        "schema 1 (`instruments.json`; full analysis in this file at commit 924c3d4). It found "
+        "flanking firing from spawn geometry and for a stationary team, focus-fire discipline "
+        "and message-coded targeting unable to fire in 10-drone matches, message channels "
+        "clipped to [-1, 1], tick 0's zero-filled actions counted as targeting, and the AAR's "
+        "`kiting_score_them` reporting retreat where there was none. Schema-1 fire rates:"
+    )
+    a("")
+    t1 = sorted(next(iter(s1["fire_rate"].values())).keys())
+    a("| Baseline | " + " | ".join(t1) + " |")
+    a("|---" * (1 + len(t1)) + "|")
+    for prog, fr in s1["fire_rate"].items():
+        a(f"| {prog} | " + " | ".join(_pct(fr[t]) for t in t1) + " |")
+    a("")
+    if rr:
+        a(
+            "That step ran twice: the first run's outcome check compared the trace's "
+            "`TEAM_A_WIN` with the result row's `A_WIN` verbatim and failed every win; the check "
+            "was fixed (regression test in `tests/test_calibration.py`) and the step re-run, with "
+            f"byte-identical traces (`{rr['source']}`): "
+            f"{'yes' if rr['identical_to_run1'] else '**no**'}."
+        )
+        a("")
+    a(
+        f"Decided 2026-10-22: fix the detectors (now schema {ins['detector_schema']}) and rename "
+        f"the AAR metric (metrics schema {ins['aar_metrics_schema']}); `scripts/tactic_detector.py` "
+        "documents the new definitions. The results below are from re-recording the same 20 "
+        "matches (`instruments_v2.json`); traces byte-identical to the schema-1 run: "
+        f"{'yes' if ins['traces_identical_to_schema1_run'] else '**no**'}."
+    )
+    a("")
+    a("### AAR against the traces")
+    a("")
+    a(
+        "`check_aar_against_trace` recomputes each quantity from the raw trace and the engine's "
+        "own summary line, without telemetry_aar's code: outcome, ticks and survivors against "
+        "the engine; every attack event against the engine's combat rules (attacker alive and "
+        "off cooldown on the previous tick, distance from this tick's positions, hit iff in "
+        "range and target alive, after a hit the target dead and the attacker's cooldown at 9, "
+        "or 10 if it died the same tick); every death explained by a hit; then shot counts, "
+        "cooldown utilisation, mean pairwise distance and message-bus use."
     )
     a("")
     a("| Check | Passed |")
@@ -1344,21 +1246,21 @@ def render(res: dict[str, Any]) -> str:
     a("")
     a(f"All AAR checks pass: **{'yes' if ins['aar_checks_all_pass'] else 'no'}**.")
     a("")
+    a("### Detectors per baseline (schema 2)")
+    a("")
     a(
-        "Detector values per baseline (the program on the perspective side). Fire rate = share "
-        "of perspectives in which the detector fired. Because the detectors only report when "
-        "they fire, `probe_detectors` recomputes the underlying quantities with the detectors' "
-        "own helper functions and per-tick rules; probe and detector agree on every firing "
-        f"decision: {'yes' if ins['probe_agrees_with_detector'] else '**no**'}."
+        "Fire rate = share of a baseline's perspectives in which the detector fired on that "
+        "single match. Message-coded targeting is also measured with all of a baseline's "
+        "matches pooled (per perspective letter), since one match is too short for it."
     )
     a("")
-    a("| Baseline | Runs | Flanking | Kiting | Focus-fire discipline | Message-coded targeting |")
-    a("|---|---|---|---|---|---|")
+    a("| Baseline | Runs | " + " | ".join(td.TACTICS) + " |")
+    a("|---" * (2 + len(td.TACTICS)) + "|")
     for prog, d in ins["per_program"].items():
-        fr = d["fire_rate"]
         a(
-            f"| {prog} | {d['perspectives']} | {_pct(fr['flanking'])} | {_pct(fr['kiting'])} "
-            f"| {_pct(fr['focus_fire_discipline'])} | {_pct(fr['message_coded_targeting'])} |"
+            f"| {prog} | {d['runs']} | "
+            + " | ".join(_pct(d["fire_rate"][t]) for t in td.TACTICS)
+            + " |"
         )
     a("")
 
@@ -1368,21 +1270,32 @@ def render(res: dict[str, Any]) -> str:
         return f"{fmt.format(v['min'])}-{fmt.format(v['max'])} (mean {fmt.format(v['mean'])})"
 
     a(
-        "| Baseline | Flanking: longest ≥90° streak (ticks) | Flanking: first ≥90° tick | Kiting: longest streak | "
-        "Max speed | Shots at targets | Focus fire: lowest redundant share (200-shot window) "
-        "| Message NMI, detector | Target events / observation ticks (max) | Largest message value |"
+        "| Baseline | Max speed | Flanking: ticks at ≥90° | Flanking: ticks meeting all conditions "
+        "| Flanking: longest streak | Kiting: longest streak | Hits | Focused share of hits "
+        "| Runs with a focus-fire verdict |"
     )
-    a("|---|---|---|---|---|---|---|---|---|---|")
+    a("|---|---|---|---|---|---|---|---|---|")
     for prog, d in ins["per_program"].items():
         a(
-            f"| {prog} | {mm(d['flanking_longest_streak'])} | {mm(d['flanking_first_wide_tick'])} "
-            f"| {mm(d['kiting_longest_streak'])} | {mm(d['max_speed'], '{:.2f}')} "
-            f"| {mm(d['focus_fire_attempts'])} | {mm(d['focus_fire_min_window_ratio'], '{:.3f}')} "
-            f"| {d['message_nmi_detector_max']['max']:.3f} "
-            f"| {(d['message_target_events'] or {'max': 0})['max']:.0f} / "
-            f"{(d['message_observation_ticks'] or {'max': 0})['max']:.0f} "
-            f"| {d['message_channel_abs_max']:.1f} |"
+            f"| {prog} | {mm(d['max_speed'], '{:.2f}')} | {mm(d['flanking_angle_ticks'])} "
+            f"| {mm(d['flanking_all_condition_ticks'])} | {mm(d['flanking_longest_streak'])} "
+            f"| {mm(d['kiting_longest_streak'])} | {mm(d['focus_fire_hits'])} "
+            f"| {mm(d['focus_fire_share'], '{:.2f}')} | {d['focus_fire_runs_with_verdict']} / {d['runs']} |"
         )
+    a("")
+    a(
+        "| Baseline | Perspective | Observation ticks | Target events | NMI per channel "
+        "| 99th pct. of permuted NMI | Fires (pooled) |"
+    )
+    a("|---|---|---|---|---|---|---|")
+    for prog, d in ins["per_program"].items():
+        for persp, pm in d["message_pooled"].items():
+            nq = "-" if pm["null_quantile"] is None else f"{pm['null_quantile']:.3f}"
+            a(
+                f"| {prog} | {persp} | {pm['observation_ticks']} | {pm['target_events']} "
+                f"| {', '.join(f'{v:.3f}' for v in pm['nmi_per_channel'])} | {nq} "
+                f"| {'yes' if pm['fires'] else 'no'} |"
+            )
     a("")
     a("AAR values per baseline (min-max, mean over its perspectives):")
     a("")
@@ -1392,7 +1305,7 @@ def render(res: dict[str, Any]) -> str:
     for prog, d in ins["per_program"].items():
         a(f"| {prog} | " + " | ".join(mm(d["aar"][k], "{:.3g}") for k in keys) + " |")
     a("")
-    a("### Flags")
+    a("### Flags (schema 2)")
     a("")
     if not ins["flags"]:
         a("None.")
@@ -1407,38 +1320,54 @@ def render(res: dict[str, Any]) -> str:
     a("## 4. Engine limits for E4")
     a("")
     a(
-        f"{lim['matches']} matches: all 9 ordered baseline pairings (mirrors included), "
-        f"{LIMITS_SEEDS} seeds each (seeds {LIMITS_SEED_BASE}-{LIMITS_SEED_BASE + LIMITS_SEEDS - 1}), at "
+        f"All 9 ordered baseline pairings (mirrors included), {LIMITS_SEEDS} seeds each (seeds "
+        f"{LIMITS_SEED_BASE}-{LIMITS_SEED_BASE + LIMITS_SEEDS - 1}), at "
         f"{', '.join(str(n) for n in LIMITS_DRONES)} drones per team and arena scales "
-        f"{', '.join(str(s) for s in LIMITS_SCALES)}; 1000-tick cap, 10 s per-match timeout. "
-        f"Invalid matches (guard, compile, crash, timeout): **{lim['invalid_total']}**. "
-        f"Platform label(s): {', '.join(lim['platform_labels'])}. Draw and tick columns leave out "
-        "the stationary mirror, which can only end at the cap."
+        f"{', '.join(str(x) for x in LIMITS_SCALES)}, 10 s per-match timeout. The grid ran "
+        "twice: first with the fixed 1000-tick cap, then (decided 2026-10-22) with the cap "
+        "growing with the arena, `fitness.scaled_max_ticks` = ceil(1000 x arena scale). Draw "
+        "and tick columns leave out the stationary mirror, which can only end at the cap."
     )
     a("")
-    a(
-        "| Drones | Arena scale | Matches | Invalid | Draw rate | At 1000 ticks | Median ticks | Mean / max match wall (ms) |"
-    )
-    a("|---|---|---|---|---|---|---|---|")
-    for c in lim["cells"]:
-        inv = sum(c["invalid"].values())
+    for title, lim_ in (
+        ("Fixed 1000-tick cap (`limits_*`)", res["limits"]),
+        ("Cap = 1000 x arena scale (`limits_scaled_*`)", res["limits_scaled"]),
+    ):
+        a(f"### {title}")
+        a("")
         a(
-            f"| {c['drones']} | {c['arena_scale']} | {c['matches']} | {inv} "
-            f"| {_pct(c['draw_rate_excluding_stationary_mirror'])} "
-            f"| {_pct(c['share_at_max_ticks_excluding_stationary_mirror'])} "
-            f"| {c['median_ticks_excluding_stationary_mirror']:.0f} | {c['mean_wall_ms']} / {c['max_wall_ms']} |"
+            f"{lim_['matches']} matches; invalid (guard, compile, crash, timeout): "
+            f"**{lim_['invalid_total']}**; platform label(s): {', '.join(lim_['platform_labels'])}."
         )
-    a("")
-    a("Pairings with matches stopped by the 1000-tick cap (share of that pairing's matches):")
-    a("")
-    for c in lim["cells"]:
-        capped = {k: v for k, v in c["share_at_max_ticks_by_pairing"].items() if v > 0}
-        if capped:
+        a("")
+        a(
+            "| Drones | Arena scale | Cap | Matches | Invalid | Draw rate | At the cap "
+            "| Median ticks | Mean / max match wall (ms) |"
+        )
+        a("|---|---|---|---|---|---|---|---|---|")
+        for c in lim_["cells"]:
+            inv = sum(c["invalid"].values())
             a(
-                f"- {c['drones']} drones, scale {c['arena_scale']}: "
-                + ", ".join(f"{k} {_pct(v)}" for k, v in sorted(capped.items()))
+                f"| {c['drones']} | {c['arena_scale']} | {c.get('max_ticks', MAX_TICKS)} "
+                f"| {c['matches']} | {inv} "
+                f"| {_pct(c['draw_rate_excluding_stationary_mirror'])} "
+                f"| {_pct(c['share_at_max_ticks_excluding_stationary_mirror'])} "
+                f"| {c['median_ticks_excluding_stationary_mirror']:.0f} "
+                f"| {c['mean_wall_ms']} / {c['max_wall_ms']} |"
             )
-    a("")
+        a("")
+        lines = []
+        for c in lim_["cells"]:
+            capped = {k: v for k, v in c["share_at_max_ticks_by_pairing"].items() if v > 0}
+            if capped:
+                lines.append(
+                    f"- {c['drones']} drones, scale {c['arena_scale']}: "
+                    + ", ".join(f"{k} {_pct(v)}" for k, v in sorted(capped.items()))
+                )
+        a("Pairings with matches stopped by the cap (share of that pairing's matches):")
+        a("")
+        L.extend(lines or ["None."])
+        a("")
     return "\n".join(L) + "\n"
 
 
@@ -1449,7 +1378,10 @@ def cmd_render(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("step", choices=["crossplay", "instruments", "limits", "analyze", "render"])
+    p.add_argument(
+        "step",
+        choices=["crossplay", "instruments", "limits", "limits-scaled", "analyze", "render"],
+    )
     args = p.parse_args(argv)
     OUT.mkdir(parents=True, exist_ok=True)
     os.environ.pop(fitness.BACKEND_ENV, None)  # every match in the container
@@ -1457,6 +1389,7 @@ def main(argv: list[str] | None = None) -> int:
         "crossplay": cmd_crossplay,
         "instruments": cmd_instruments,
         "limits": cmd_limits,
+        "limits-scaled": lambda a: cmd_limits(a, scaled_cap=True),
         "analyze": cmd_analyze,
         "render": cmd_render,
     }[args.step](args)

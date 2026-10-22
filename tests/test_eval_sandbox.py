@@ -384,3 +384,21 @@ def test_backends_identical_with_drones_and_arena_scale(home_tmp):
         **kwargs,
     )
     assert _rows(box) == _rows(host)
+
+
+def test_tick_cap_grows_with_arena_scale():
+    assert fitness.scaled_max_ticks(None) == fitness.scaled_max_ticks(1.0) == 1000
+    assert fitness.scaled_max_ticks(1.5) == 1500
+    assert fitness.scaled_max_ticks(1.75) == 1750
+    assert fitness.scaled_max_ticks(2.0) == 2000
+
+
+def test_default_tick_cap_follows_arena_scale(tmp_path):
+    """Two stationary teams never fight, so every match runs to the cap."""
+    kwargs = dict(n_matches=1, backend="host", scratch_root=tmp_path)
+    still = BASELINES / "stationary_v1.cpp"
+    assert fitness.evaluate_fitness(still, still, **kwargs).per_match[0]["ticks"] == 1000
+    wide = fitness.evaluate_fitness(still, still, arena_scale=1.5, **kwargs)
+    assert wide.per_match[0]["ticks"] == 1500
+    capped = fitness.evaluate_fitness(still, still, arena_scale=1.5, max_ticks=300, **kwargs)
+    assert capped.per_match[0]["ticks"] == 300

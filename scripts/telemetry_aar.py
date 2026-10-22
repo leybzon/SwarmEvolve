@@ -40,14 +40,18 @@ from typing import Any
 
 # SPECIFICATION defaults. We read them from the trace only if present; the
 # v1/v2 trace does not serialise `disable_range`, so we fall back to the
-# documented spec value. `engagement_range_mean` and `kiting_score_them`
-# reference this.
+# documented spec value. `engagement_range_mean` and
+# `long_range_shot_share_them` reference this.
 DEFAULT_DISABLE_RANGE = 50.0
 
 # Metric schema version. Bump whenever metric names or formulas change
 # so journal entries' `aar_metrics_cited` dict validations can detect
 # stale AAR output.
-METRICS_SCHEMA_VERSION = 1
+#   2: kiting_score_them renamed long_range_shot_share_them. It counts the
+#      opponent's shots from beyond 80% of the disable range, which says
+#      nothing about retreating; calibration found it high against
+#      opponents that never retreat (reports/calibration/CALIBRATION.md).
+METRICS_SCHEMA_VERSION = 2
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +248,7 @@ def compute_metrics(
     shots_hit_us = 0
     shots_hit_them = 0
     engagement_dists_hit = []
-    kiting_from_them = 0  # attempts by `them` at dist > 0.8*range
+    long_range_from_them = 0  # attempts by `them` at dist > 0.8*range
     for rec in records:
         for ev in rec.get("attacks", []):
             if ev["atk_team"] == us:
@@ -257,8 +261,10 @@ def compute_metrics(
                 if ev["hit"]:
                     shots_hit_them += 1
                 if ev["dist"] > 0.8 * disable_range:
-                    kiting_from_them += 1
-    kiting_score_them = kiting_from_them / shots_fired_them if shots_fired_them > 0 else 0.0
+                    long_range_from_them += 1
+    long_range_shot_share_them = (
+        long_range_from_them / shots_fired_them if shots_fired_them > 0 else 0.0
+    )
     engagement_range_mean = (
         sum(engagement_dists_hit) / len(engagement_dists_hit) if engagement_dists_hit else 0.0
     )
@@ -334,7 +340,7 @@ def compute_metrics(
         "dispersion_index_them": round(disp_them, 4),
         "message_bus_used": msg_used,
         "message_bus_entropy": round(msg_entropy, 4),
-        "kiting_score_them": round(kiting_score_them, 4),
+        "long_range_shot_share_them": round(long_range_shot_share_them, 4),
         "engagement_range_mean": round(engagement_range_mean, 4),
     }
     return structured
@@ -369,8 +375,8 @@ def render_markdown(m: dict[str, Any]) -> str:
         f"them={m['cooldown_utilization_them']:.2%}  "
         "(fraction of alive-ticks at cooldown 0)",
         f"- Engagement range (hits, mean): {m['engagement_range_mean']:.2f} units",
-        f"- Opponent kiting score: {m['kiting_score_them']:.2%}  "
-        "(their shots from >80% of disable range)",
+        f"- Opponent long-range shots: {m['long_range_shot_share_them']:.2%}  "
+        "(share of their shots from >80% of disable range)",
         "",
         "## Formation & coordination",
         f"- Mean pairwise distance: us={m['mean_pairwise_distance_us']:.2f} | "

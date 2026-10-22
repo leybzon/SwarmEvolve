@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/leybzon/SwarmEvolve/docs/tactic_events_schema.json",
-  "title": "SwarmEvolve Tactic Detector Event (M18)",
-  "description": "One JSON Lines record emitted by scripts/tactic_detector.py to `tactic_events.jsonl`. Each record is a first-appearance event for a named tactic (flanking, kiting, focus_fire_discipline, message_coded_targeting). All thresholds are frozen in scripts/tactic_detector.py — any change bumps `schema_version`. See NEXT_PHASE_PLAN.md §M18 for the detector semantics.",
+  "title": "SwarmEvolve Tactic Detector Event (M18, schema 2)",
+  "description": "One JSON Lines record emitted by scripts/tactic_detector.py to `tactic_events.jsonl`. Each record is a first-appearance event for a named tactic (flanking, kiting, focus_fire, message_coded_targeting). All thresholds are frozen in scripts/tactic_detector.py — any change bumps `schema_version`. See NEXT_PHASE_PLAN.md §M18 for the detector semantics.",
   "type": "object",
   "required": [
     "schema_version",
@@ -19,9 +19,9 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "description": "Tactic-event schema version. The M18 initial release is 1.",
+      "description": "Tactic-event schema version. 1 = M18; 2 = after the v2 calibration (see scripts/tactic_detector.py).",
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "tactic": {
       "description": "Canonical tactic name.",
@@ -29,17 +29,17 @@
       "enum": [
         "flanking",
         "kiting",
-        "focus_fire_discipline",
+        "focus_fire",
         "message_coded_targeting"
       ]
     },
     "first_tick": {
-      "description": "Zero-indexed tick at which the qualifying condition first became continuously true for this detector. Interpretation per tactic: flanking = start of the ≥90° streak; kiting = start of the ≥100-tick retreat streak; focus_fire_discipline = the tick at which the 200-attempt rolling window first dropped to ≤10% redundant; message_coded_targeting = first tick with any alive-drone target observation.",
+      "description": "Tick at which the qualifying condition first held (tick 0 is never used: it is the spawn). flanking / kiting = start of the qualifying streak; focus_fire = first tick with a focused hit; message_coded_targeting = first tick with an alive-drone target observation.",
       "type": "integer",
       "minimum": 0
     },
     "sustained_ticks": {
-      "description": "Duration metric associated with the event. For flanking/kiting this is the consecutive-tick streak length at firing. For focus_fire_discipline this is FF_WINDOW_ATTEMPTS (the rolling window size). For message_coded_targeting this is the total number of observation ticks in the NMI window.",
+      "description": "Duration metric associated with the event. flanking / kiting: the streak threshold reached. focus_fire: the number of hits. message_coded_targeting: the number of observation ticks.",
       "type": "integer",
       "minimum": 0
     },
@@ -62,10 +62,13 @@
     "perspective": {
       "description": "Which team we scored the detector from.",
       "type": "string",
-      "enum": ["a", "b"]
+      "enum": [
+        "a",
+        "b"
+      ]
     },
     "evidence": {
-      "description": "Detector-specific payload. Keys vary by tactic but every detector must include its triggering threshold for auditability. Examples: flanking → {angle_deg, cluster_sizes, threshold_angle_deg, threshold_streak_ticks}; kiting → {kiting_fraction, max_kiting_fraction, threshold_fraction, threshold_streak_ticks, cos_min}; focus_fire_discipline → {redundant_ratio, window_attempts, threshold_max_ratio}; message_coded_targeting → {best_channel, nmi, target_events, observation_ticks, threshold_nmi}.",
+      "description": "Detector-specific payload; every detector includes its thresholds. flanking -> {angle_deg, cluster_sizes, spread_ratio, max_range, threshold_*}; kiting -> {kiting_fraction, max_kiting_fraction, threshold_fraction, threshold_streak_ticks, cos_min}; focus_fire -> {focused_share, hits, focused_hits, threshold_focused_share, threshold_min_hits}; message_coded_targeting -> {best_channel, nmi, null_quantile, target_events, observation_ticks, threshold_nmi}.",
       "type": "object"
     }
   }

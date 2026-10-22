@@ -195,8 +195,9 @@ def test_handcrafted_metrics_exact() -> None:
     # Engagement range mean for hits: (20 + 25 + 15) / 3 = 20.0.
     assert abs(m["engagement_range_mean"] - 20.0) < 1e-4
 
-    # Kiting score (them): them fired 0 shots -> defined as 0.
-    assert m["kiting_score_them"] == 0.0
+    # Long-range shot share (them): them fired 0 shots -> defined as 0.
+    assert m["long_range_shot_share_them"] == 0.0
+    assert "kiting_score_them" not in m
 
 
 def test_handcrafted_perspective_b_flips() -> None:

@@ -80,6 +80,8 @@ ENGINE_DIR = REPO_ROOT / "src"
 HARNESS_DIR = REPO_ROOT / "scripts"
 PLACEHOLDER = "TEAM_NS_PLACEHOLDER"
 
+BASE_MAX_TICKS = 1000
+
 BACKENDS = ("sandbox", "host")
 BACKEND_ENV = "SWARMEVOLVE_FITNESS_BACKEND"
 # CPUs (and concurrent matches) per eval container; see
@@ -208,6 +210,16 @@ class StaleImageError(RuntimeError):
 def _invalid_score(under_test: str | None) -> float:
     """Score of an invalid match: a loss for the side under test."""
     return eval_batch.invalid_score(under_test)
+
+
+def scaled_max_ticks(arena_scale: float | None) -> int:
+    """Default tick cap: BASE_MAX_TICKS times the arena scale, rounded up.
+
+    Travel distances grow linearly with the arena side, so a fixed cap cut
+    off matches at larger arenas (reports/calibration/CALIBRATION.md, E4
+    grid). Decided 2026-10-22: the cap grows with the arena.
+    """
+    return math.ceil(BASE_MAX_TICKS * (1.0 if arena_scale is None else arena_scale))
 
 
 def resolve_backend(backend: str | None) -> str:
@@ -356,7 +368,7 @@ def evaluate_fitness(
     n_matches: int = 100,
     seed_base: int = 0,
     workers: int | None = None,
-    max_ticks: int = 1000,
+    max_ticks: int | None = None,
     timeout: float = 10.0,
     compiler: str | None = None,
     scratch_root: Path | str | None = None,
@@ -391,7 +403,8 @@ def evaluate_fitness(
         Sandbox: ``ceil(workers / container_cpus)`` containers, each
         compiling once and playing ``container_cpus`` matches at a time.
     max_ticks, timeout
-        Forwarded to the engine / per-match wall-clock limit (seconds).
+        Tick cap and per-match wall-clock limit (seconds). ``max_ticks=None``
+        → :func:`scaled_max_ticks` of ``arena_scale`` (1000 at scale 1).
     compiler
         Host backend only: override path to the C++ compiler. ``None`` →
         auto-detect. The sandbox always uses the image's g++.
@@ -468,7 +481,7 @@ def evaluate_fitness(
     max_workers = max(1, min(workers or (os.cpu_count() or 1), n_matches))
     seeds = [seed_base + i for i in range(n_matches)]
     batch_kwargs: dict[str, Any] = {
-        "max_ticks": max_ticks,
+        "max_ticks": max_ticks if max_ticks is not None else scaled_max_ticks(arena_scale),
         "timeout": timeout,
         "under_test": under_test,
         "record_seed": record_seed,
@@ -607,7 +620,7 @@ def _main(argv: list[str] | None = None) -> int:
     p.add_argument("--n-matches", type=int, default=20)
     p.add_argument("--seed-base", type=int, default=0)
     p.add_argument("--workers", type=int, default=None)
-    p.add_argument("--max-ticks", type=int, default=1000)
+    p.add_argument("--max-ticks", type=int, default=None, help="default: 1000 x arena scale")
     p.add_argument("--timeout", type=float, default=10.0)
     p.add_argument("--backend", choices=BACKENDS, default=None)
     p.add_argument("--container-cpus", type=int, default=DEFAULT_CONTAINER_CPUS)

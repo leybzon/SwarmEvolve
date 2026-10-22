@@ -87,13 +87,14 @@ def test_aar_checks_catch_a_wrong_number(recorded):
 
 
 @pytest.mark.parametrize("perspective", ["a", "b"])
-def test_probe_agrees_with_detector(recorded, perspective):
+def test_measures_agree_with_detector_events(recorded, perspective):
     trace, _ = recorded
     records = telemetry_aar.load_v2_trace(trace)
-    probe = calibration.probe_detectors(records, perspective)
+    measures = calibration._measures(records, perspective)
     fired = {ev.tactic for ev in td.scan_trace(records, perspective=perspective)}
-    assert ("flanking" in fired) == (probe["flanking_longest_streak"] >= td.FLANK_MIN_STREAK_TICKS)
-    assert ("kiting" in fired) == (probe["kiting_longest_streak"] >= td.KITE_MIN_STREAK_TICKS)
+    for tactic in td.TACTICS:
+        assert (tactic in fired) == measures[tactic]["fires"], tactic
+    assert measures["max_speed"] > 0  # cluster_v1 and pursuit_v1 both move
 
 
 def test_instrument_jobs_cover_every_ordered_pairing():

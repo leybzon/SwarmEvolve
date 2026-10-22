@@ -28,7 +28,7 @@ VALID_AAR_METRICS = {
     "mean_pairwise_distance_us",
     "mean_pairwise_distance_them",
     "message_bus_entropy",
-    "kiting_score_them",
+    "long_range_shot_share_them",
     "engagement_range_mean",
 }
 
