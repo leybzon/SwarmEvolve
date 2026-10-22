@@ -191,8 +191,8 @@
    401999
   ]
  },
- "generated_utc": "2026-10-22T09:49:19Z",
- "git_sha": "e8b61743e2e6c6ee1b6eb0032f9b545d7791bfe5",
+ "generated_utc": "2026-10-22T10:05:17Z",
+ "git_sha": "14d728871644d01a97daf80ffd4c83ac85a9f96e",
  "instruments": {
   "aar_checks": {
    "alive_them_matches_engine": {
@@ -257,133 +257,47 @@
    }
   },
   "aar_checks_all_pass": true,
+  "aar_metrics_schema": 2,
   "cli_failures": 0,
+  "detector_schema": 2,
   "flags": [
    {
-    "fire_rate": 0.2308,
+    "fire_rate": 0.0769,
     "program": "cluster_v1",
     "rule": "fires on a human-written baseline, i.e. at round-0 level",
-    "tactic": "flanking"
+    "tactic": "focus_fire"
    },
    {
+    "observation_ticks": 24,
+    "perspective": "a",
     "program": "cluster_v1",
-    "rule": "fired with first_tick 0, so the random spawn alone met the condition",
-    "runs_fired": 3,
-    "runs_fired_at_tick0": 3,
-    "tactic": "flanking"
-   },
-   {
-    "max_attempts_per_match": 39,
-    "program": "cluster_v1",
-    "rule": "cannot fire in these matches: too few attack attempts for one window",
-    "tactic": "focus_fire_discipline",
-    "window_attempts_needed": 200
-   },
-   {
-    "max_observation_ticks": 11,
-    "max_target_events": 49,
-    "observation_ticks_needed": 100,
-    "program": "cluster_v1",
-    "rule": "cannot fire in these matches: too few target events or observation ticks (its NMI on so few samples is not informative)",
+    "rule": "no verdict even pooled: too few observation ticks or target events",
     "tactic": "message_coded_targeting",
-    "target_events_needed": 20
+    "target_events": 56
    },
    {
-    "message_channel_abs_max": 968.8973,
+    "observation_ticks": 23,
+    "perspective": "b",
     "program": "cluster_v1",
-    "rule": "message values leave [-1, 1], which the detector clips into its end bins, so a code carried in larger values is invisible to it",
-    "tactic": "message_coded_targeting"
-   },
-   {
-    "of_runs": 13,
-    "program": "cluster_v1",
-    "rule": "AAR reports the opponent kiting (>= 0.5 of its shots from beyond 80% of range) while the opponent never retreats for 10 straight ticks; the metric measures shot distance, not retreat",
-    "runs": 2,
-    "tactic": "AAR kiting_score_them"
-   },
-   {
-    "fire_rate": 0.0667,
-    "program": "pursuit_v1",
-    "rule": "fires on a human-written baseline, i.e. at round-0 level",
-    "tactic": "flanking"
-   },
-   {
-    "program": "pursuit_v1",
-    "rule": "fired with first_tick 0, so the random spawn alone met the condition",
-    "runs_fired": 1,
-    "runs_fired_at_tick0": 1,
-    "tactic": "flanking"
-   },
-   {
-    "max_attempts_per_match": 11,
-    "program": "pursuit_v1",
-    "rule": "cannot fire in these matches: too few attack attempts for one window",
-    "tactic": "focus_fire_discipline",
-    "window_attempts_needed": 200
-   },
-   {
-    "max_observation_ticks": 11,
-    "max_target_events": 20,
-    "observation_ticks_needed": 100,
-    "program": "pursuit_v1",
-    "rule": "cannot fire in these matches: too few target events or observation ticks (its NMI on so few samples is not informative)",
+    "rule": "no verdict even pooled: too few observation ticks or target events",
     "tactic": "message_coded_targeting",
-    "target_events_needed": 20
+    "target_events": 27
    },
    {
-    "message_channel_abs_max": 984.2494,
+    "observation_ticks": 19,
+    "perspective": "a",
     "program": "pursuit_v1",
-    "rule": "message values leave [-1, 1], which the detector clips into its end bins, so a code carried in larger values is invisible to it",
-    "tactic": "message_coded_targeting"
-   },
-   {
-    "fire_rate": 0.6667,
-    "program": "stationary_v1",
-    "rule": "fires for a program that never moves",
-    "tactic": "flanking"
-   },
-   {
-    "fire_rate": 0.6667,
-    "program": "stationary_v1",
-    "rule": "fires on a human-written baseline, i.e. at round-0 level",
-    "tactic": "flanking"
-   },
-   {
-    "program": "stationary_v1",
-    "rule": "fired with first_tick 0, so the random spawn alone met the condition",
-    "runs_fired": 8,
-    "runs_fired_at_tick0": 7,
-    "tactic": "flanking"
-   },
-   {
-    "max_attempts_per_match": 0,
-    "program": "stationary_v1",
-    "rule": "cannot fire in these matches: too few attack attempts for one window",
-    "tactic": "focus_fire_discipline",
-    "window_attempts_needed": 200
-   },
-   {
-    "max_observation_ticks": 1,
-    "max_target_events": 10,
-    "observation_ticks_needed": 100,
-    "program": "stationary_v1",
-    "rule": "cannot fire in these matches: too few target events or observation ticks (its NMI on so few samples is not informative)",
+    "rule": "no verdict even pooled: too few observation ticks or target events",
     "tactic": "message_coded_targeting",
-    "target_events_needed": 20
+    "target_events": 20
    },
    {
-    "of_runs": 12,
-    "program": "stationary_v1",
-    "rule": "AAR reports the opponent kiting (>= 0.5 of its shots from beyond 80% of range) while the opponent never retreats for 10 straight ticks; the metric measures shot distance, not retreat",
-    "runs": 7,
-    "tactic": "AAR kiting_score_them"
-   },
-   {
-    "matches": 20,
-    "program": "all",
-    "rule": "tick 0's zero-filled actions show target_id 0 for every drone, and the detector counts them as target events (also for stationary_v1, which never targets)",
+    "observation_ticks": 21,
+    "perspective": "b",
+    "program": "pursuit_v1",
+    "rule": "no verdict even pooled: too few observation ticks or target events",
     "tactic": "message_coded_targeting",
-    "tick0_drone_actions_with_target_0": 400
+    "target_events": 23
    }
   ],
   "n_matches": 20,
@@ -411,7 +325,7 @@
       "mean": 0.1272,
       "min": 0.0
      },
-     "kiting_score_them": {
+     "long_range_shot_share_them": {
       "max": 0.5,
       "mean": 0.1795,
       "min": 0.0
@@ -437,30 +351,38 @@
       "min": 10.0
      }
     },
-    "aar_kiting_score_them_high_without_kiting": 2,
     "fire_rate": {
-     "flanking": 0.2308,
-     "focus_fire_discipline": 0.0,
+     "flanking": 0.0,
+     "focus_fire": 0.0769,
      "kiting": 0.0,
      "message_coded_targeting": 0.0
     },
-    "flanking_fired_at_tick0": 3,
-    "flanking_first_wide_tick": {
-     "max": 0,
-     "mean": 0.0,
+    "flanking_all_condition_ticks": {
+     "max": 17,
+     "mean": 1.3846,
+     "min": 0
+    },
+    "flanking_angle_ticks": {
+     "max": 79,
+     "mean": 30.0,
      "min": 0
     },
     "flanking_longest_streak": {
-     "max": 80,
-     "mean": 30.6154,
+     "max": 17,
+     "mean": 1.3846,
      "min": 0
     },
-    "focus_fire_attempts": {
+    "focus_fire_hits": {
      "max": 39,
      "mean": 13.0,
      "min": 10
     },
-    "focus_fire_min_window_ratio": null,
+    "focus_fire_runs_with_verdict": 13,
+    "focus_fire_share": {
+     "max": 0.9231,
+     "mean": 0.1992,
+     "min": 0.0
+    },
     "kiting_longest_streak": {
      "max": 26,
      "mean": 2.5385,
@@ -471,24 +393,37 @@
      "mean": 5.0001,
      "min": 5.0001
     },
-    "message_channel_abs_max": 968.8973,
-    "message_nmi_detector_max": {
-     "max": 1.0
+    "message_pooled": {
+     "a": {
+      "best_channel": 2,
+      "fires": false,
+      "first_tick": 67,
+      "nmi_per_channel": [
+       0.4323,
+       0.4622,
+       0.9382,
+       0.1444
+      ],
+      "null_quantile": null,
+      "observation_ticks": 24,
+      "target_events": 56
+     },
+     "b": {
+      "best_channel": 2,
+      "fires": false,
+      "first_tick": 36,
+      "nmi_per_channel": [
+       0.3898,
+       0.406,
+       0.8783,
+       0.1801
+      ],
+      "null_quantile": null,
+      "observation_ticks": 23,
+      "target_events": 27
+     }
     },
-    "message_nmi_observed_range_max": {
-     "max": 1.0
-    },
-    "message_observation_ticks": {
-     "max": 11,
-     "mean": 4.6154,
-     "min": 1
-    },
-    "message_target_events": {
-     "max": 49,
-     "mean": 16.1538,
-     "min": 10
-    },
-    "perspectives": 13
+    "runs": 13
    },
    "pursuit_v1": {
     "aar": {
@@ -512,7 +447,7 @@
       "mean": 0.0182,
       "min": 0.0
      },
-     "kiting_score_them": {
+     "long_range_shot_share_them": {
       "max": 0.2,
       "mean": 0.0461,
       "min": 0.0
@@ -538,30 +473,38 @@
       "min": 10.0
      }
     },
-    "aar_kiting_score_them_high_without_kiting": 0,
     "fire_rate": {
-     "flanking": 0.0667,
-     "focus_fire_discipline": 0.0,
+     "flanking": 0.0,
+     "focus_fire": 0.0,
      "kiting": 0.0,
      "message_coded_targeting": 0.0
     },
-    "flanking_fired_at_tick0": 1,
-    "flanking_first_wide_tick": {
-     "max": 2,
-     "mean": 0.1818,
+    "flanking_all_condition_ticks": {
+     "max": 29,
+     "mean": 2.0,
+     "min": 0
+    },
+    "flanking_angle_ticks": {
+     "max": 77,
+     "mean": 20.0667,
      "min": 0
     },
     "flanking_longest_streak": {
-     "max": 78,
-     "mean": 18.0,
+     "max": 29,
+     "mean": 2.0,
      "min": 0
     },
-    "focus_fire_attempts": {
+    "focus_fire_hits": {
      "max": 11,
      "mean": 10.2,
      "min": 10
     },
-    "focus_fire_min_window_ratio": null,
+    "focus_fire_runs_with_verdict": 15,
+    "focus_fire_share": {
+     "max": 0.1818,
+     "mean": 0.0364,
+     "min": 0.0
+    },
     "kiting_longest_streak": {
      "max": 1,
      "mean": 0.1333,
@@ -572,24 +515,37 @@
      "mean": 5.0001,
      "min": 5.0
     },
-    "message_channel_abs_max": 984.2494,
-    "message_nmi_detector_max": {
-     "max": 1.0
+    "message_pooled": {
+     "a": {
+      "best_channel": 2,
+      "fires": false,
+      "first_tick": 1,
+      "nmi_per_channel": [
+       0.3778,
+       0.4467,
+       1.0,
+       0.1897
+      ],
+      "null_quantile": null,
+      "observation_ticks": 19,
+      "target_events": 20
+     },
+     "b": {
+      "best_channel": 2,
+      "fires": false,
+      "first_tick": 1,
+      "nmi_per_channel": [
+       0.3782,
+       0.2692,
+       1.0,
+       0.2102
+      ],
+      "null_quantile": null,
+      "observation_ticks": 21,
+      "target_events": 23
+     }
     },
-    "message_nmi_observed_range_max": {
-     "max": 1.0
-    },
-    "message_observation_ticks": {
-     "max": 11,
-     "mean": 3.6667,
-     "min": 1
-    },
-    "message_target_events": {
-     "max": 20,
-     "mean": 12.6,
-     "min": 10
-    },
-    "perspectives": 15
+    "runs": 15
    },
    "stationary_v1": {
     "aar": {
@@ -613,7 +569,7 @@
       "mean": 0.0,
       "min": 0.0
      },
-     "kiting_score_them": {
+     "long_range_shot_share_them": {
       "max": 1.0,
       "mean": 0.6189,
       "min": 0.0
@@ -639,30 +595,34 @@
       "min": 0.0
      }
     },
-    "aar_kiting_score_them_high_without_kiting": 7,
     "fire_rate": {
-     "flanking": 0.6667,
-     "focus_fire_discipline": 0.0,
+     "flanking": 0.0,
+     "focus_fire": 0.0,
      "kiting": 0.0,
      "message_coded_targeting": 0.0
     },
-    "flanking_fired_at_tick0": 7,
-    "flanking_first_wide_tick": {
-     "max": 90,
-     "mean": 7.5,
-     "min": 0
-    },
-    "flanking_longest_streak": {
-     "max": 1001,
-     "mean": 393.4167,
-     "min": 7
-    },
-    "focus_fire_attempts": {
+    "flanking_all_condition_ticks": {
      "max": 0,
      "mean": 0.0,
      "min": 0
     },
-    "focus_fire_min_window_ratio": null,
+    "flanking_angle_ticks": {
+     "max": 1000,
+     "mean": 403.1667,
+     "min": 7
+    },
+    "flanking_longest_streak": {
+     "max": 0,
+     "mean": 0.0,
+     "min": 0
+    },
+    "focus_fire_hits": {
+     "max": 0,
+     "mean": 0.0,
+     "min": 0
+    },
+    "focus_fire_runs_with_verdict": 0,
+    "focus_fire_share": null,
     "kiting_longest_streak": {
      "max": 0,
      "mean": 0.0,
@@ -673,35 +633,71 @@
      "mean": 0.0,
      "min": 0.0
     },
-    "message_channel_abs_max": 0.0,
-    "message_nmi_detector_max": {
-     "max": 0.0
+    "message_pooled": {
+     "a": {
+      "best_channel": 0,
+      "fires": false,
+      "first_tick": null,
+      "nmi_per_channel": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "null_quantile": null,
+      "observation_ticks": 0,
+      "target_events": 0
+     },
+     "b": {
+      "best_channel": 0,
+      "fires": false,
+      "first_tick": null,
+      "nmi_per_channel": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "null_quantile": null,
+      "observation_ticks": 0,
+      "target_events": 0
+     }
     },
-    "message_nmi_observed_range_max": {
-     "max": 0.0
-    },
-    "message_observation_ticks": {
-     "max": 1,
-     "mean": 1.0,
-     "min": 1
-    },
-    "message_target_events": {
-     "max": 10,
-     "mean": 10.0,
-     "min": 10
-    },
-    "perspectives": 12
+    "runs": 12
    }
   },
   "platform_labels": [
    "canonical-draft"
   ],
-  "probe_agrees_with_detector": true
+  "traces_identical_to_schema1_run": true
  },
  "instruments_rerun": {
   "identical_to_run1": true,
   "source": "instruments_run1_trace_sha256.json",
   "traces": 20
+ },
+ "instruments_schema1": {
+  "detector_schema": 1,
+  "fire_rate": {
+   "cluster_v1": {
+    "flanking": 0.2308,
+    "focus_fire_discipline": 0.0,
+    "kiting": 0.0,
+    "message_coded_targeting": 0.0
+   },
+   "pursuit_v1": {
+    "flanking": 0.0667,
+    "focus_fire_discipline": 0.0,
+    "kiting": 0.0,
+    "message_coded_targeting": 0.0
+   },
+   "stationary_v1": {
+    "flanking": 0.6667,
+    "focus_fire_discipline": 0.0,
+    "kiting": 0.0,
+    "message_coded_targeting": 0.0
+   }
+  }
  },
  "limits": {
   "cells": [
@@ -716,6 +712,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 3,
     "mean_wall_ms": 1.1,
     "median_ticks_excluding_stationary_mirror": 107.0,
@@ -742,6 +739,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 2,
     "mean_wall_ms": 1.06,
     "median_ticks_excluding_stationary_mirror": 138.5,
@@ -768,6 +766,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 3,
     "mean_wall_ms": 1.08,
     "median_ticks_excluding_stationary_mirror": 168.0,
@@ -794,6 +793,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 3,
     "mean_wall_ms": 1.13,
     "median_ticks_excluding_stationary_mirror": 199.0,
@@ -820,6 +820,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 4,
     "mean_wall_ms": 1.22,
     "median_ticks_excluding_stationary_mirror": 229.5,
@@ -846,6 +847,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 3,
     "mean_wall_ms": 1.2,
     "median_ticks_excluding_stationary_mirror": 114.0,
@@ -872,6 +874,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 4,
     "mean_wall_ms": 1.3,
     "median_ticks_excluding_stationary_mirror": 146.0,
@@ -898,6 +901,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 4,
     "mean_wall_ms": 1.4,
     "median_ticks_excluding_stationary_mirror": 177.0,
@@ -924,6 +928,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 5,
     "mean_wall_ms": 1.46,
     "median_ticks_excluding_stationary_mirror": 206.5,
@@ -950,6 +955,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 7,
     "mean_wall_ms": 1.5,
     "median_ticks_excluding_stationary_mirror": 238.0,
@@ -976,6 +982,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 7,
     "mean_wall_ms": 1.67,
     "median_ticks_excluding_stationary_mirror": 115.0,
@@ -1002,6 +1009,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 8,
     "mean_wall_ms": 1.82,
     "median_ticks_excluding_stationary_mirror": 148.0,
@@ -1028,6 +1036,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 5,
     "mean_wall_ms": 1.59,
     "median_ticks_excluding_stationary_mirror": 180.0,
@@ -1054,6 +1063,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 7,
     "mean_wall_ms": 1.74,
     "median_ticks_excluding_stationary_mirror": 213.0,
@@ -1080,6 +1090,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 7,
     "mean_wall_ms": 1.76,
     "median_ticks_excluding_stationary_mirror": 243.0,
@@ -1106,6 +1117,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 8,
     "mean_wall_ms": 2.84,
     "median_ticks_excluding_stationary_mirror": 125.0,
@@ -1132,6 +1144,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 9,
     "mean_wall_ms": 3.59,
     "median_ticks_excluding_stationary_mirror": 158.0,
@@ -1158,6 +1171,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 8,
     "mean_wall_ms": 3.33,
     "median_ticks_excluding_stationary_mirror": 193.0,
@@ -1184,6 +1198,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 15,
     "mean_wall_ms": 3.41,
     "median_ticks_excluding_stationary_mirror": 228.0,
@@ -1210,6 +1225,7 @@
      "TIMEOUT": 0
     },
     "matches": 450,
+    "max_ticks": 1000,
     "max_wall_ms": 16,
     "mean_wall_ms": 4.21,
     "median_ticks_excluding_stationary_mirror": 259.0,
@@ -1230,7 +1246,558 @@
   "matches": 9000,
   "platform_labels": [
    "canonical-draft"
-  ]
+  ],
+  "scaled_cap": false
+ },
+ "limits_scaled": {
+  "cells": [
+   {
+    "arena_scale": 1.0,
+    "draw_rate_excluding_stationary_mirror": 0.485,
+    "drones": 5,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1000,
+    "max_wall_ms": 2,
+    "mean_wall_ms": 1.08,
+    "median_ticks_excluding_stationary_mirror": 107.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.25,
+    "draw_rate_excluding_stationary_mirror": 0.47,
+    "drones": 5,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1250,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.09,
+    "median_ticks_excluding_stationary_mirror": 138.5,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.5,
+    "draw_rate_excluding_stationary_mirror": 0.46,
+    "drones": 5,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1500,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.08,
+    "median_ticks_excluding_stationary_mirror": 168.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.75,
+    "draw_rate_excluding_stationary_mirror": 0.4725,
+    "drones": 5,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1750,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.09,
+    "median_ticks_excluding_stationary_mirror": 199.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 2.0,
+    "draw_rate_excluding_stationary_mirror": 0.4675,
+    "drones": 5,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 2000,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.16,
+    "median_ticks_excluding_stationary_mirror": 229.5,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.0,
+    "draw_rate_excluding_stationary_mirror": 0.4125,
+    "drones": 10,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1000,
+    "max_wall_ms": 4,
+    "mean_wall_ms": 1.07,
+    "median_ticks_excluding_stationary_mirror": 114.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.25,
+    "draw_rate_excluding_stationary_mirror": 0.42,
+    "drones": 10,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1250,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.21,
+    "median_ticks_excluding_stationary_mirror": 146.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.5,
+    "draw_rate_excluding_stationary_mirror": 0.42,
+    "drones": 10,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1500,
+    "max_wall_ms": 5,
+    "mean_wall_ms": 1.42,
+    "median_ticks_excluding_stationary_mirror": 177.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.75,
+    "draw_rate_excluding_stationary_mirror": 0.4025,
+    "drones": 10,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1750,
+    "max_wall_ms": 3,
+    "mean_wall_ms": 1.39,
+    "median_ticks_excluding_stationary_mirror": 206.5,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 2.0,
+    "draw_rate_excluding_stationary_mirror": 0.405,
+    "drones": 10,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 2000,
+    "max_wall_ms": 4,
+    "mean_wall_ms": 1.67,
+    "median_ticks_excluding_stationary_mirror": 238.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.0,
+    "draw_rate_excluding_stationary_mirror": 0.3025,
+    "drones": 20,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1000,
+    "max_wall_ms": 7,
+    "mean_wall_ms": 1.62,
+    "median_ticks_excluding_stationary_mirror": 115.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.25,
+    "draw_rate_excluding_stationary_mirror": 0.3175,
+    "drones": 20,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1250,
+    "max_wall_ms": 4,
+    "mean_wall_ms": 1.61,
+    "median_ticks_excluding_stationary_mirror": 148.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.5,
+    "draw_rate_excluding_stationary_mirror": 0.3325,
+    "drones": 20,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1500,
+    "max_wall_ms": 7,
+    "mean_wall_ms": 1.95,
+    "median_ticks_excluding_stationary_mirror": 180.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.75,
+    "draw_rate_excluding_stationary_mirror": 0.3175,
+    "drones": 20,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1750,
+    "max_wall_ms": 7,
+    "mean_wall_ms": 1.97,
+    "median_ticks_excluding_stationary_mirror": 213.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.02,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0025
+   },
+   {
+    "arena_scale": 2.0,
+    "draw_rate_excluding_stationary_mirror": 0.325,
+    "drones": 20,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 2000,
+    "max_wall_ms": 7,
+    "mean_wall_ms": 1.93,
+    "median_ticks_excluding_stationary_mirror": 243.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.0,
+    "draw_rate_excluding_stationary_mirror": 0.0475,
+    "drones": 50,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1000,
+    "max_wall_ms": 15,
+    "mean_wall_ms": 3.1,
+    "median_ticks_excluding_stationary_mirror": 125.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.25,
+    "draw_rate_excluding_stationary_mirror": 0.08,
+    "drones": 50,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1250,
+    "max_wall_ms": 16,
+    "mean_wall_ms": 3.48,
+    "median_ticks_excluding_stationary_mirror": 158.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.0,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0
+   },
+   {
+    "arena_scale": 1.5,
+    "draw_rate_excluding_stationary_mirror": 0.1225,
+    "drones": 50,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1500,
+    "max_wall_ms": 16,
+    "mean_wall_ms": 4.73,
+    "median_ticks_excluding_stationary_mirror": 193.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.02,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.0,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.0025
+   },
+   {
+    "arena_scale": 1.75,
+    "draw_rate_excluding_stationary_mirror": 0.1525,
+    "drones": 50,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 1750,
+    "max_wall_ms": 17,
+    "mean_wall_ms": 5.28,
+    "median_ticks_excluding_stationary_mirror": 228.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.08,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.04,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.015
+   },
+   {
+    "arena_scale": 2.0,
+    "draw_rate_excluding_stationary_mirror": 0.165,
+    "drones": 50,
+    "invalid": {
+     "COMPILE_FAIL": 0,
+     "CRASH": 0,
+     "GUARD_FAIL": 0,
+     "TIMEOUT": 0
+    },
+    "matches": 450,
+    "max_ticks": 2000,
+    "max_wall_ms": 16,
+    "mean_wall_ms": 5.27,
+    "median_ticks_excluding_stationary_mirror": 259.0,
+    "share_at_max_ticks_by_pairing": {
+     "cluster_v1 vs cluster_v1": 0.0,
+     "cluster_v1 vs pursuit_v1": 0.0,
+     "cluster_v1 vs stationary_v1": 0.22,
+     "pursuit_v1 vs cluster_v1": 0.0,
+     "pursuit_v1 vs pursuit_v1": 0.0,
+     "pursuit_v1 vs stationary_v1": 0.0,
+     "stationary_v1 vs cluster_v1": 0.1,
+     "stationary_v1 vs pursuit_v1": 0.0
+    },
+    "share_at_max_ticks_excluding_stationary_mirror": 0.04
+   }
+  ],
+  "invalid_total": 0,
+  "matches": 9000,
+  "platform_labels": [
+   "canonical-draft"
+  ],
+  "scaled_cap": true
  },
  "platform": {
   "compiler_version": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
@@ -1630,8 +2197,11 @@
   "crossplay_matches.jsonl",
   "crossplay_runs.json",
   "instruments.json",
+  "instruments_run1_trace_sha256.json",
+  "instruments_v2.json",
   "limits_matches.jsonl",
   "limits_runs.json",
-  "instruments_run1_trace_sha256.json"
+  "limits_scaled_matches.jsonl",
+  "limits_scaled_runs.json"
  ]
 }
