@@ -291,6 +291,7 @@ def _run_sandbox(
             record_seed=record_seed if record_seed in part else None,
             drones_a=batch_kwargs["drones_a"],
             drones_b=batch_kwargs["drones_b"],
+            arena_scale=batch_kwargs["arena_scale"],
         )
 
     with _futures.ThreadPoolExecutor(max_workers=len(parts)) as pool:
@@ -368,6 +369,7 @@ def evaluate_fitness(
     container_cpus: int = DEFAULT_CONTAINER_CPUS,
     drones_a: int | None = None,
     drones_b: int | None = None,
+    arena_scale: float | None = None,
     raise_on_build_failure: bool = True,
 ) -> FitnessResult:
     """Evaluate N seeded matches between ``team_a_src`` and ``team_b_src``.
@@ -414,8 +416,8 @@ def evaluate_fitness(
         Sandbox only: eval image tag; resolved to its ID once per call.
     container_cpus
         Sandbox only: ``--cpus`` and concurrent matches per container.
-    drones_a, drones_b
-        Team sizes; ``None`` keeps the engine default.
+    drones_a, drones_b, arena_scale
+        Team sizes and arena multiplier; ``None`` keeps the engine default.
     raise_on_build_failure
         Raise :class:`CompileError` / :class:`GuardError` (with
         ``exc.result``) on a build failure instead of returning.
@@ -472,6 +474,7 @@ def evaluate_fitness(
         "record_seed": record_seed,
         "drones_a": drones_a,
         "drones_b": drones_b,
+        "arena_scale": arena_scale,
     }
 
     t0 = time.monotonic()

@@ -320,6 +320,7 @@ def run_batch(
     record_seed: int | None = None,
     drones_a: int | None = None,
     drones_b: int | None = None,
+    arena_scale: float | None = None,
 ) -> dict[str, Any]:
     """Run one batch; write ``results.jsonl`` and ``status.json`` to ``out``.
 
@@ -351,6 +352,9 @@ def run_batch(
         engine_args += ["--drones-a", str(drones_a)]
     if drones_b is not None:
         engine_args += ["--drones-b", str(drones_b)]
+    if arena_scale is not None:
+        engine_args += ["--arena-scale", repr(float(arena_scale))]
+    status["engine_args"] = engine_args
 
     rows: list[dict[str, Any]]
     try:
@@ -456,6 +460,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--record-seed", type=int, default=None)
     p.add_argument("--drones-a", type=int, default=None)
     p.add_argument("--drones-b", type=int, default=None)
+    p.add_argument("--arena-scale", type=float, default=None)
     args = p.parse_args(argv)
 
     if args.info:
@@ -499,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
         record_seed=args.record_seed,
         drones_a=args.drones_a,
         drones_b=args.drones_b,
+        arena_scale=args.arena_scale,
     )
     return 0
 

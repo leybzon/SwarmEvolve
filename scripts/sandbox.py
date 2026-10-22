@@ -397,6 +397,7 @@ def run_batch_in_sandbox(
     record_seed: int | None = None,
     drones_a: int | None = None,
     drones_b: int | None = None,
+    arena_scale: float | None = None,
     runtime: str | None = None,
 ) -> BatchResult:
     """Compile ``team_a_src`` + ``team_b_src`` once in a container and play ``seeds``.
@@ -435,6 +436,8 @@ def run_batch_in_sandbox(
         batch_args += ["--drones-a", str(drones_a)]
     if drones_b is not None:
         batch_args += ["--drones-b", str(drones_b)]
+    if arena_scale is not None:
+        batch_args += ["--arena-scale", repr(float(arena_scale))]
 
     name = f"swarmevolve-batch-{uuid.uuid4().hex[:12]}"
     cmd = build_batch_command(

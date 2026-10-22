@@ -341,3 +341,46 @@ def test_platform_json_draft_is_well_formed():
     assert fp["backend"] == "sandbox" and fp["image_id"].startswith("sha256:")
     assert "-ffp-contract=off" in fp["flags"]
     assert all(fp[k] for k in platform_fingerprint.CANONICAL_KEYS)
+
+
+def test_drones_and_arena_scale_reach_the_engine(tmp_path):
+    kwargs = dict(n_matches=6, seed_base=3, backend="host", scratch_root=tmp_path)
+    base = fitness.evaluate_fitness(
+        BASELINES / "pursuit_v1.cpp", BASELINES / "cluster_v1.cpp", **kwargs
+    )
+    wide = fitness.evaluate_fitness(
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "cluster_v1.cpp",
+        drones_a=20,
+        drones_b=20,
+        arena_scale=2.0,
+        **kwargs,
+    )
+    assert _rows(base) != _rows(wide)
+    # 20 drones a side: survivors above the default team size of 10 are possible.
+    assert max(max(m["a_alive"], m["b_alive"]) for m in wide.per_match) <= 20
+
+
+@pytest.mark.docker
+def test_backends_identical_with_drones_and_arena_scale(home_tmp):
+    _sandbox_or_skip()
+    kwargs = dict(
+        n_matches=20,
+        seed_base=77,
+        drones_a=20,
+        drones_b=20,
+        arena_scale=1.5,
+        scratch_root=home_tmp,
+    )
+    host = fitness.evaluate_fitness(
+        BASELINES / "cluster_v1.cpp", BASELINES / "pursuit_v1.cpp", backend="host", **kwargs
+    )
+    box = fitness.evaluate_fitness(
+        BASELINES / "cluster_v1.cpp",
+        BASELINES / "pursuit_v1.cpp",
+        backend="sandbox",
+        image=IMAGE,
+        workers=4,
+        **kwargs,
+    )
+    assert _rows(box) == _rows(host)
