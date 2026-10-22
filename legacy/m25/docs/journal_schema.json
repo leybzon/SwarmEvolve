@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/leybzon/SwarmEvolve/docs/journal_schema.json",
+  "title": "SwarmEvolve Learning-Journal Entry (M15c)",
+  "description": "One JSON Lines record appended to `data/runs/<track>/<model>/<seed>/journal.jsonl` after every generation (including stalls). The LLM authors the prose fields; scripts/journal.py validates schema + metric grounding before writing. See NEXT_PHASE_PLAN.md §3.X for the full contract. Schema version 1 corresponds to the M15c prototype.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generation",
+    "timestamp_utc",
+    "track",
+    "model",
+    "seed",
+    "status",
+    "verdict",
+    "hypothesis_tested",
+    "tactic_tags",
+    "aar_metrics_cited",
+    "validation"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Journal schema version. The M15c initial release is 1.",
+      "type": "integer",
+      "const": 1
+    },
+    "generation": {
+      "description": "Zero-indexed generation number within this lineage.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp_utc": {
+      "description": "UTC ISO-8601 timestamp (Zulu). Deterministic injection supports tests by allowing the orchestrator to pass an explicit value.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "parent_generation": {
+      "description": "Generation number this entry mutated from. Null on the first generation.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "track": {
+      "description": "Experimental track identifier (A/B/C per RESEARCH_PLAN.md).",
+      "type": "string",
+      "enum": ["A", "B", "C"]
+    },
+    "model": {
+      "description": "Model id string (e.g. 'claude-opus-4-7').",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "seed": {
+      "description": "Integer seed pinning the lineage.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "description": "Terminal pipeline status for this generation. `ok` means code compiled, passed lint, and ran at least one evaluation match. Any other value implies a stall.",
+      "type": "string",
+      "enum": ["ok", "compile_failed", "lint_failed", "inject_failed", "runtime_failed"]
+    },
+    "fitness": {
+      "description": "Fitness of this generation (higher is better). Null on stall generations.",
+      "type": ["number", "null"]
+    },
+    "fitness_delta": {
+      "description": "fitness - parent_fitness. Null on the first generation and on stalls.",
+      "type": ["number", "null"]
+    },
+    "outcome_summary": {
+      "description": "One-line natural-language description of the match outcome. Capped to 240 chars.",
+      "type": "string",
+      "maxLength": 240
+    },
+    "hypothesis_tested": {
+      "description": "What the LLM set out to verify this generation. Capped to 400 chars.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "mechanism_expected": {
+      "description": "Causal story the LLM expected: why the hypothesis should produce the fitness change.",
+      "type": "string",
+      "maxLength": 400
+    },
+    "mechanism_observed": {
+      "description": "Causal story the LLM saw (grounded in AAR metrics).",
+      "type": "string",
+      "maxLength": 400
+    },
+    "verdict": {
+      "description": "Categorical outcome of the hypothesis. `stalled` is reserved for status != ok.",
+      "type": "string",
+      "enum": ["confirmed", "partial", "rejected", "stalled"]
+    },
+    "tactic_tags": {
+      "description": "Lowercase snake_case tags describing the tactical theme. Controlled by `tactic_tags.pattern` below; `scripts/journal.py` canonicalises case/spacing before validating.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_]*$",
+        "minLength": 1,
+        "maxLength": 48
+      }
+    },
+    "advice_to_future_self": {
+      "description": "Actionable prose for the next generation's prompt. Capped to 400 chars to avoid prose dominance (see §3.X.5).",
+      "type": "string",
+      "maxLength": 400
+    },
+    "aar_metrics_cited": {
+      "description": "Subset of the M15b AAR structured metrics the LLM chose to ground its analysis on. Keys must exist in the AAR; values must match within 1% relative tolerance (see §3.X.3).",
+      "type": "object",
+      "additionalProperties": { "type": ["number", "string", "boolean", "null"] }
+    },
+    "validation": {
+      "description": "Validation result recorded by scripts/journal.py. `metrics_match_aar` is true only when every cited key agrees with the AAR within tolerance.",
+      "type": "object",
+      "required": ["schema_valid", "metrics_match_aar", "rewrites"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_valid": { "type": "boolean" },
+        "metrics_match_aar": { "type": "boolean" },
+        "rewrites": {
+          "description": "Number of rewrite rounds consumed before acceptance (0..2).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "notes": {
+          "description": "Optional validator notes; used on fallback entries.",
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "Stalled generations have null fitness and fitness_delta, and verdict=stalled.",
+      "if": { "properties": { "status": { "const": "ok" } } },
+      "then": {
+        "properties": { "verdict": { "enum": ["confirmed", "partial", "rejected"] } }
+      },
+      "else": {
+        "properties": {
+          "fitness": { "type": "null" },
+          "fitness_delta": { "type": "null" },
+          "verdict": { "const": "stalled" }
+        }
+      }
+    }
+  ]
+}
