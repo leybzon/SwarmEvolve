@@ -757,7 +757,7 @@ def schema1_summary(inst1: dict[str, Any]) -> dict[str, Any]:
             for ev in p["detector_events"]:
                 fired.setdefault(p["program"], {})
                 fired[p["program"]][ev["tactic"]] = fired[p["program"]].get(ev["tactic"], 0) + 1
-    tactics = sorted({t for d in fired.values() for t in d})
+    tactics = list(inst1["detector_config"]["tactics"])
     return {
         "detector_schema": inst1["detector_config"]["schema_version"],
         "fire_rate": {
@@ -1204,7 +1204,7 @@ def render(res: dict[str, Any]) -> str:
         "`kiting_score_them` reporting retreat where there was none. Schema-1 fire rates:"
     )
     a("")
-    t1 = sorted(next(iter(s1["fire_rate"].values())).keys())
+    t1 = list(next(iter(s1["fire_rate"].values())).keys())
     a("| Baseline | " + " | ".join(t1) + " |")
     a("|---" * (1 + len(t1)) + "|")
     for prog, fr in s1["fire_rate"].items():
