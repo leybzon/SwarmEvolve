@@ -1,0 +1,4310 @@
+{
+ "aar_metrics_schema_version": 1,
+ "detector_config": {
+  "flanking": {
+   "min_allies_alive": 3,
+   "min_angle_deg": 90.0,
+   "min_streak_ticks": 50
+  },
+  "focus_fire_discipline": {
+   "max_redundant_ratio": 0.1,
+   "window_attempts": 200
+  },
+  "kiting": {
+   "cos_min": 0.8660254037844387,
+   "min_fraction": 0.5,
+   "min_streak_ticks": 100,
+   "min_vel_mag": 0.05
+  },
+  "message_coded_targeting": {
+   "channel_bins": 4,
+   "min_nmi": 0.25,
+   "min_target_events": 20,
+   "min_ticks": 100,
+   "msg_size": 4
+  },
+  "schema_version": 1,
+  "tactics": [
+   "flanking",
+   "kiting",
+   "focus_fire_discipline",
+   "message_coded_targeting"
+  ]
+ },
+ "finished_utc": "2026-10-22T09:45:46Z",
+ "matches": [
+  {
+   "match": 0,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 1.0617,
+      "dispersion_index_us": 1.11,
+      "engagement_range_mean": 33.672,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 227.7819,
+      "mean_pairwise_distance_us": 267.2385,
+      "message_bus_entropy": 5.3819,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 115
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 31,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 31,
+      "flanking_wide_ticks": 31,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 1.11,
+      "dispersion_index_us": 1.0617,
+      "engagement_range_mean": 33.672,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 267.2385,
+      "mean_pairwise_distance_us": 227.7819,
+      "message_bus_entropy": 5.5182,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 115
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 31,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 5,
+      "flanking_wide_ticks": 5,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410000,
+    "ticks": 115,
+    "wall_ms": 8
+   },
+   "seed": 410000,
+   "team_a": "pursuit_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_00.jsonl.gz",
+   "trace_sha256": "983f338171db44330482be9d542e949170925e7e952bdd06e453bbff9cfcf6a5"
+  },
+  {
+   "match": 1,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9873,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.7253,
+      "dispersion_index_us": 0.4991,
+      "engagement_range_mean": 36.7268,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0909,
+      "mean_pairwise_distance_them": 171.4585,
+      "mean_pairwise_distance_us": 334.9931,
+      "message_bus_entropy": 5.8852,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 11,
+      "shots_fired_us": 10,
+      "shots_hit_them": 11,
+      "shots_hit_us": 10,
+      "ticks": 124
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 105,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 31,
+      "flanking_wide_ticks": 31,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9873,
+      "dispersion_index_them": 0.4991,
+      "dispersion_index_us": 0.7253,
+      "engagement_range_mean": 36.9667,
+      "focus_fire_redundancy": 0.0909,
+      "kiting_score_them": 0.1,
+      "mean_pairwise_distance_them": 334.9931,
+      "mean_pairwise_distance_us": 171.4585,
+      "message_bus_entropy": 3.159,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 11,
+      "shots_hit_them": 10,
+      "shots_hit_us": 11,
+      "ticks": 124
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 105,
+      "flanking_first_wide_tick": null,
+      "flanking_longest_streak": 0,
+      "flanking_wide_ticks": 0,
+      "focus_fire_attempts": 11,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        391.952
+       ],
+       [
+        0.0,
+        637.5574
+       ],
+       [
+        0.0,
+        4.0
+       ],
+       [
+        0.0,
+        8.0
+       ]
+      ],
+      "message_nmi_detector": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_nmi_observed_range": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_observation_ticks": 2,
+      "message_observations": 11,
+      "message_target_events": 11
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410001,
+    "ticks": 124,
+    "wall_ms": 7
+   },
+   "seed": 410001,
+   "team_a": "pursuit_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_01.jsonl.gz",
+   "trace_sha256": "c9bac47a097afc865bc22925d36f33a835c9e8f7140ff57ace1f338f68102dc4"
+  },
+  {
+   "match": 2,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.8589,
+      "dispersion_index_them": 0.4012,
+      "dispersion_index_us": 0.0731,
+      "engagement_range_mean": 41.0444,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 400.7681,
+      "mean_pairwise_distance_us": 439.5696,
+      "message_bus_entropy": 6.1627,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 10,
+      "shots_hit_them": 0,
+      "shots_hit_us": 10,
+      "ticks": 55
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 55,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 15,
+      "flanking_wide_ticks": 25,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        984.2494
+       ],
+       [
+        0.0,
+        742.7905
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        49.1824
+       ]
+      ],
+      "message_nmi_detector": [
+       0.4435,
+       0.4435,
+       0.5819,
+       0.4435
+      ],
+      "message_nmi_observed_range": [
+       0.7022,
+       0.6535,
+       0.7588,
+       0.5434
+      ],
+      "message_observation_ticks": 10,
+      "message_observations": 20,
+      "message_target_events": 19
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.8589,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0731,
+      "dispersion_index_us": 0.4012,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.9,
+      "mean_pairwise_distance_them": 439.5696,
+      "mean_pairwise_distance_us": 400.7681,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 0,
+      "shots_hit_them": 10,
+      "shots_hit_us": 0,
+      "ticks": 55
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 32,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 11,
+      "flanking_wide_ticks": 13,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 0,
+    "outcome": "A_WIN",
+    "return_code": 0,
+    "score": 1.0,
+    "seed": 410002,
+    "ticks": 55,
+    "wall_ms": 3
+   },
+   "seed": 410002,
+   "team_a": "pursuit_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_02.jsonl.gz",
+   "trace_sha256": "df774fee637add35c01604f1018a7c822ced2d72ce3a9a46d451acf091ec6361"
+  },
+  {
+   "match": 3,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.6112,
+      "dispersion_index_us": 0.7326,
+      "engagement_range_mean": 38.471,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 252.227,
+      "mean_pairwise_distance_us": 229.9034,
+      "message_bus_entropy": 3.0439,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 107
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 66,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 31,
+      "flanking_wide_ticks": 31,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.7326,
+      "dispersion_index_us": 0.6112,
+      "engagement_range_mean": 38.471,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 229.9034,
+      "mean_pairwise_distance_us": 252.227,
+      "message_bus_entropy": 6.1937,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 107
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 66,
+      "flanking_first_wide_tick": 2,
+      "flanking_longest_streak": 34,
+      "flanking_wide_ticks": 36,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410003,
+    "ticks": 107,
+    "wall_ms": 3
+   },
+   "seed": 410003,
+   "team_a": "cluster_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_03.jsonl.gz",
+   "trace_sha256": "2fdfc990ec7d92e0847b5a2ae4ee13a250c6eff0a5831d2c0235c78f98eac0b5"
+  },
+  {
+   "match": 4,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 1,
+      "cooldown_utilization_them": 0.9931,
+      "cooldown_utilization_us": 0.963,
+      "dispersion_index_them": 0.5606,
+      "dispersion_index_us": 0.6992,
+      "engagement_range_mean": 37.5533,
+      "focus_fire_redundancy": 0.1667,
+      "kiting_score_them": 0.3,
+      "mean_pairwise_distance_them": 317.923,
+      "mean_pairwise_distance_us": 212.2486,
+      "message_bus_entropy": 2.6051,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 12,
+      "shots_hit_them": 10,
+      "shots_hit_us": 12,
+      "ticks": 108
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 100.28,
+        "cluster_sizes": [
+         4,
+         4
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410004,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 95,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 63,
+      "flanking_wide_ticks": 63,
+      "focus_fire_attempts": 12,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        490.2938
+       ],
+       [
+        0.0,
+        620.5947
+       ],
+       [
+        0.0,
+        5.0
+       ],
+       [
+        0.0,
+        6.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.5304,
+       0.5304,
+       0.8153,
+       0.5304
+      ],
+      "message_nmi_observed_range": [
+       0.5304,
+       0.5304,
+       1.0,
+       0.5905
+      ],
+      "message_observation_ticks": 5,
+      "message_observations": 14,
+      "message_target_events": 13
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 1,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.963,
+      "cooldown_utilization_us": 0.9931,
+      "dispersion_index_them": 0.6992,
+      "dispersion_index_us": 0.5606,
+      "engagement_range_mean": 37.0375,
+      "focus_fire_redundancy": 0.1,
+      "kiting_score_them": 0.3333,
+      "mean_pairwise_distance_them": 212.2486,
+      "mean_pairwise_distance_us": 317.923,
+      "message_bus_entropy": 1.9865,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "B",
+      "shots_fired_them": 12,
+      "shots_fired_us": 10,
+      "shots_hit_them": 12,
+      "shots_hit_us": 10,
+      "ticks": 108
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 139.21,
+        "cluster_sizes": [
+         4,
+         4
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410004,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 95,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 80,
+      "flanking_wide_ticks": 80,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        517.0164
+       ],
+       [
+        0.0,
+        510.3633
+       ],
+       [
+        0.0,
+        7.0
+       ],
+       [
+        0.0,
+        3.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.8864,
+       0.8864,
+       0.8864,
+       0.8864
+      ],
+      "message_nmi_observed_range": [
+       0.8864,
+       0.8864,
+       1.0,
+       1.0
+      ],
+      "message_observation_ticks": 3,
+      "message_observations": 12,
+      "message_target_events": 12
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 1,
+    "b_alive": 0,
+    "outcome": "A_WIN",
+    "return_code": 0,
+    "score": 1.0,
+    "seed": 410004,
+    "ticks": 108,
+    "wall_ms": 7
+   },
+   "seed": 410004,
+   "team_a": "cluster_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_04.jsonl.gz",
+   "trace_sha256": "e93fb036345ceca7ce0d7dfc173f9ea6f092a565543d6148ab03994bb3bc697e"
+  },
+  {
+   "match": 5,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9716,
+      "dispersion_index_them": 0.9155,
+      "dispersion_index_us": 1.467,
+      "engagement_range_mean": 43.2249,
+      "focus_fire_redundancy": 0.2308,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 285.1308,
+      "mean_pairwise_distance_us": 93.1053,
+      "message_bus_entropy": 4.4734,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 13,
+      "shots_hit_them": 0,
+      "shots_hit_us": 13,
+      "ticks": 326
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 326,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 1,
+      "flanking_wide_ticks": 1,
+      "focus_fire_attempts": 13,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        736.4161
+       ],
+       [
+        0.0,
+        547.4481
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        10.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.3777,
+       0.3777,
+       0.5798,
+       0.3777
+      ],
+      "message_nmi_observed_range": [
+       0.7034,
+       0.6468,
+       0.7846,
+       0.3777
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 23,
+      "message_target_events": 22
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9716,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 1.467,
+      "dispersion_index_us": 0.9155,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 1.0,
+      "mean_pairwise_distance_them": 93.1053,
+      "mean_pairwise_distance_us": 285.1308,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "B",
+      "shots_fired_them": 13,
+      "shots_fired_us": 0,
+      "shots_hit_them": 13,
+      "shots_hit_us": 0,
+      "ticks": 326
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 122.64,
+        "cluster_sizes": [
+         2,
+         2
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 90,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410005,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 152,
+      "flanking_first_wide_tick": 90,
+      "flanking_longest_streak": 62,
+      "flanking_wide_ticks": 62,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 0,
+    "outcome": "A_WIN",
+    "return_code": 0,
+    "score": 1.0,
+    "seed": 410005,
+    "ticks": 326,
+    "wall_ms": 15
+   },
+   "seed": 410005,
+   "team_a": "cluster_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_05.jsonl.gz",
+   "trace_sha256": "13ec53d2f722a37f2975b2765d1485410144302bcedf83d9b67ed32d77b31286"
+  },
+  {
+   "match": 6,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9062,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0361,
+      "dispersion_index_us": 0.2408,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.8,
+      "mean_pairwise_distance_them": 539.0524,
+      "mean_pairwise_distance_us": 715.6419,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 0,
+      "shots_hit_them": 10,
+      "shots_hit_us": 0,
+      "ticks": 80
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 55,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 22,
+      "flanking_wide_ticks": 22,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9062,
+      "dispersion_index_them": 0.2408,
+      "dispersion_index_us": 0.0361,
+      "engagement_range_mean": 37.2961,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 715.6419,
+      "mean_pairwise_distance_us": 539.0524,
+      "message_bus_entropy": 6.0464,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 10,
+      "shots_hit_them": 0,
+      "shots_hit_us": 10,
+      "ticks": 80
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 80,
+      "flanking_first_wide_tick": null,
+      "flanking_longest_streak": 0,
+      "flanking_wide_ticks": 0,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 1,
+      "max_speed": 5.0,
+      "message_channel_range": [
+       [
+        0.0,
+        896.6028
+       ],
+       [
+        0.0,
+        920.8392
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        48.8915
+       ]
+      ],
+      "message_nmi_detector": [
+       0.4435,
+       0.4435,
+       0.5819,
+       0.4435
+      ],
+      "message_nmi_observed_range": [
+       0.6126,
+       0.3195,
+       0.7588,
+       0.4402
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 20,
+      "message_target_events": 19
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 10,
+    "outcome": "B_WIN",
+    "return_code": 1,
+    "score": -1.0,
+    "seed": 410006,
+    "ticks": 80,
+    "wall_ms": 3
+   },
+   "seed": 410006,
+   "team_a": "stationary_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_06.jsonl.gz",
+   "trace_sha256": "562b3faed5c2f9664ad41074c4cbc650a2499371d38e083da8c5dded421fe060"
+  },
+  {
+   "match": 7,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9753,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 1.2859,
+      "dispersion_index_us": 0.5229,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.8182,
+      "mean_pairwise_distance_them": 110.9033,
+      "mean_pairwise_distance_us": 387.4723,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "A",
+      "shots_fired_them": 11,
+      "shots_fired_us": 0,
+      "shots_hit_them": 11,
+      "shots_hit_us": 0,
+      "ticks": 367
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 161.57,
+        "cluster_sizes": [
+         2,
+         3
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410007,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 222,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 129,
+      "flanking_wide_ticks": 206,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9753,
+      "dispersion_index_them": 0.5229,
+      "dispersion_index_us": 1.2859,
+      "engagement_range_mean": 39.8138,
+      "focus_fire_redundancy": 0.0909,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 387.4723,
+      "mean_pairwise_distance_us": 110.9033,
+      "message_bus_entropy": 4.5898,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 11,
+      "shots_hit_them": 0,
+      "shots_hit_us": 11,
+      "ticks": 367
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 156.64,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410007,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 367,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 73,
+      "flanking_wide_ticks": 73,
+      "focus_fire_attempts": 11,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 1,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        599.7194
+       ],
+       [
+        0.0,
+        729.4599
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        10.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.441,
+       0.441,
+       0.5732,
+       0.441
+      ],
+      "message_nmi_observed_range": [
+       0.6592,
+       0.7272,
+       0.797,
+       0.441
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 21,
+      "message_target_events": 20
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 10,
+    "outcome": "B_WIN",
+    "return_code": 1,
+    "score": -1.0,
+    "seed": 410007,
+    "ticks": 367,
+    "wall_ms": 15
+   },
+   "seed": 410007,
+   "team_a": "stationary_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_07.jsonl.gz",
+   "trace_sha256": "fb771532c058c68da69b5d1668983968a64542b6cc171116f24fbc8d74acfa42"
+  },
+  {
+   "match": 8,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0,
+      "dispersion_index_us": 0.0,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 496.9161,
+      "mean_pairwise_distance_us": 586.6905,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 0,
+      "shots_hit_them": 0,
+      "shots_hit_us": 0,
+      "ticks": 1000
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 126.78,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410008,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 1001,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 1001,
+      "flanking_wide_ticks": 1001,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0,
+      "dispersion_index_us": 0.0,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 586.6905,
+      "mean_pairwise_distance_us": 496.9161,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 0,
+      "shots_hit_them": 0,
+      "shots_hit_us": 0,
+      "ticks": 1000
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 130.85,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410008,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 1001,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 1001,
+      "flanking_wide_ticks": 1001,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 10,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410008,
+    "ticks": 1000,
+    "wall_ms": 31
+   },
+   "seed": 410008,
+   "team_a": "stationary_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_08.jsonl.gz",
+   "trace_sha256": "aad7a27d1b61f2ae7b9f7b1f0fe8d8d24b3f56b3a153372ee51984186dacd85f"
+  },
+  {
+   "match": 9,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9735,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.3215,
+      "dispersion_index_us": 0.2273,
+      "engagement_range_mean": 30.3058,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 330.547,
+      "mean_pairwise_distance_us": 528.3937,
+      "message_bus_entropy": 5.7271,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 11,
+      "shots_fired_us": 10,
+      "shots_hit_them": 11,
+      "shots_hit_us": 10,
+      "ticks": 106
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 47,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 5,
+      "flanking_wide_ticks": 10,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9735,
+      "dispersion_index_them": 0.2273,
+      "dispersion_index_us": 0.3215,
+      "engagement_range_mean": 30.5022,
+      "focus_fire_redundancy": 0.0909,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 528.3937,
+      "mean_pairwise_distance_us": 330.547,
+      "message_bus_entropy": 5.8404,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 11,
+      "shots_hit_them": 10,
+      "shots_hit_us": 11,
+      "ticks": 106
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 47,
+      "flanking_first_wide_tick": null,
+      "flanking_longest_streak": 0,
+      "flanking_wide_ticks": 0,
+      "focus_fire_attempts": 11,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        449.9414
+       ],
+       [
+        0.0,
+        206.7822
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        42.1588
+       ]
+      ],
+      "message_nmi_detector": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_nmi_observed_range": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_observation_ticks": 2,
+      "message_observations": 11,
+      "message_target_events": 11
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410009,
+    "ticks": 106,
+    "wall_ms": 3
+   },
+   "seed": 410009,
+   "team_a": "pursuit_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_09.jsonl.gz",
+   "trace_sha256": "53eb261fa9b3c67f56090ac5504091d8ee950b7a391289c79167c1afefd4dbdf"
+  },
+  {
+   "match": 10,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.6649,
+      "dispersion_index_us": 0.4675,
+      "engagement_range_mean": 37.22,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 173.868,
+      "mean_pairwise_distance_us": 308.3534,
+      "message_bus_entropy": 5.7342,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 97
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 100.41,
+        "cluster_sizes": [
+         2,
+         2
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410010,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 78,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 78,
+      "flanking_wide_ticks": 78,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.4675,
+      "dispersion_index_us": 0.6649,
+      "engagement_range_mean": 37.22,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 308.3534,
+      "mean_pairwise_distance_us": 173.868,
+      "message_bus_entropy": 3.0666,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 97
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 78,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 2,
+      "flanking_wide_ticks": 3,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 5,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410010,
+    "ticks": 97,
+    "wall_ms": 3
+   },
+   "seed": 410010,
+   "team_a": "pursuit_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_10.jsonl.gz",
+   "trace_sha256": "629d936504d6b06b3041ebb879184742798865b8b3279063df6f8dda195f410b"
+  },
+  {
+   "match": 11,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.8738,
+      "dispersion_index_them": 0.7398,
+      "dispersion_index_us": 0.0237,
+      "engagement_range_mean": 42.6676,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 472.3589,
+      "mean_pairwise_distance_us": 574.9285,
+      "message_bus_entropy": 5.864,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 10,
+      "shots_hit_them": 0,
+      "shots_hit_us": 10,
+      "ticks": 64
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 64,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 17,
+      "flanking_wide_ticks": 25,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        903.8508
+       ],
+       [
+        0.0,
+        926.1793
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        49.6142
+       ]
+      ],
+      "message_nmi_detector": [
+       0.4435,
+       0.4435,
+       0.5819,
+       0.4435
+      ],
+      "message_nmi_observed_range": [
+       0.5523,
+       0.6126,
+       0.7588,
+       0.4435
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 20,
+      "message_target_events": 19
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.8738,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0237,
+      "dispersion_index_us": 0.7398,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 1.0,
+      "mean_pairwise_distance_them": 574.9285,
+      "mean_pairwise_distance_us": 472.3589,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 0,
+      "shots_hit_them": 10,
+      "shots_hit_us": 0,
+      "ticks": 64
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 39,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 39,
+      "flanking_wide_ticks": 39,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 0,
+    "outcome": "A_WIN",
+    "return_code": 0,
+    "score": 1.0,
+    "seed": 410011,
+    "ticks": 64,
+    "wall_ms": 3
+   },
+   "seed": 410011,
+   "team_a": "pursuit_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_11.jsonl.gz",
+   "trace_sha256": "bc5c566a6ed365f3761ae378c3bf76b50d27351a0ad50386e6a626e3605e6c95"
+  },
+  {
+   "match": 12,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.9337,
+      "dispersion_index_us": 0.8177,
+      "engagement_range_mean": 36.1092,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 103.3215,
+      "mean_pairwise_distance_us": 195.0728,
+      "message_bus_entropy": 2.7323,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 92
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 69,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 2,
+      "flanking_wide_ticks": 2,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.8177,
+      "dispersion_index_us": 0.9337,
+      "engagement_range_mean": 36.1092,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 195.0728,
+      "mean_pairwise_distance_us": 103.3215,
+      "message_bus_entropy": 4.6357,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 92
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 69,
+      "flanking_first_wide_tick": null,
+      "flanking_longest_streak": 0,
+      "flanking_wide_ticks": 0,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 1,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410012,
+    "ticks": 92,
+    "wall_ms": 3
+   },
+   "seed": 410012,
+   "team_a": "cluster_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_12.jsonl.gz",
+   "trace_sha256": "bdcfe0388b2a801aa78ca10b50bb7a3813d3d13212464c15df7f658fba26336c"
+  },
+  {
+   "match": 13,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.7223,
+      "dispersion_index_us": 0.6148,
+      "engagement_range_mean": 39.2533,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.5,
+      "mean_pairwise_distance_them": 224.2156,
+      "mean_pairwise_distance_us": 220.7121,
+      "message_bus_entropy": 3.0591,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 106
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 79,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 30,
+      "flanking_wide_ticks": 33,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.6148,
+      "dispersion_index_us": 0.7223,
+      "engagement_range_mean": 39.2533,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.5,
+      "mean_pairwise_distance_them": 220.7121,
+      "mean_pairwise_distance_us": 224.2156,
+      "message_bus_entropy": 2.9623,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 106
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 79,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 35,
+      "flanking_wide_ticks": 35,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410013,
+    "ticks": 106,
+    "wall_ms": 3
+   },
+   "seed": 410013,
+   "team_a": "cluster_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_13.jsonl.gz",
+   "trace_sha256": "b6a9a51cba49088cc270b60a887394a9edd87cc56c73073ef5eea4bc7be82e79"
+  },
+  {
+   "match": 14,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9537,
+      "dispersion_index_them": 0.4022,
+      "dispersion_index_us": 2.1181,
+      "engagement_range_mean": 43.6355,
+      "focus_fire_redundancy": 0.7436,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 482.2519,
+      "mean_pairwise_distance_us": 51.3757,
+      "message_bus_entropy": 4.8614,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 39,
+      "shots_hit_them": 0,
+      "shots_hit_us": 39,
+      "ticks": 584
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 584,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 38,
+      "flanking_wide_ticks": 38,
+      "focus_fire_attempts": 39,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 1,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        947.7547
+       ],
+       [
+        0.0,
+        968.8973
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        10.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.195,
+       0.195,
+       0.5502,
+       0.195
+      ],
+      "message_nmi_observed_range": [
+       0.5479,
+       0.6848,
+       0.8127,
+       0.195
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 49,
+      "message_target_events": 49
+     },
+     "program": "cluster_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9537,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 2.1181,
+      "dispersion_index_us": 0.4022,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 1.0,
+      "mean_pairwise_distance_them": 51.3757,
+      "mean_pairwise_distance_us": 482.2519,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_A_WIN",
+      "perspective": "B",
+      "shots_fired_them": 39,
+      "shots_fired_us": 0,
+      "shots_hit_them": 39,
+      "shots_hit_us": 0,
+      "ticks": 584
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 126.07,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410014,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 449,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 104,
+      "flanking_wide_ticks": 152,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 0,
+    "outcome": "A_WIN",
+    "return_code": 0,
+    "score": 1.0,
+    "seed": 410014,
+    "ticks": 584,
+    "wall_ms": 31
+   },
+   "seed": 410014,
+   "team_a": "cluster_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_14.jsonl.gz",
+   "trace_sha256": "8db66aa1b095d12887a445dfcf4e47373e2abce94ce7d7a504fdd01c931e9ed9"
+  },
+  {
+   "match": 15,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9401,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.3187,
+      "dispersion_index_us": 1.5983,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.9091,
+      "mean_pairwise_distance_them": 321.0075,
+      "mean_pairwise_distance_us": 155.5452,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "A",
+      "shots_fired_them": 11,
+      "shots_fired_us": 0,
+      "shots_hit_them": 11,
+      "shots_hit_us": 0,
+      "ticks": 151
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 34,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 7,
+      "flanking_wide_ticks": 8,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9401,
+      "dispersion_index_them": 1.5983,
+      "dispersion_index_us": 0.3187,
+      "engagement_range_mean": 42.1599,
+      "focus_fire_redundancy": 0.0909,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 155.5452,
+      "mean_pairwise_distance_us": 321.0075,
+      "message_bus_entropy": 6.457,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 11,
+      "shots_hit_them": 0,
+      "shots_hit_us": 11,
+      "ticks": 151
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 151,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 28,
+      "flanking_wide_ticks": 28,
+      "focus_fire_attempts": 11,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        856.9101
+       ],
+       [
+        0.0,
+        875.1038
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        49.9441
+       ]
+      ],
+      "message_nmi_detector": [
+       0.441,
+       0.441,
+       0.5732,
+       0.441
+      ],
+      "message_nmi_observed_range": [
+       0.6756,
+       0.5942,
+       0.7622,
+       0.5377
+      ],
+      "message_observation_ticks": 10,
+      "message_observations": 21,
+      "message_target_events": 20
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 10,
+    "outcome": "B_WIN",
+    "return_code": 1,
+    "score": -1.0,
+    "seed": 410015,
+    "ticks": 151,
+    "wall_ms": 7
+   },
+   "seed": 410015,
+   "team_a": "stationary_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_15.jsonl.gz",
+   "trace_sha256": "e27c3aa7b488ec438b578e3d7ce9e18d682cb58d9ae1fc8bc6a6b36960e06e93"
+  },
+  {
+   "match": 16,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.982,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 2.0526,
+      "dispersion_index_us": 0.6876,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 1.0,
+      "mean_pairwise_distance_them": 49.7262,
+      "mean_pairwise_distance_us": 481.7548,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "A",
+      "shots_fired_them": 13,
+      "shots_fired_us": 0,
+      "shots_hit_them": 13,
+      "shots_hit_us": 0,
+      "ticks": 603
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 129.84,
+        "cluster_sizes": [
+         4,
+         4
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410016,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 347,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 343,
+      "flanking_wide_ticks": 343,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.982,
+      "dispersion_index_them": 0.6876,
+      "dispersion_index_us": 2.0526,
+      "engagement_range_mean": 43.7583,
+      "focus_fire_redundancy": 0.2308,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 481.7548,
+      "mean_pairwise_distance_us": 49.7262,
+      "message_bus_entropy": 4.8575,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "TEAM_B_WIN",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 13,
+      "shots_hit_them": 0,
+      "shots_hit_us": 13,
+      "ticks": 603
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 603,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 26,
+      "flanking_wide_ticks": 26,
+      "focus_fire_attempts": 13,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 26,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        964.4422
+       ],
+       [
+        0.0,
+        944.23
+       ],
+       [
+        0.0,
+        9.0
+       ],
+       [
+        0.0,
+        10.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.4364,
+       0.4364,
+       0.5588,
+       0.4364
+      ],
+      "message_nmi_observed_range": [
+       0.6867,
+       0.7792,
+       0.8094,
+       0.4364
+      ],
+      "message_observation_ticks": 11,
+      "message_observations": 23,
+      "message_target_events": 23
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 10,
+    "outcome": "B_WIN",
+    "return_code": 1,
+    "score": -1.0,
+    "seed": 410016,
+    "ticks": 603,
+    "wall_ms": 15
+   },
+   "seed": 410016,
+   "team_a": "stationary_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_16.jsonl.gz",
+   "trace_sha256": "e7d11bfd0eabfb1b6a907fe82734988bd2ccfce0d63ce542ee870009a1fbfd70"
+  },
+  {
+   "match": 17,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0,
+      "dispersion_index_us": 0.0,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 426.9935,
+      "mean_pairwise_distance_us": 564.7744,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 0,
+      "shots_fired_us": 0,
+      "shots_hit_them": 0,
+      "shots_hit_us": 0,
+      "ticks": 1000
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 108.42,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "a",
+       "schema_version": 1,
+       "seed": 410017,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 1001,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 1001,
+      "flanking_wide_ticks": 1001,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 10,
+      "alive_final_us": 10,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.0,
+      "dispersion_index_us": 0.0,
+      "engagement_range_mean": 0.0,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 564.7744,
+      "mean_pairwise_distance_us": 426.9935,
+      "message_bus_entropy": 0.0,
+      "message_bus_used": false,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 0,
+      "shots_fired_us": 0,
+      "shots_hit_them": 0,
+      "shots_hit_us": 0,
+      "ticks": 1000
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [
+      {
+       "evidence": {
+        "angle_deg": 93.46,
+        "cluster_sizes": [
+         5,
+         5
+        ],
+        "threshold_angle_deg": 90.0,
+        "threshold_streak_ticks": 50
+       },
+       "first_tick": 0,
+       "generation": -1,
+       "model": "",
+       "perspective": "b",
+       "schema_version": 1,
+       "seed": 410017,
+       "sustained_ticks": 50,
+       "tactic": "flanking",
+       "track": ""
+      }
+     ],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 1001,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 1001,
+      "flanking_wide_ticks": 1001,
+      "focus_fire_attempts": 0,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 0.0,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "stationary_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 10,
+    "b_alive": 10,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410017,
+    "ticks": 1000,
+    "wall_ms": 31
+   },
+   "seed": 410017,
+   "team_a": "stationary_v1",
+   "team_b": "stationary_v1",
+   "trace": "reports/calibration/traces/trace_17.jsonl.gz",
+   "trace_sha256": "5519d0340f4e3ddd6837a255af51f3edcecc44814669cbe0d6194d929efc0f4e"
+  },
+  {
+   "match": 18,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 0.9735,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.4574,
+      "dispersion_index_us": 0.4038,
+      "engagement_range_mean": 35.3914,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 296.6795,
+      "mean_pairwise_distance_us": 400.7546,
+      "message_bus_entropy": 5.6744,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 11,
+      "shots_fired_us": 10,
+      "shots_hit_them": 11,
+      "shots_hit_us": 10,
+      "ticks": 87
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 57,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 15,
+      "flanking_wide_ticks": 27,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 0.9735,
+      "dispersion_index_them": 0.4038,
+      "dispersion_index_us": 0.4574,
+      "engagement_range_mean": 35.4038,
+      "focus_fire_redundancy": 0.0909,
+      "kiting_score_them": 0.0,
+      "mean_pairwise_distance_them": 400.7546,
+      "mean_pairwise_distance_us": 296.6795,
+      "message_bus_entropy": 5.8049,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 11,
+      "shots_hit_them": 10,
+      "shots_hit_us": 11,
+      "ticks": 87
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 57,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 11,
+      "flanking_wide_ticks": 15,
+      "focus_fire_attempts": 11,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        329.8119
+       ],
+       [
+        0.0,
+        644.4689
+       ],
+       [
+        0.0,
+        2.0
+       ],
+       [
+        0.0,
+        45.4875
+       ]
+      ],
+      "message_nmi_detector": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_nmi_observed_range": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "message_observation_ticks": 2,
+      "message_observations": 11,
+      "message_target_events": 11
+     },
+     "program": "pursuit_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410018,
+    "ticks": 87,
+    "wall_ms": 3
+   },
+   "seed": 410018,
+   "team_a": "pursuit_v1",
+   "team_b": "pursuit_v1",
+   "trace": "reports/calibration/traces/trace_18.jsonl.gz",
+   "trace_sha256": "34bf1ad0e8037059599b9a5524ad4a808e620d78a1215c0f7c758fc71cb622b4"
+  },
+  {
+   "match": 19,
+   "perspectives": {
+    "A": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.6675,
+      "dispersion_index_us": 0.6659,
+      "engagement_range_mean": 36.8322,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 308.1866,
+      "mean_pairwise_distance_us": 209.4571,
+      "message_bus_entropy": 5.3628,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "A",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 108
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 38,
+      "flanking_first_wide_tick": null,
+      "flanking_longest_streak": 0,
+      "flanking_wide_ticks": 0,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "pursuit_v1"
+    },
+    "B": {
+     "aar": {
+      "alive_final_them": 0,
+      "alive_final_us": 0,
+      "cooldown_utilization_them": 1.0,
+      "cooldown_utilization_us": 1.0,
+      "dispersion_index_them": 0.6659,
+      "dispersion_index_us": 0.6675,
+      "engagement_range_mean": 36.8322,
+      "focus_fire_redundancy": 0.0,
+      "kiting_score_them": 0.2,
+      "mean_pairwise_distance_them": 209.4571,
+      "mean_pairwise_distance_us": 308.1866,
+      "message_bus_entropy": 2.9858,
+      "message_bus_used": true,
+      "metrics_schema_version": 1,
+      "outcome": "DRAW",
+      "perspective": "B",
+      "shots_fired_them": 10,
+      "shots_fired_us": 10,
+      "shots_hit_them": 10,
+      "shots_hit_us": 10,
+      "ticks": 108
+     },
+     "aar_checks": {
+      "alive_them_matches_engine": true,
+      "alive_us_matches_engine": true,
+      "attack_events_follow_engine_rules": true,
+      "cooldown_utilization_them": true,
+      "cooldown_utilization_us": true,
+      "every_death_has_a_hit": true,
+      "mean_pairwise_distance_them": true,
+      "mean_pairwise_distance_us": true,
+      "message_bus_used": true,
+      "outcome_matches_engine": true,
+      "shots_fired_them": true,
+      "shots_fired_us": true,
+      "shots_hit_them": true,
+      "shots_hit_us": true,
+      "ticks_match_engine": true
+     },
+     "aar_rc": 0,
+     "detector_events": [],
+     "detector_rc": 0,
+     "probe": {
+      "flanking_eligible_ticks": 38,
+      "flanking_first_wide_tick": 0,
+      "flanking_longest_streak": 17,
+      "flanking_wide_ticks": 17,
+      "focus_fire_attempts": 10,
+      "focus_fire_min_window_ratio": null,
+      "focus_fire_redundant": 0,
+      "kiting_longest_streak": 0,
+      "max_speed": 5.0001,
+      "message_channel_range": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ],
+       [
+        0.0,
+        0.0
+       ]
+      ],
+      "message_nmi_detector": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_nmi_observed_range": [
+       0.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      "message_observation_ticks": 1,
+      "message_observations": 10,
+      "message_target_events": 10
+     },
+     "program": "cluster_v1"
+    }
+   },
+   "platform_label": "canonical-draft",
+   "row": {
+    "a_alive": 0,
+    "b_alive": 0,
+    "outcome": "DRAW",
+    "return_code": 2,
+    "score": 0.0,
+    "seed": 410019,
+    "ticks": 108,
+    "wall_ms": 7
+   },
+   "seed": 410019,
+   "team_a": "pursuit_v1",
+   "team_b": "cluster_v1",
+   "trace": "reports/calibration/traces/trace_19.jsonl.gz",
+   "trace_sha256": "ea1290160ae56e8b3e3726e792c6d87fcc60654106091bcbf49e1889ae90e867"
+  }
+ ],
+ "started_git_sha": "0b8e946b9cbfe447585fc00f5e0f4de738cf4e94"
+}

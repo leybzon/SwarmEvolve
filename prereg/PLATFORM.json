@@ -39,12 +39,12 @@
       "compile_flags.py": "e6668aed2ae482024f54ff0ef5fc3af8f3d456ba519c15ea41f5e23f755af9c1",
       "engine.cpp": "583675068a25b832fc79196373412d318e6318b1f5552c56f999d7146dc66282",
       "engine.h": "ddd42e7e163de743fb568fd41e712b19e51fa44eb6aed8adbd2f190ac040f35d",
-      "eval_batch.py": "483e3fba4cb93c68600ac64f56b21e71b3a13628e89d92ba28c0e9fe113d81bd",
+      "eval_batch.py": "7424d87e04c6735d8fcfe5d69a6e60ed933e05908381bf56e0d9226961233c02",
       "inject_guards.py": "4b98d6e9e3c70ba55d173d366ab11dee8ca750f873097cec1de1870e91bbeece",
       "types.h": "25f83bd05d787e3c2a9ebe9792bd43efb539e175c0a7616375284b7e6be9bdc4"
     },
     "image": "swarmevolve-eval:latest",
-    "image_id": "sha256:ae671f3db889ea7c590bae525ce336e197e467874d62c351973dbc1f3662ab21",
+    "image_id": "sha256:1b4acfcda04ba993f4d4da9a0fcd238cb7905233179ce3bf5ed80fc2be37292b",
     "kernel": "7.0.0-38-generic"
   },
   "host": {
@@ -54,6 +54,6 @@
     "os": "Ubuntu 26.04.1 LTS"
   },
   "note": "Draft canonical platform for the v2 study. A result counts as canonical only if its fingerprint matches every key in canonical_keys and this file is final (status != draft). Written by scripts/platform_fingerprint.py.",
-  "recorded_utc": "2026-10-21T21:06:24Z",
+  "recorded_utc": "2026-10-22T09:39:43Z",
   "status": "draft"
 }
