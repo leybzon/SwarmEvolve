@@ -1,0 +1,70 @@
+{
+ "note": "On 2026-10-22 the 13 commits on research/v2 above origin/main were rewritten to replace the author/committer email with the GitHub noreply address, so they could be pushed (GitHub GH007). Trees are unchanged. Reports and raw result files written before the rewrite cite the old hashes; this map resolves them.",
+ "commits": [
+  {
+   "old": "145f27e3f00d177b60984d8fc5793cd130ae48ad",
+   "new": "92cca1821fd407dd0f8179dcc505b2b324ac0aae",
+   "subject": "docs: research rules and brief for the v2 study"
+  },
+  {
+   "old": "c0330aae98d4749616ff0a074c23cf1ff02bbee9",
+   "new": "2aeaafb0faa03245d5cc94cd41c4146b54ba6c25",
+   "subject": "fix: D1-D3 and D5 in the dual-LLM evolution loops"
+  },
+  {
+   "old": "0f4ad6da955a85b0283822a72b92ed4073256f8a",
+   "new": "0fd39d4134e14e4b94820ce3e1b393a0136d32c9",
+   "subject": "build: one shared definition of the C++ compile flags"
+  },
+  {
+   "old": "71c1d1e3a7b397c1205ed1fe5aafe768726a9d49",
+   "new": "84d6552946e7fba525052794c21d608d1ca9fdf3",
+   "subject": "setup: host record, health checks and model-access checker"
+  },
+  {
+   "old": "cf5695313017da97e501df4fa9a4bf52c87917ae",
+   "new": "1b282e45bc1cc124165adac07b40aaf2d5b7f965",
+   "subject": "setup: model access via a workspace header; all three models available"
+  },
+  {
+   "old": "d0a9b4d49a086caabacb46dfa3d6d5df4c66720b",
+   "new": "3ef3441087e4d4104bf7a0ded3d83070a1d1f99c",
+   "subject": "eval: pinned eval container with batch mode; fitness defaults to it"
+  },
+  {
+   "old": "d5e5ef27b57a4c848461e52ffd76fcd268690383",
+   "new": "59d578ff81bd25f9a72e0ac776da271a0aab6375",
+   "subject": "eval: PLATFORM.json draft, determinism gate and timing on the eval image"
+  },
+  {
+   "old": "0b8e946b9cbfe447585fc00f5e0f4de738cf4e94",
+   "new": "f4da22da7ea27a80834bc61d3bd3706c37023ccc",
+   "subject": "calibration: arena scale in the eval path; calibration script"
+  },
+  {
+   "old": "e8b61743e2e6c6ee1b6eb0032f9b545d7791bfe5",
+   "new": "b838a8b287e549a485ee7160b987d4a4f9e1579d",
+   "subject": "calibration: fix the AAR outcome check; detector plausibility rules"
+  },
+  {
+   "old": "924c3d4e933a4c7a050c543a4078364d5936bb2b",
+   "new": "3d53d4ed52f2b5007e68b161daee9366cb0c7993",
+   "subject": "calibration: baseline noise, power, instruments and engine limits"
+  },
+  {
+   "old": "3c77bbcc5a3d4807b91c1fe9375a654b5ca2741e",
+   "new": "8050bef166153022cae8bc89be102948618f0f02",
+   "subject": "detectors schema 2, AAR metrics schema 2, tick cap grows with the arena"
+  },
+  {
+   "old": "14d728871644d01a97daf80ffd4c83ac85a9f96e",
+   "new": "17bdcc4a4e1a981d594aacd2c8f148d76fb0ddf3",
+   "subject": "calibration: list every schema-1 tactic in the history table"
+  },
+  {
+   "old": "b0c4137cd2bbe7c0955c938bad2b82b0f76c3912",
+   "new": "1245a42af4f76701c1a26b4ff192c5bc1d173357",
+   "subject": "calibration: detector schema 2 and scaled tick cap results; decisions log"
+  }
+ ]
+}

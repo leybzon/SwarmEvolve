@@ -20,7 +20,7 @@ Seed blocks (disjoint from each other and from the setup checks):
 crossplay 400000-401999, instruments 410000-410019, limits 420000-420049.
 
 History: ``instruments`` first wrote instruments.json with detector schema 1
-and AAR metrics schema 1 (commit e8b6174); it now writes instruments_v2.json
+and AAR metrics schema 1 (commit b838a8b); it now writes instruments_v2.json
 with both at schema 2. ``limits`` ran with a fixed 1000-tick cap before the
 cap was tied to the arena scale; ``limits-scaled`` repeats the grid with it.
 """
@@ -748,7 +748,7 @@ def analyze_power(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def schema1_summary(inst1: dict[str, Any]) -> dict[str, Any]:
     """Fire rates of the schema-1 detectors, from the events stored in
     instruments.json (the full schema-1 analysis is in CALIBRATION.md at
-    commit 924c3d4)."""
+    commit 3d53d4e)."""
     fired: dict[str, dict[str, int]] = {}
     runs: dict[str, int] = {}
     for m in inst1["matches"]:
@@ -1053,6 +1053,11 @@ def render(res: dict[str, Any]) -> str:
     )
     a("")
     a(
+        "Commit hashes recorded in the raw files before 2026-10-22 predate an email-only "
+        "history rewrite; `reports/COMMIT_MAP.json` maps them to the current hashes."
+    )
+    a("")
+    a(
         f"Every match ran in the eval container: image `{plat['image_id']}`, "
         f"{plat['compiler_version']}, {plat['cpu_model']}, kernel {plat['kernel']}. "
         f"Platform label(s): **{', '.join(plat['labels'])}**; one platform across all runs: "
@@ -1197,7 +1202,7 @@ def render(res: dict[str, Any]) -> str:
     a("")
     a(
         f"The first calibration ran detector schema {s1['detector_schema']} and AAR metrics "
-        "schema 1 (`instruments.json`; full analysis in this file at commit 924c3d4). It found "
+        "schema 1 (`instruments.json`; full analysis in this file at commit 3d53d4e). It found "
         "flanking firing from spawn geometry and for a stationary team, focus-fire discipline "
         "and message-coded targeting unable to fire in 10-drone matches, message channels "
         "clipped to [-1, 1], tick 0's zero-filled actions counted as targeting, and the AAR's "
