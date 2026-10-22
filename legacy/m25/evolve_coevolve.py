@@ -6,32 +6,28 @@ Based on CO_EVOLUTION_PROPOSAL.md Option 1:
 - Round N (odd): Team B evolves against champion_a
 - Each team has independent acceptance criteria
 - Both champions tracked separately in journal
+
+Frozen M25 snapshot (legacy/m25, from 7e539a4). Execution changes only,
+listed in CHANGES.md: a fixed-opponent mode (``evolve_team``), matches
+played in the canonical eval container (``fitness.py``), and injected
+planner/coder clients.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Make sibling scripts importable
-_HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
-
-import dual_llm  # noqa: E402
-import fitness as fitness_mod  # noqa: E402
-import inject_guards  # noqa: E402
-import journal as journal_mod  # noqa: E402
-import lint_ai_tokens  # noqa: E402
-import llm_client  # noqa: E402
-import tactic_spec as tspec  # noqa: E402
-import telemetry_aar  # noqa: E402
-
-REPO_ROOT = _HERE.parent
+from . import client as llm_client
+from . import dual_llm, inject_guards, lint_ai_tokens, telemetry_aar
+from . import fitness as fitness_mod
+from . import journal as journal_mod
+from . import tactic_spec as tspec
 
 _LOG = logging.getLogger("swarmevolve.evolve_coevolve")
 
@@ -40,38 +36,45 @@ def evolve_coevolve(
     *,
     init_champion_a: Path,
     init_champion_b: Path,
-    planner_model: str,
-    coder_model: str,
+    planner_client: llm_client.LLMClient,
+    coder_client: llm_client.LLMClient,
     rounds: int,
     n_matches: int,
     seed: int,
     out_dir: Path,
     strict_reflection: bool = False,
     acceptance_mode: str = "relative",
+    evolve_team: str | None = None,
 ) -> int:
     """Run co-evolutionary loop with alternating team evolution.
 
     Args:
         init_champion_a: Path to initial Team A champion
         init_champion_b: Path to initial Team B champion
-        planner_model: Model for tactical planning
-        coder_model: Model for implementation
+        planner_client: Client for tactical planning (injected)
+        coder_client: Client for implementation (injected)
         rounds: Number of rounds (each round evolves one team)
         n_matches: Matches per round for fitness evaluation
         seed: Base seed for RNG
         out_dir: Output directory for run artifacts
         strict_reflection: Enable enhanced journal validation
         acceptance_mode: "absolute" (>0.0) or "relative" (>champion)
+        evolve_team: None (both teams alternate, as in M25) or "A"/"B":
+            fixed-opponent mode, where only that team evolves and the other
+            keeps its init champion. Round numbers, seeds and the evolving
+            team's rounds are those of the alternating schedule; the frozen
+            team's rounds are skipped (no LLM call, no evaluation).
 
     Returns:
         Exit code (0 = success)
     """
+    if evolve_team not in (None, "A", "B"):
+        raise ValueError(f"evolve_team must be None, 'A' or 'B', got {evolve_team!r}")
     out_dir.mkdir(parents=True, exist_ok=True)
     journal_path = out_dir / "journal.jsonl"
 
-    # Build clients
-    planner_client = llm_client.AnthropicClient(model=planner_model)
-    coder_client = llm_client.AnthropicClient(model=coder_model)
+    planner_model = planner_client.model
+    coder_model = coder_client.model
 
     # Initialize champions
     if not init_champion_a.exists():
@@ -94,6 +97,11 @@ def evolve_coevolve(
         # Determine whose turn to evolve
         evolving_team = "A" if round_num % 2 == 0 else "B"
         static_team = "B" if evolving_team == "A" else "A"
+
+        if evolve_team is not None and evolving_team != evolve_team:
+            # Fixed-opponent mode: the frozen team takes no turn.
+            _LOG.debug("round round=%d team=%s frozen, skipped", round_num, evolving_team)
+            continue
 
         round_dir = out_dir / f"round_{round_num:04d}"
         round_dir.mkdir(parents=True, exist_ok=True)
@@ -296,6 +304,11 @@ def evolve_coevolve(
                 n_matches=n_matches,
                 seed_base=seed + round_num * 1000,
             )
+        except fitness_mod.InfraError:
+            # Container infrastructure failure, not a property of the
+            # candidate: stop the run instead of journaling a stall.
+            _LOG.error("fitness-infra-failed round=%d", round_num)
+            raise
         except Exception as e:
             _LOG.warning("fitness-failed round=%d err=%s", round_num, e)
             _write_stall_journal_entry(
@@ -522,10 +535,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--init-champion-b", required=True, type=Path, help="Initial champion for Team B (.cpp)"
     )
+    # M25 defaults were claude-sonnet-4-20250514 (retired 2026-06-15) and
+    # claude-haiku-4-5; the snapshot has no defaults so no run picks a model
+    # by accident.
+    parser.add_argument("--planner-model", required=True, help="Model for planner LLM")
+    parser.add_argument("--coder-model", required=True, help="Model for coder LLM")
     parser.add_argument(
-        "--planner-model", default="claude-sonnet-4-20250514", help="Model for planner LLM"
+        "--client-factory",
+        required=True,
+        help="module:attr of a callable (role, model) -> client; role is planner or coder",
     )
-    parser.add_argument("--coder-model", default="claude-haiku-4-5", help="Model for coder LLM")
+    parser.add_argument(
+        "--evolve-team",
+        choices=["A", "B"],
+        default=None,
+        help="Fixed-opponent mode: only this team evolves (default: both alternate)",
+    )
     parser.add_argument(
         "--rounds", type=int, default=10, help="Number of rounds (each round evolves one team)"
     )
@@ -550,18 +575,29 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
+    factory = _load_factory(args.client_factory)
     return evolve_coevolve(
         init_champion_a=args.init_champion_a,
         init_champion_b=args.init_champion_b,
-        planner_model=args.planner_model,
-        coder_model=args.coder_model,
+        planner_client=factory("planner", args.planner_model),
+        coder_client=factory("coder", args.coder_model),
         rounds=args.rounds,
         n_matches=args.n_matches,
         seed=args.seed,
         out_dir=args.out_dir,
         strict_reflection=args.strict_reflection,
         acceptance_mode=args.acceptance_mode,
+        evolve_team=args.evolve_team,
     )
+
+
+def _load_factory(spec: str) -> llm_client.ClientFactory:
+    """Resolve ``module:attr`` to a client factory."""
+    module_name, sep, attr = spec.partition(":")
+    if not sep or not module_name or not attr:
+        raise SystemExit(f"--client-factory must be module:attr, got {spec!r}")
+    factory: llm_client.ClientFactory = getattr(importlib.import_module(module_name), attr)
+    return factory
 
 
 if __name__ == "__main__":

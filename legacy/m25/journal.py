@@ -58,8 +58,9 @@ except Exception:  # pragma: no cover
     Draft7Validator = None  # type: ignore[assignment]
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = REPO_ROOT / "docs" / "journal_schema.json"
+# The snapshot's own copy of the schema (legacy/m25/docs/).
+SNAPSHOT_ROOT = Path(__file__).resolve().parent
+SCHEMA_PATH = SNAPSHOT_ROOT / "docs" / "journal_schema.json"
 
 JOURNAL_SCHEMA_VERSION = 1
 METRIC_REL_TOLERANCE = 0.01  # 1% per §3.X.3 metric grounding rule

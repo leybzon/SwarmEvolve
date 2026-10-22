@@ -7,14 +7,13 @@ mean, stdev, and a bootstrap 95% confidence interval on the mean.
 
 Design notes
 ------------
-* **Compile once per worker, run many matches.** Each worker process
-  renders both AIs, invokes the host compiler once, then reuses the
-  resulting binary across its subset of seeds. This keeps the cost
-  near the engine's ~20 ms/tick rather than the ~500 ms/compile.
-* **Host-side by default; sandbox opt-in.** The spec (§M9) eventually
-  routes matches through ``scripts.sandbox``; for M9 we keep the host
-  path as default so CI + local iteration stay fast. ``--sandbox``
-  opt-in calls :func:`sandbox.run_match_in_sandbox` per match.
+* **Matches run in the canonical eval container** (frozen-snapshot
+  execution change 2, see legacy/m25/CHANGES.md). M25 compiled and ran
+  both programs on the host. The snapshot hands the seeds to the shared
+  container runner (``scripts/fitness.py``, ``backend="sandbox"``) and
+  takes back only each match's outcome; scores, aggregates and the
+  error policy below are still computed here, as in M25. The host path
+  is gone so LLM-written code cannot run on the host.
 * **Deterministic reductions.** Seed sequences are contiguous
   ``[seed_base, seed_base + n_matches)`` so two runs with the same
   ``(team_a, team_b, seed_base, n_matches)`` produce byte-identical
@@ -42,27 +41,28 @@ to ``fitness.json``.
 
 from __future__ import annotations
 
-import concurrent.futures as _futures
 import hashlib
 import json
+import logging
 import math
-import os
 import random
-import shutil
 import statistics
-import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-ENGINE_SRC = REPO_ROOT / "src" / "engine.cpp"
-PLACEHOLDER = "TEAM_NS_PLACEHOLDER"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CANONICAL_SCRIPTS = REPO_ROOT / "scripts"
 
-_OUTCOME_BY_RC = {0: "A_WIN", 1: "B_WIN", 2: "DRAW"}
-_SCORE_BY_RC = {0: 1.0, 1: -1.0, 2: 0.0}
+# M25 mapped the engine's return code 0/1/2 to these outcomes and scores;
+# the container reports the outcome itself. CRASH and TIMEOUT score 0.
+_SCORE_BY_OUTCOME = {"A_WIN": 1.0, "B_WIN": -1.0, "DRAW": 0.0}
+_INVALID_OUTCOMES = ("TIMEOUT", "CRASH")
+_BUILD_FAILURES = ("GUARD_FAIL", "COMPILE_FAIL")
+
+_LOG = logging.getLogger("swarmevolve.legacy_m25.fitness")
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +104,8 @@ class FitnessResult:
     workers: int = 1
     compiler: str = ""
     per_match: list[dict[str, Any]] = field(default_factory=list)
+    backend: str = "sandbox"
+    platform: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-serialisable representation. Used by ``fitness.json``."""
@@ -113,200 +115,81 @@ class FitnessResult:
 
 
 # ---------------------------------------------------------------------------
-# Compiler discovery (mirrors orchestrator.detect_compiler but local-only so
-# that workers can import this module without pulling in the orchestrator)
+# Match execution: the canonical eval container
 # ---------------------------------------------------------------------------
-
-
-def _find_compiler() -> str | None:
-    env = os.environ.get("CXX")
-    if env and shutil.which(env):
-        return env
-    candidates = [
-        "/opt/homebrew/opt/llvm/bin/clang++",
-        "/usr/local/opt/llvm/bin/clang++",
-    ]
-    if sys.platform == "linux":
-        candidates += ["nvc++", "g++", "clang++"]
-    else:
-        candidates += ["clang++", "g++"]
-    for cand in candidates:
-        if shutil.which(cand) or Path(cand).is_file():
-            return cand
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Per-worker: render sources, compile once, run a batch of seeds
-# ---------------------------------------------------------------------------
-
-
-def _render(src_path: Path, namespace: str, dest: Path) -> None:
-    text = src_path.read_text()
-    if PLACEHOLDER in text:
-        text = text.replace(PLACEHOLDER, namespace)
-    text = text.replace('#include "../ai_abi.h"', '#include "ai_abi.h"')
-    text = text.replace('#include "../types.h"', '#include "types.h"')
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text)
-
-
-def _compile(team_a_src: Path, team_b_src: Path, work_dir: Path, compiler: str) -> Path:
-    a_dir = work_dir / "src" / "a"
-    b_dir = work_dir / "src" / "b"
-    _render(team_a_src, "TeamA", a_dir / "ai.cpp")
-    _render(team_b_src, "TeamB", b_dir / "ai.cpp")
-    binary = work_dir / "swarmevolve"
-    # Compile-flag policy (see docs/adr/0001-compile-flag-policy.md):
-    #   * Keep -Werror on everything except *style* warnings. Correctness
-    #     failures (shadowing, pedantic violations, sign-compare, ABI
-    #     mismatches, uninitialized reads) stay hard errors.
-    #   * Explicitly suppress unused-{variable,parameter,function,
-    #     but-set-variable,const-variable}: both SOTA LLMs we evaluated
-    #     (Claude Sonnet 4.5, Claude Opus 4.7) reliably scaffold
-    #     bookkeeping variables in their first draft; rejecting those as
-    #     compile failures rather than as suboptimal tactics made the
-    #     evolutionary loop unable to accept *any* candidate, which
-    #     defeats RQ2/RQ3 before they can even run. Rejecting unused
-    #     scaffolding at the compiler level is a style judgement, not a
-    #     correctness one — so we let it through here and rely on the
-    #     LLM-driven retry loop + prompt guidance instead.
-    cmd = [
-        compiler,
-        "-std=c++17",
-        "-O2",
-        "-Wall",
-        "-Wextra",
-        "-Wshadow",
-        "-Wpedantic",
-        "-Werror",
-        "-Wno-unknown-pragmas",
-        "-Wno-unused-variable",
-        "-Wno-unused-parameter",
-        "-Wno-unused-function",
-        "-Wno-unused-but-set-variable",
-        "-Wno-unused-const-variable",
-        f"-I{REPO_ROOT / 'src'}",
-        str(ENGINE_SRC),
-        str(a_dir / "ai.cpp"),
-        str(b_dir / "ai.cpp"),
-        "-o",
-        str(binary),
-    ]
-    # GCC 13 (Ubuntu 24.04 default) emits two false positives at -O2 on
-    # src/engine.cpp under -Werror that the same code compiles cleanly
-    # under Apple clang, nvc++ and earlier g++ versions:
-    #   * -Wmaybe-uninitialized at line 512 — the stack-allocated
-    #     `AttackEvent attack_events[2*MAX_DRONES]` is passed to
-    #     write_trace_line_v2() at tick 0 with event-count 0; the function
-    #     never reads the buffer but GCC can't tell across the call.
-    #   * -Wstringop-overflow on memset paths whose length is
-    #     `sizeof(T) * num_drones_*` (int the optimizer can't prove
-    #     non-negative).
-    # Suppress for g++ only — Apple clang would need
-    # -Wno-unknown-warning-option to silently accept the GCC-specific
-    # name, and we want the warnings active under every other toolchain.
-    # Same workaround in the Makefile (LINUX_GCC_EXTRA, BENCH_GCC_EXTRA).
-    compiler_basename = Path(compiler).name
-    if "g++" in compiler_basename and "clang" not in compiler_basename:
-        idx = cmd.index("-Werror") + 1
-        cmd[idx:idx] = ["-Wno-maybe-uninitialized", "-Wno-stringop-overflow"]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
-        raise CompileError(
-            f"compile failed rc={proc.returncode}\n"
-            f"STDOUT:\n{proc.stdout[-2000:]}\n"
-            f"STDERR:\n{proc.stderr[-2000:]}"
-        )
-    return binary
 
 
 class CompileError(RuntimeError):
-    """Raised when the one-time per-worker compile fails."""
+    """A source failed to take loop guards or to compile in the container."""
 
 
-def _run_one_match(binary: Path, seed: int, max_ticks: int, timeout: float) -> dict[str, Any]:
-    """Execute a single match; return a dict of match stats."""
-    t0 = time.monotonic()
-    try:
-        proc = subprocess.run(
-            [str(binary), "--seed", str(seed), "--max-ticks", str(max_ticks)],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return {
-            "seed": seed,
-            "outcome": "TIMEOUT",
-            "score": 0.0,
-            "ticks": 0,
-            "wall_ms": int(timeout * 1000),
-            "a_alive": 0,
-            "b_alive": 0,
-            "return_code": -1,
-        }
-    wall_ms = int((time.monotonic() - t0) * 1000)
-
-    rc = proc.returncode
-    if rc not in _OUTCOME_BY_RC:
-        return {
-            "seed": seed,
-            "outcome": "CRASH",
-            "score": 0.0,
-            "ticks": 0,
-            "wall_ms": wall_ms,
-            "a_alive": 0,
-            "b_alive": 0,
-            "return_code": rc,
-        }
-
-    ticks = 0
-    a_alive = 0
-    b_alive = 0
-    lines = [line for line in proc.stdout.strip().splitlines() if line]
-    if lines:
-        try:
-            fields = dict(tok.split("=", 1) for tok in lines[-1].split())
-            ticks = int(fields.get("ticks", 0))
-            a_alive = int(fields.get("a_alive", 0))
-            b_alive = int(fields.get("b_alive", 0))
-        except ValueError:
-            pass
-    return {
-        "seed": seed,
-        "outcome": _OUTCOME_BY_RC[rc],
-        "score": _SCORE_BY_RC[rc],
-        "ticks": ticks,
-        "wall_ms": wall_ms,
-        "a_alive": a_alive,
-        "b_alive": b_alive,
-        "return_code": rc,
-    }
+class InfraError(RuntimeError):
+    """The container produced no usable result; says nothing about the code."""
 
 
-def _worker_batch(
-    team_a_src: str,
-    team_b_src: str,
-    seeds: list[int],
-    compiler: str,
+def _canonical_fitness() -> Any:
+    """The shared container runner, ``scripts/fitness.py``."""
+    if str(CANONICAL_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(CANONICAL_SCRIPTS))
+    import fitness as canonical  # the top-level scripts/fitness.py, not this module
+
+    return canonical
+
+
+def _play_in_container(
+    team_a: Path,
+    team_b: Path,
+    *,
+    n_matches: int,
+    seed_base: int,
+    workers: int | None,
     max_ticks: int,
     timeout: float,
-    work_dir: str,
-) -> list[dict[str, Any]]:
-    """Top-level so ProcessPoolExecutor can pickle it.
+    scratch_root: Path | str | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any], int, str]:
+    """Play seeds ``[seed_base, seed_base + n_matches)`` in the eval container.
 
-    Each worker gets a non-overlapping slice of seeds. It compiles once
-    into its private ``work_dir`` and then runs all of them.
+    Returns (per-match rows, platform fingerprint, workers, compiler).
+    Raises :class:`CompileError` on a guard or compile failure and
+    :class:`InfraError` on anything else that stops the batch.
     """
-    wd = Path(work_dir)
-    wd.mkdir(parents=True, exist_ok=True)
-    binary = _compile(Path(team_a_src), Path(team_b_src), wd, compiler)
-    results: list[dict[str, Any]] = []
-    for seed in seeds:
-        results.append(_run_one_match(binary, seed, max_ticks, timeout))
-    return results
+    canonical = _canonical_fitness()
+    try:
+        res = canonical.evaluate_fitness(
+            team_a,
+            team_b,
+            n_matches=n_matches,
+            seed_base=seed_base,
+            workers=workers,
+            max_ticks=max_ticks,
+            timeout=timeout,
+            scratch_root=scratch_root,
+            under_test=None,
+            backend="sandbox",
+            raise_on_build_failure=True,
+        )
+    except canonical.CompileError as exc:
+        raise CompileError(str(exc)) from exc
+    except Exception as exc:
+        raise InfraError(f"container evaluation failed: {type(exc).__name__}: {exc}") from exc
+    return list(res.per_match), dict(res.platform), int(res.workers), str(res.compiler)
+
+
+def _legacy_row(row: dict[str, Any]) -> dict[str, Any]:
+    """A container row in M25's per-match shape, scored by M25's rule."""
+    outcome = row["outcome"]
+    if outcome not in _SCORE_BY_OUTCOME and outcome not in _INVALID_OUTCOMES:
+        raise InfraError(f"unexpected match outcome {outcome!r} for seed {row.get('seed')}")
+    return {
+        "seed": row["seed"],
+        "outcome": outcome,
+        "score": _SCORE_BY_OUTCOME.get(outcome, 0.0),
+        "ticks": row.get("ticks", 0),
+        "wall_ms": row.get("wall_ms", 0),
+        "a_alive": row.get("a_alive", 0),
+        "b_alive": row.get("b_alive", 0),
+        "return_code": row.get("return_code", -1),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +242,6 @@ def evaluate_fitness(
     workers: int | None = None,
     max_ticks: int = 1000,
     timeout: float = 10.0,
-    compiler: str | None = None,
     scratch_root: Path | str | None = None,
     bootstrap_iterations: int = 2000,
 ) -> FitnessResult:
@@ -377,18 +259,12 @@ def evaluate_fitness(
         First seed. Passing the same ``(srcs, seed_base, n_matches)``
         reproduces byte-identical per-match results.
     workers
-        Number of worker processes. ``None`` → ``min(os.cpu_count(),
-        n_matches)``. Matches are evenly partitioned across workers;
-        each worker compiles once.
+        CPUs for the container runner. ``None`` → ``os.cpu_count()``,
+        capped at ``n_matches``.
     max_ticks, timeout
-        Forwarded to the engine / match wrapper.
-    compiler
-        Override path to the C++ compiler. ``None`` → auto-detect.
+        Tick cap and per-match wall-clock limit, as in M25 (1000, 10 s).
     scratch_root
-        Parent directory for per-worker build dirs. Defaults to a
-        system temp dir. Callers pass an explicit path when they want
-        the build artifacts preserved (e.g. the orchestrator's
-        ``fitness_run/`` subdir).
+        Parent directory for the container runner's work directory.
     bootstrap_iterations
         Iterations for the bootstrap CI. Default 2000 (~instant).
 
@@ -402,11 +278,11 @@ def evaluate_fitness(
     FileNotFoundError
         If either source file is missing.
     CompileError
-        If the one-time compile fails in any worker. (We don't swallow
-        this: a compile failure is a pipeline-level bug, not a
+        If either source fails guard injection or compilation. (We don't
+        swallow this: a compile failure is a pipeline-level bug, not a
         per-match failure.)
-    RuntimeError
-        If no C++ compiler can be located.
+    InfraError
+        If the container produced no usable result.
     """
     team_a = Path(team_a_src).resolve()
     team_b = Path(team_b_src).resolve()
@@ -417,63 +293,25 @@ def evaluate_fitness(
     if n_matches < 1:
         raise ValueError(f"n_matches must be >= 1, got {n_matches}")
 
-    cxx = compiler or _find_compiler()
-    if cxx is None:
-        raise RuntimeError(
-            "no C++ compiler found; set $CXX or install clang++/g++",
-        )
-
-    if scratch_root is None:
-        scratch_root_path = Path(
-            os.environ.get("SWARM_FITNESS_SCRATCH") or (Path.home() / ".pytest-sandbox" / "fitness")
-        )
-    else:
-        scratch_root_path = Path(scratch_root)
-    scratch_root_path.mkdir(parents=True, exist_ok=True)
-
-    max_workers = max(1, min(workers or (os.cpu_count() or 1), n_matches))
-    seeds = [seed_base + i for i in range(n_matches)]
-    # Round-robin seed assignment → balanced work even when n_matches
-    # doesn't divide workers evenly. Deterministic wrt. (workers, n_matches).
-    partitions: list[list[int]] = [[] for _ in range(max_workers)]
-    for idx, seed in enumerate(seeds):
-        partitions[idx % max_workers].append(seed)
-
     t0 = time.monotonic()
 
-    results: list[dict[str, Any]] = []
-    if max_workers == 1:
-        # Keep the single-worker path synchronous so exceptions surface
-        # with their original traceback (easier debugging + avoids the
-        # ProcessPoolExecutor pickle boundary entirely).
-        wd = scratch_root_path / f"w0_{os.getpid()}"
-        results = _worker_batch(
-            str(team_a),
-            str(team_b),
-            partitions[0],
-            cxx,
-            max_ticks,
-            timeout,
-            str(wd),
-        )
-    else:
-        with _futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
-            futures = [
-                pool.submit(
-                    _worker_batch,
-                    str(team_a),
-                    str(team_b),
-                    part,
-                    cxx,
-                    max_ticks,
-                    timeout,
-                    str(scratch_root_path / f"w{i}_{os.getpid()}"),
-                )
-                for i, part in enumerate(partitions)
-                if part  # skip empty partitions when workers > n_matches
-            ]
-            for fut in _futures.as_completed(futures):
-                results.extend(fut.result())
+    rows, platform, max_workers, cxx = _play_in_container(
+        team_a,
+        team_b,
+        n_matches=n_matches,
+        seed_base=seed_base,
+        workers=workers,
+        max_ticks=max_ticks,
+        timeout=timeout,
+        scratch_root=scratch_root,
+    )
+    results = [_legacy_row(r) for r in rows]
+    _LOG.info(
+        "legacy-fitness seed_base=%d n=%d backend=sandbox platform=%s",
+        seed_base,
+        n_matches,
+        platform.get("label", "unknown"),
+    )
 
     # Sort by seed so the per-match list is deterministic regardless of
     # worker completion order.
@@ -520,6 +358,8 @@ def evaluate_fitness(
         workers=max_workers,
         compiler=cxx,
         per_match=results,
+        backend="sandbox",
+        platform=platform,
     )
 
 
@@ -563,7 +403,7 @@ def _main(argv: list[str] | None = None) -> int:
     return 0
 
 
-__all__ = ["CompileError", "FitnessResult", "evaluate_fitness"]
+__all__ = ["CompileError", "FitnessResult", "InfraError", "evaluate_fitness"]
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -15,23 +15,18 @@ from __future__ import annotations
 import json
 import logging
 import re
-
-# Make sibling scripts importable
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import client as llm_client
+from . import tactic_spec as ts_mod
+
+# Prompts and headers come from the snapshot's own copies (legacy/m25/).
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
-
-import llm_client  # noqa: E402
-import tactic_spec as ts_mod  # noqa: E402
-
-REPO_ROOT = _HERE.parent
-PROMPTS = REPO_ROOT / "prompts"
-TYPES_HEADER = REPO_ROOT / "src" / "types.h"
-ABI_HEADER = REPO_ROOT / "src" / "ai_abi.h"
+PROMPTS = _HERE / "prompts"
+TYPES_HEADER = _HERE / "src" / "types.h"
+ABI_HEADER = _HERE / "src" / "ai_abi.h"
 
 
 _LOG = logging.getLogger("swarmevolve.dual_llm")
@@ -385,7 +380,7 @@ def dual_llm_generate(
 
 if __name__ == "__main__":
     # Smoke test with mock clients
-    from llm_client import LLMResponse, MockClient
+    from .client import LLMResponse, MockClient
 
     # Mock planner response (valid TacticSpec JSON)
     mock_planner_json = json.dumps(
