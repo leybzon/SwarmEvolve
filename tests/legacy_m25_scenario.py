@@ -49,6 +49,7 @@ if str(REPO_ROOT) not in sys.path:
 from legacy.m25 import client as legacy_client
 from legacy.m25 import evolve_coevolve
 from legacy.m25 import fitness as legacy_fitness
+from legacy.m25 import journal as legacy_journal
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "legacy_m25"
 INPUTS = FIXTURES / "inputs"
@@ -289,6 +290,7 @@ class Recorded:
     """Everything the loop sent or decided in one scenario run."""
 
     prompts: list[dict[str, Any]] = field(default_factory=list)  # role, round, attempt, ...
+    lost_prompts: list[dict[str, Any]] = field(default_factory=list)  # calls of a failed round
     evaluations: list[dict[str, Any]] = field(default_factory=list)
     log: list[str] = field(default_factory=list)
     exit_code: int | None = None
@@ -302,10 +304,14 @@ class _RoundAwareClient(legacy_client.RecordingClient):
         self._role = role
         self._out_dir = out_dir
         self._rec = rec
+        self.fail_in_round: int | None = None  # raise Interrupted once, in this round
 
     def generate(self, prompt: str, *, max_tokens: int = 4096) -> legacy_client.LLMResponse:
         rounds = sorted(p.name for p in self._out_dir.glob("round_*"))
         round_num = int(rounds[-1].split("_")[1])
+        if round_num == self.fail_in_round:
+            self.fail_in_round = None
+            raise Interrupted(f"{self._role} call failed in round {round_num}")
         attempt = 1 + sum(
             1 for p in self._rec.prompts if p["round"] == round_num and p["role"] == self._role
         )
@@ -319,18 +325,25 @@ class _RoundAwareClient(legacy_client.RecordingClient):
                 "text": prompt,
             }
         )
-        return super().generate(prompt, max_tokens=max_tokens)
+        response = super().generate(prompt, max_tokens=max_tokens)
+        self.last_text = response.text
+        return response
 
 
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+class Interrupted(Exception):
+    """A simulated failure that stops the run (for the resume tests)."""
+
+
 class _ScriptedContainer:
     """Stands in for ``legacy_fitness._play_in_container``."""
 
-    def __init__(self, rec: Recorded):
+    def __init__(self, rec: Recorded, fail_in_round: int | None = None):
         self._rec = rec
+        self._fail_in_round = fail_in_round
 
     def __call__(
         self,
@@ -345,6 +358,9 @@ class _ScriptedContainer:
         scratch_root: Path | str | None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any], int, str]:
         round_num = int(team_a.parent.name.split("_")[1])
+        if round_num == self._fail_in_round:
+            self._fail_in_round = None
+            raise legacy_fitness.InfraError(f"scripted container failure in round {round_num}")
         script = OUTCOMES[round_num]
         self._rec.evaluations.append(
             {
@@ -391,44 +407,106 @@ class _ListHandler(logging.Handler):
         self._sink.append(f"{record.levelname} {record.name}: {msg}")
 
 
+class _Run:
+    """One scenario run directory, its recorder and its clients."""
+
+    def __init__(self, work: Path):
+        self.work = work
+        self.rec = Recorded()
+        self.out_dir = work / "run"
+        self.out_dir.mkdir(parents=True)
+        self.inputs = work / "inputs"
+        shutil.copytree(INPUTS, self.inputs)
+        self.planner = _RoundAwareClient(
+            PLANNER_TEXTS, PLANNER_MODEL, "planner", self.out_dir, self.rec
+        )
+        self.coder = _RoundAwareClient(CODER_TEXTS, CODER_MODEL, "coder", self.out_dir, self.rec)
+
+    def invoke(self, container: _ScriptedContainer, *, resume: bool = False) -> int:
+        logger = logging.getLogger("swarmevolve")
+        handler = _ListHandler(self.rec.log, self.work)
+        old_level = logger.level
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        original = legacy_fitness._play_in_container
+        legacy_fitness._play_in_container = container  # type: ignore[assignment]
+        try:
+            return evolve_coevolve.evolve_coevolve(
+                init_champion_a=self.inputs / OPPONENT_A.name,
+                init_champion_b=self.inputs / START_B.name,
+                planner_client=self.planner,
+                coder_client=self.coder,
+                rounds=ROUNDS,
+                n_matches=N_MATCHES,
+                seed=SEED,
+                out_dir=self.out_dir,
+                strict_reflection=True,  # as M25 ran (--strict-reflection)
+                acceptance_mode="relative",
+                evolve_team="B",
+                resume=resume,
+            )
+        finally:
+            legacy_fitness._play_in_container = original  # type: ignore[assignment]
+            logger.removeHandler(handler)
+            logger.setLevel(old_level)
+
+    def check_all_responses_used(self) -> None:
+        assert not self.planner._queue and not self.coder._queue, "responses left unused"
+
+
 def run_scenario(work: Path) -> tuple[Recorded, Path]:
     """Run the scenario in ``work``; return the record and the run's out_dir."""
-    rec = Recorded()
-    out_dir = work / "run"
-    out_dir.mkdir(parents=True)
-    inputs = work / "inputs"
-    shutil.copytree(INPUTS, inputs)
+    run = _Run(work)
+    run.rec.exit_code = run.invoke(_ScriptedContainer(run.rec))
+    run.check_all_responses_used()
+    return run.rec, run.out_dir
 
-    planner = _RoundAwareClient(PLANNER_TEXTS, PLANNER_MODEL, "planner", out_dir, rec)
-    coder = _RoundAwareClient(CODER_TEXTS, CODER_MODEL, "coder", out_dir, rec)
 
-    logger = logging.getLogger("swarmevolve")
-    handler = _ListHandler(rec.log, work)
-    old_level = logger.level
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
-    original = legacy_fitness._play_in_container
-    legacy_fitness._play_in_container = _ScriptedContainer(rec)  # type: ignore[assignment]
+# Where run_interrupted_scenario stops the first run.
+INTERRUPTIONS = (
+    "evaluation:9",  # container failure after round 9's plan and code exist
+    "planner:11",  # model call fails at the start of round 11
+    "coder:3",  # model call fails after round 3's plan, before its code
+    "checkpoint:10",  # stop after round 9's journal entry, before the next checkpoint
+)
+
+
+def run_interrupted_scenario(work: Path, interruption: str) -> tuple[Recorded, Path]:
+    """Run the scenario, stop it at ``interruption``, then resume it to the end."""
+    where, _, num = interruption.partition(":")
+    at = int(num)
+    run = _Run(work)
+    fail_eval = at if where == "evaluation" else None
+    if where == "planner":
+        run.planner.fail_in_round = at
+    if where == "coder":
+        run.coder.fail_in_round = at
+
+    write_line = legacy_journal._write_line
+
+    def stop_at_checkpoint(path: Path, entry: dict[str, Any]) -> None:
+        if path.name == evolve_coevolve.STATE_FILE and entry.get("next_round") == at:
+            raise Interrupted(f"stopped before checkpoint {at}")
+        write_line(path, entry)
+
+    if where == "checkpoint":
+        legacy_journal._write_line = stop_at_checkpoint
     try:
-        rec.exit_code = evolve_coevolve.evolve_coevolve(
-            init_champion_a=inputs / OPPONENT_A.name,
-            init_champion_b=inputs / START_B.name,
-            planner_client=planner,
-            coder_client=coder,
-            rounds=ROUNDS,
-            n_matches=N_MATCHES,
-            seed=SEED,
-            out_dir=out_dir,
-            strict_reflection=True,  # as M25 ran (--strict-reflection)
-            acceptance_mode="relative",
-            evolve_team="B",
-        )
+        run.invoke(_ScriptedContainer(run.rec, fail_in_round=fail_eval))
+        raise AssertionError(f"interruption {interruption} never happened")
+    except (Interrupted, legacy_fitness.InfraError):
+        if where == "coder":
+            # The plan of a round whose coder call failed is never saved, so
+            # resume asks the planner again. The mock answers as before; the
+            # first attempt's calls are kept apart from the golden comparison.
+            run.rec.lost_prompts = [p for p in run.rec.prompts if p["round"] == at]
+            run.rec.prompts = [p for p in run.rec.prompts if p["round"] != at]
+            run.planner._queue.insert(0, run.planner.last_text)
     finally:
-        legacy_fitness._play_in_container = original  # type: ignore[assignment]
-        logger.removeHandler(handler)
-        logger.setLevel(old_level)
-    assert not planner._queue and not coder._queue, "scenario left responses unused"
-    return rec, out_dir
+        legacy_journal._write_line = write_line
+    run.rec.exit_code = run.invoke(_ScriptedContainer(run.rec), resume=True)
+    run.check_all_responses_used()
+    return run.rec, run.out_dir
 
 
 # ---------------------------------------------------------------------------

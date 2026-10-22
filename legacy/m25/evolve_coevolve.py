@@ -9,19 +9,23 @@ Based on CO_EVOLUTION_PROPOSAL.md Option 1:
 
 Frozen M25 snapshot (legacy/m25, from 7e539a4). Execution changes only,
 listed in CHANGES.md: a fixed-opponent mode (``evolve_team``), matches
-played in the canonical eval container (``fitness.py``), and injected
-planner/coder clients.
+played in the canonical eval container (``fitness.py``), injected
+planner/coder clients, and resume from the last completed round
+(``resume``).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import json
 import logging
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from . import client as llm_client
 from . import dual_llm, inject_guards, lint_ai_tokens, telemetry_aar
@@ -30,6 +34,11 @@ from . import journal as journal_mod
 from . import tactic_spec as tspec
 
 _LOG = logging.getLogger("swarmevolve.evolve_coevolve")
+
+# Append-only run state for resume: one checkpoint line at the start of
+# every round (the state after all earlier rounds) plus one line per resume.
+STATE_FILE = "state.jsonl"
+INTERRUPTED_DIR = "interrupted"
 
 
 def evolve_coevolve(
@@ -45,6 +54,7 @@ def evolve_coevolve(
     strict_reflection: bool = False,
     acceptance_mode: str = "relative",
     evolve_team: str | None = None,
+    resume: bool = False,
 ) -> int:
     """Run co-evolutionary loop with alternating team evolution.
 
@@ -64,6 +74,11 @@ def evolve_coevolve(
             keeps its init champion. Round numbers, seeds and the evolving
             team's rounds are those of the alternating schedule; the frozen
             team's rounds are skipped (no LLM call, no evaluation).
+        resume: continue the run in out_dir from its last completed round.
+            The interrupted round's directory is copied to interrupted/ and
+            the round re-runs; if it already has its plan and code they are
+            reused (no new model call) and only evaluated again. Without
+            resume, an out_dir that already holds a run is refused.
 
     Returns:
         Exit code (0 = success)
@@ -89,11 +104,68 @@ def evolve_coevolve(
     champion_a_fitness = None  # Will be measured in round 0
     champion_b_fitness = None  # Will be measured in round 1
 
+    state_path = out_dir / STATE_FILE
+    config = {
+        "init_champion_a_sha256": hashlib.sha256(champion_a.encode()).hexdigest(),
+        "init_champion_b_sha256": hashlib.sha256(champion_b.encode()).hexdigest(),
+        "planner_model": planner_model,
+        "coder_model": coder_model,
+        "rounds": rounds,
+        "n_matches": n_matches,
+        "seed": seed,
+        "strict_reflection": strict_reflection,
+        "acceptance_mode": acceptance_mode,
+        "evolve_team": evolve_team,
+    }
+    start_round = 0
+    resumed_round = None
+    if resume:
+        state = _resume_state(state_path, journal_path, out_dir, config)
+        champion_a, champion_b = state["champion_a"], state["champion_b"]
+        champion_a_fitness = state["champion_a_fitness"]
+        champion_b_fitness = state["champion_b_fitness"]
+        start_round = state["next_round"]
+        interrupted = out_dir / f"round_{start_round:04d}"
+        copy = None
+        if start_round < rounds and interrupted.exists():
+            copy = _preserve_interrupted_round(interrupted, out_dir / INTERRUPTED_DIR)
+            resumed_round = start_round
+        journal_mod._write_line(
+            state_path,
+            {
+                "event": "resume",
+                "next_round": start_round,
+                "reconciled_round": state.get("reconciled_round"),
+                "interrupted_copy": str(copy.relative_to(out_dir)) if copy else None,
+                "timestamp_utc": _now(),
+            },
+        )
+        _LOG.info("resume next_round=%d interrupted_copy=%s", start_round, copy)
+    elif state_path.exists() or journal_path.exists():
+        raise FileExistsError(f"{out_dir} already holds a run; pass resume=True to continue it")
+
     _LOG.info("coevolve-start rounds=%d planner=%s coder=%s", rounds, planner_model, coder_model)
     _LOG.info("init-champion-a: %s", init_champion_a)
     _LOG.info("init-champion-b: %s", init_champion_b)
 
-    for round_num in range(rounds):
+    for round_num in range(start_round, rounds + 1):
+        # Checkpoint: the state after every round before this one.
+        journal_mod._write_line(
+            state_path,
+            {
+                "event": "checkpoint",
+                "next_round": round_num,
+                "champion_a": champion_a,
+                "champion_b": champion_b,
+                "champion_a_fitness": champion_a_fitness,
+                "champion_b_fitness": champion_b_fitness,
+                "config": config,
+                "timestamp_utc": _now(),
+            },
+        )
+        if round_num == rounds:
+            break
+
         # Determine whose turn to evolve
         evolving_team = "A" if round_num % 2 == 0 else "B"
         static_team = "B" if evolving_team == "A" else "A"
@@ -124,6 +196,9 @@ def evolve_coevolve(
         # Special handling for round 0/1: skip LLM, evaluate init-champions
         skip_llm = (round_num == 0 and evolving_team == "A") or (
             round_num == 1 and evolving_team == "B"
+        )
+        resumed_result = (
+            _saved_candidate(round_dir) if round_num == resumed_round and not skip_llm else None
         )
 
         if skip_llm:
@@ -162,14 +237,18 @@ def evolve_coevolve(
             )
 
             # Create mock result
-            from types import SimpleNamespace
-
             result = SimpleNamespace(
                 cpp_code=current_code,
                 tactic_spec=minimal_tactic_spec,
                 total_prompt_tokens=0,
                 total_completion_tokens=0,
             )
+
+        elif resumed_result is not None:
+            # Resume: the interrupted attempt already has its plan and code.
+            _LOG.info("resume-reuse round=%d", round_num)
+            result = resumed_result
+            candidate_path = round_dir / "candidate.cpp"
 
         else:
             # Normal path: Dual-LLM generation
@@ -402,6 +481,78 @@ def evolve_coevolve(
     return 0
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _resume_state(state_path: Path, journal_path: Path, out_dir: Path, config: dict) -> dict:
+    """The last checkpoint, plus any round the journal finished after it."""
+    if not state_path.exists():
+        raise FileNotFoundError(f"nothing to resume: {state_path} does not exist")
+    lines = state_path.read_text(encoding="utf-8").splitlines()
+    records = []
+    for i, line in enumerate(lines):
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            if i != len(lines) - 1:
+                raise
+            _LOG.warning("resume: ignoring a torn last line in %s", state_path)
+    checkpoints = [r for r in records if r.get("event") == "checkpoint"]
+    if not checkpoints:
+        raise ValueError(f"nothing to resume: no checkpoint in {state_path}")
+    state = dict(checkpoints[-1])
+    if state["config"] != config:
+        diff = sorted(k for k in config if state["config"].get(k) != config[k])
+        raise ValueError(f"resume: run settings differ from the checkpoint's: {diff}")
+
+    # A round can finish its journal entry and stop before the next
+    # checkpoint; take that round's outcome from the journal.
+    r = state["next_round"]
+    later = []
+    if journal_path.exists():
+        later = [e for e in journal_mod.read_entries(journal_path) if e["generation"] >= r]
+    if not later:
+        return state
+    if len(later) > 1 or later[0]["generation"] != r:
+        raise RuntimeError(f"resume: journal has entries past round {r} that no checkpoint covers")
+    entry = later[0]
+    if entry["verdict"] == "confirmed":
+        team = entry["track"].lower()
+        state[f"champion_{team}"] = (out_dir / f"round_{r:04d}" / "candidate.cpp").read_text()
+        state[f"champion_{team}_fitness"] = entry["fitness"]
+    state["next_round"] = r + 1
+    state["reconciled_round"] = r
+    return state
+
+
+def _preserve_interrupted_round(round_dir: Path, dest_root: Path) -> Path:
+    """Copy an interrupted round's directory before the round re-runs."""
+    dest_root.mkdir(parents=True, exist_ok=True)
+    k = 1
+    while (dest_root / f"{round_dir.name}_{k}").exists():
+        k += 1
+    dest = dest_root / f"{round_dir.name}_{k}"
+    shutil.copytree(round_dir, dest)
+    return dest
+
+
+def _saved_candidate(round_dir: Path) -> SimpleNamespace | None:
+    """An interrupted round's plan and code, if it got as far as writing them.
+
+    ``candidate.cpp`` is written last, after the plan and both responses.
+    """
+    if not (round_dir / "candidate.cpp").exists():
+        return None
+    spec = tspec.TacticSpec.from_dict(json.loads((round_dir / "tactic_spec.json").read_text()))
+    return SimpleNamespace(
+        cpp_code=(round_dir / "candidate.cpp").read_text(),
+        tactic_spec=spec,
+        total_prompt_tokens=0,
+        total_completion_tokens=0,
+    )
+
+
 def _format_lessons(entries: list[dict]) -> str:
     """Format journal entries as lessons learned."""
     if not entries:
@@ -566,6 +717,9 @@ def main(argv: list[str] | None = None) -> int:
         default="relative",
         help="Acceptance criterion: absolute (>0.0) vs relative (>champion)",
     )
+    parser.add_argument(
+        "--resume", action="store_true", help="Continue the run in --out-dir from its last round"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args(argv)
@@ -588,6 +742,7 @@ def main(argv: list[str] | None = None) -> int:
         strict_reflection=args.strict_reflection,
         acceptance_mode=args.acceptance_mode,
         evolve_team=args.evolve_team,
+        resume=args.resume,
     )
 
 

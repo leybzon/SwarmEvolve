@@ -27,3 +27,25 @@ Evidence: `reports/calibration/CALIBRATION.md` and the files it cites.
 4. **E4 grows the arena, and the tick cap grows with it:**
    `fitness.scaled_max_ticks` = ceil(1000 x arena scale). With a fixed
    1000-tick cap, matches at larger arenas were cut off.
+
+## 2026-10-22 — after freezing the M25 loop for arm A1
+
+Evidence: `legacy/m25/CHANGES.md`, `reports/legacy/LEGACY_LOOP.md` and
+`tests/test_legacy_m25.py`.
+
+5. **No M22 or M25 run data exists.** The M22 gen-33 champion (E1's fixed
+   opponent, C3's Team A start) and all earlier run data are gone; nothing
+   from them can be audited or reused. `legacy/m25/` is characterised from
+   its code and golden prompts instead, with `cluster_v1` standing in for
+   the opponent. The replacement for M22 gen 33 in E1 and C3 is still open.
+6. **A1 runs with `--rounds 122`** in fixed-opponent mode (`--evolve-team B`):
+   Team B's round 1 evaluates the start program, then 60 LLM rounds
+   (rounds 3 to 121), the same LLM-round count as the other E1 arms.
+7. **A1's execution changes are approved:** matches in the eval container
+   with its compiler and flags (g++ 11.4, `-ffp-contract=off`); a container
+   infrastructure failure ends the run instead of stalling the round; the
+   injected client may replace the loop's `max_tokens=4096` with the
+   arm-wide setting.
+8. **A1 can resume** from its last completed round (`--resume`, execution
+   change 4). An interrupted round is kept under `interrupted/` and re-run;
+   its plan and code are reused when they were saved.

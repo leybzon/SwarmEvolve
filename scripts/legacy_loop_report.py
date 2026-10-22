@@ -210,8 +210,9 @@ Do not edit by hand.
 ## Scope and method
 
 `legacy/m25/` is the M25 co-evolution loop copied from commit 7e539a4, with
-three execution changes only (fixed-opponent mode, matches in the eval
-container, injected model clients; `legacy/m25/CHANGES.md`). It is arm A1.
+four execution changes only (fixed-opponent mode, matches in the eval
+container, injected model clients, resume; `legacy/m25/CHANGES.md`). It is
+arm A1.
 
 `tests/legacy_m25_scenario.py` ran it as A1 will run: Team B evolves, Team A
 is frozen, seed 42, 10 matches per evaluation, relative acceptance, strict
@@ -225,10 +226,11 @@ decision, changes.
 This report describes the loop's code and prompts. It replaces an audit of
 old M25 run data; it says nothing about what M25's models answered.
 
-Two inputs are stand-ins. M22 gen 33, A1's frozen opponent, is not on this
-host (`data/runs/m22_rq1_100gen/` is absent), so `cluster_v1` plays Team A in
-the scenario. Team B starts from `pursuit_v1`, as in M25 and A1. The prompts'
-structure does not depend on which programs these are.
+One input is a stand-in. M22 gen 33, the brief's fixed opponent for E1, no
+longer exists (the M22 and M25 run data are gone; `prereg/DECISIONS.md`), so
+`cluster_v1` plays Team A in the scenario. Team B starts from `pursuit_v1`,
+as in M25 and A1. The prompts' structure does not depend on which programs
+these are.
 
 ## What each prompt contained
 
@@ -309,7 +311,8 @@ candidate is written from scratch (`r0003_coder_1.md`, lines
   round 1 evaluates the start program without a model call; every later
   round makes one planner call (up to three on retries) and one coder call.
   M25's `--rounds 100` gave Team B 50 rounds: the round-1 evaluation and 49
-  LLM rounds.
+  LLM rounds. A1 runs with `--rounds 122`: the round-1 evaluation and 60 LLM
+  rounds (`prereg/DECISIONS.md`).
 - Seeds: {_cite(loop, "seed_base=seed + round_num * 1000")}. Each evaluation
   plays seeds `seed_base … seed_base + 9`, in the scenario
   {first_eval["seed_base"]}–{first_eval["seed_base"] + first_eval["n_matches"] - 1}
@@ -406,8 +409,10 @@ is dropped from the journal. Per-match results are not saved.
   anyway with its validation flags set to false (`decisions.json`, `log`).
 - The prompt's examples were written for M22, where the opponent was
   `pursuit_v1`; in A1 `pursuit_v1` is Team B's own start program.
-- Container infrastructure failures end the run (execution change 2). The
-  snapshot has no resume: a run that stops must restart from round 0.
+- Container infrastructure failures end the run (execution change 2), and
+  `--resume` continues it from the last completed round (execution change
+  4). An interrupted round's directory is kept under `interrupted/`; its plan
+  and code are reused if they were written, so no model call is repeated.
 """
 
 

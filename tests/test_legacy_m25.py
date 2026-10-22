@@ -5,8 +5,9 @@
 * Golden characterisation: ``tests/legacy_m25_scenario.py`` runs 6 LLM
   rounds with recording clients and scripted match outcomes; every prompt
   sent and every decision taken must equal the golden files byte for byte.
-* The three execution changes: fixed-opponent mode, container execution
-  with M25's scoring, injected clients.
+* The four execution changes: fixed-opponent mode, container execution
+  with M25's scoring, injected clients, resume from the last completed round
+  (an interrupted and resumed scenario must end exactly as the golden one).
 * ``docker`` tests (skip without a runtime or the eval image): one
   evaluation and two loop rounds really run in the eval container.
 """
@@ -505,3 +506,98 @@ def test_loop_plays_its_rounds_in_the_container(home_tmp: Path) -> None:
     entries = [json.loads(line) for line in (out / "journal.jsonl").read_text().splitlines()]
     assert [e["generation"] for e in entries] == [1, 3]  # round 3 compiled and played
     assert all(isinstance(e["fitness"], float) for e in entries)
+
+
+# ---------------------------------------------------------------------------
+# Execution change 4: resume from the last completed round
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("interruption", scenario.INTERRUPTIONS)
+def test_interrupted_run_resumes_to_the_golden_result(interruption: str, tmp_path: Path) -> None:
+    rec, out_dir = scenario.run_interrupted_scenario(tmp_path, interruption)
+    files = scenario.render_golden(rec, out_dir)
+    for rel, text in files.items():
+        golden = (scenario.GOLDEN / rel).read_text()
+        if rel == "decisions.json":
+            # Same decisions; the log gains the resume lines.
+            got, want = json.loads(text), json.loads(golden)
+            got.pop("log")
+            want.pop("log")
+            assert got == want
+        else:
+            assert text == golden, rel
+    events = [json.loads(x) for x in (out_dir / "state.jsonl").read_text().splitlines()]
+    resumes = [e for e in events if e["event"] == "resume"]
+    assert len(resumes) == 1
+    at = int(interruption.split(":")[1])
+    if interruption.startswith("checkpoint"):
+        # Round 9 finished its journal entry; it is taken from the journal.
+        assert resumes[0]["reconciled_round"] == 9 and resumes[0]["interrupted_copy"] is None
+    else:
+        assert resumes[0]["interrupted_copy"] == f"interrupted/round_{at:04d}_1"
+        assert (out_dir / resumes[0]["interrupted_copy"]).is_dir()
+    if interruption == "evaluation:9":
+        # The plan and code survived, so no model call is repeated.
+        assert any("resume-reuse round=9" in line for line in rec.log)
+        assert (out_dir / "interrupted" / "round_0009_1" / "candidate.cpp").is_file()
+    if interruption.startswith("coder"):
+        # The unsaved plan is asked for again.
+        assert [p["role"] for p in rec.lost_prompts] == ["planner"]
+
+
+def _fresh_run(out_dir: Path, *, rounds: int = 2, resume: bool = False, n_matches: int = 10) -> int:
+    return evolve_coevolve.evolve_coevolve(
+        init_champion_a=scenario.OPPONENT_A,
+        init_champion_b=scenario.START_B,
+        planner_client=legacy_client.RecordingClient([], "p"),
+        coder_client=legacy_client.RecordingClient([], "c"),
+        rounds=rounds,
+        n_matches=n_matches,
+        seed=42,
+        out_dir=out_dir,
+        evolve_team="B",
+        resume=resume,
+    )
+
+
+@pytest.fixture()
+def draws(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    seen: list[int] = []
+
+    def fake(*_args: Any, **kw: Any) -> tuple[list[dict[str, Any]], dict[str, Any], int, str]:
+        seen.append(kw["seed_base"])
+        return _rows(["DRAW"] * kw["n_matches"], kw["seed_base"]), {}, 1, "g++"
+
+    monkeypatch.setattr(legacy_fitness, "_play_in_container", fake)
+    return seen
+
+
+def test_existing_run_is_not_restarted_without_resume(tmp_path: Path, draws: list[int]) -> None:
+    assert _fresh_run(tmp_path / "run") == 0
+    with pytest.raises(FileExistsError):
+        _fresh_run(tmp_path / "run")
+
+
+def test_finished_run_resumes_to_nothing(tmp_path: Path, draws: list[int]) -> None:
+    assert _fresh_run(tmp_path / "run") == 0
+    assert _fresh_run(tmp_path / "run", resume=True) == 0
+    assert draws == [1042]
+
+
+def test_resume_refuses_changed_settings(tmp_path: Path, draws: list[int]) -> None:
+    assert _fresh_run(tmp_path / "run") == 0
+    with pytest.raises(ValueError, match="n_matches"):
+        _fresh_run(tmp_path / "run", resume=True, n_matches=20)
+
+
+def test_resume_needs_a_checkpoint(tmp_path: Path, draws: list[int]) -> None:
+    with pytest.raises(FileNotFoundError):
+        _fresh_run(tmp_path / "run", resume=True)
+
+
+def test_resume_ignores_a_torn_last_line(tmp_path: Path, draws: list[int]) -> None:
+    assert _fresh_run(tmp_path / "run") == 0
+    with (tmp_path / "run" / "state.jsonl").open("a") as fh:
+        fh.write('{"event": "checkp')
+    assert _fresh_run(tmp_path / "run", resume=True) == 0
