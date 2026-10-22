@@ -188,7 +188,12 @@ def check_aar_against_trace(
     )
     last = records[-1]
     checks: dict[str, bool] = {}
-    checks["outcome_matches_engine"] = last.get("outcome") == row["outcome"]
+    # The trace (and the AAR) name outcomes TEAM_A_WIN / TEAM_B_WIN / DRAW;
+    # the engine's exit code, and so the result row, A_WIN / B_WIN / DRAW.
+    names = {"TEAM_A_WIN": "A_WIN", "TEAM_B_WIN": "B_WIN", "DRAW": "DRAW"}
+    checks["outcome_matches_engine"] = (
+        names.get(str(last.get("outcome"))) == row["outcome"] == names.get(str(aar["outcome"]))
+    )
     checks["ticks_match_engine"] = aar["ticks"] == row["ticks"] == len(records) - 1
     checks["alive_us_matches_engine"] = aar["alive_final_us"] == alive_us_row
     checks["alive_them_matches_engine"] = aar["alive_final_them"] == alive_them_row
@@ -349,11 +354,14 @@ def probe_detectors(records: list[dict[str, Any]], perspective: str) -> dict[str
     xs: list[int] = []
     chans: list[list[float]] = [[] for _ in range(td.MSG_SIZE)]
     target_events = 0
+    observation_ticks = 0
     prev_target: dict[int, int] = {}
     for t in records:
+        observed = False
         for a in t.get(act_key, []):
             if not a.get("alive") or int(a["target_id"]) < 0:
                 continue
+            observed = True
             tid = int(a["target_id"])
             if prev_target.get(a["id"]) != tid:
                 target_events += 1
@@ -361,6 +369,7 @@ def probe_detectors(records: list[dict[str, Any]], perspective: str) -> dict[str
             xs.append(tid)
             for c in range(td.MSG_SIZE):
                 chans[c].append(float(a["msg"][c]))
+        observation_ticks += int(observed)
     nmi_detector = [
         round(td._nmi(xs, [td._quantise(v, td.MSG_CHANNEL_BINS) for v in ch]), 4) if xs else 0.0
         for ch in chans
@@ -384,6 +393,7 @@ def probe_detectors(records: list[dict[str, Any]], perspective: str) -> dict[str
         "focus_fire_min_window_ratio": round(min(windows), 4) if windows else None,
         "message_target_events": target_events,
         "message_observations": len(xs),
+        "message_observation_ticks": observation_ticks,
         "message_nmi_detector": nmi_detector,
         "message_nmi_observed_range": nmi_ranged,
         "message_channel_range": msg_range,
@@ -637,8 +647,8 @@ def noise_models(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Empirical distributions of the per-seed paired difference.
 
     d_s is the candidate's mean over the two side assignments of seed s:
-    match score in [-1, 1], or survivor differential divided by the team
-    size (also in [-1, 1]). Two kinds of model:
+    match score in [-1, 1], or survivor differential in drones. Two kinds
+    of model:
 
     * ``pairing``: d_s for a non-mirror baseline pairing, centred on its
       mean and symmetrised (x and -x), so it describes the spread across
@@ -649,7 +659,8 @@ def noise_models(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
       distribution: d_s = (m1 + m2) / 2. An upper bound on the spread for
       programs that differ only slightly.
 
-    Values are stored in integer units of 1/20 (exact for both scores).
+    Values are stored in integer units of 1/20 (of a score point or of a
+    drone; exact for both).
     """
     import numpy as np
 
@@ -668,7 +679,7 @@ def noise_models(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             def per_match(r: dict[str, Any], sign: int, metric: str = metric) -> int:
                 if metric == "score":
                     return int(round(20 * sign * r["score"]))
-                return 2 * sign * (r["a_alive"] - r["b_alive"])  # 20 * diff / 10 drones
+                return 20 * sign * (r["a_alive"] - r["b_alive"])
 
             if x != y:
                 d = [
@@ -770,14 +781,16 @@ def analyze_power(rows: list[dict[str, Any]]) -> dict[str, Any]:
         rec = None
         for n_matches in POWER_MATCHES:
             vals = [power[n][f"0.1|{n_matches}"] for n in usable]
-            if vals and all(v is not None and v >= POWER_TARGET for v in vals):
+            vals = [v for v in vals if v is not None]
+            if vals and all(v >= POWER_TARGET for v in vals):
                 rec = n_matches
                 break
         worst = max(usable, key=lambda n: models[n]["sd"]) if usable else None
         recommendation[metric] = {
             "rule": (
                 f"smallest matches per evaluation in {list(POWER_MATCHES)} with power >= "
-                f"{POWER_TARGET} at a true difference of 0.1 under every noise model with sd > 0"
+                f"{POWER_TARGET} at a true difference of 0.1 under every noise model with sd > 0 "
+                "that can reach that difference"
             ),
             "matches_per_evaluation": rec,
             "largest_sd_model": worst,
@@ -820,6 +833,9 @@ def analyze_instruments(inst: dict[str, Any]) -> dict[str, Any]:
                 prog["fired"][ev["tactic"]] += 1
             pr = dict(p["probe"])
             pr["fired"] = sorted(ev["tactic"] for ev in p["detector_events"])
+            pr["first_ticks"] = {ev["tactic"]: ev["first_tick"] for ev in p["detector_events"]}
+            other = m["perspectives"]["B" if persp == "A" else "A"]
+            pr["opponent_kiting_longest_streak"] = other["probe"]["kiting_longest_streak"]
             pr["aar"] = p["aar"]
             pr["match"] = m["match"]
             pr["perspective"] = persp
@@ -888,60 +904,127 @@ def analyze_instruments(inst: dict[str, Any]) -> dict[str, Any]:
             },
         }
         s = summary[name]
+        s["message_target_events"] = agg("message_target_events")
+        s["message_observation_ticks"] = agg("message_observation_ticks")
+        s["flanking_fired_at_tick0"] = sum(p["first_ticks"].get("flanking") == 0 for p in probes)
+        s["aar_kiting_score_them_high_without_kiting"] = sum(
+            1
+            for p in probes
+            if p["aar"]
+            and p["aar"]["kiting_score_them"] >= 0.5
+            and p["opponent_kiting_longest_streak"] < 10
+        )
         # --- implausibility rules -------------------------------------
-        if s["max_speed"] and s["max_speed"]["max"] == 0:
-            for tactic in ("flanking", "kiting"):
-                if s["fire_rate"][tactic] > 0:
-                    flags.append(
-                        {
-                            "program": name,
-                            "tactic": tactic,
-                            "rule": "fires for a program that never moves",
-                            "fire_rate": s["fire_rate"][tactic],
-                        }
-                    )
+        moves = bool(s["max_speed"]) and s["max_speed"]["max"] > 0
         for tactic, rate in s["fire_rate"].items():
+            if rate > 0 and not moves and tactic in ("flanking", "kiting"):
+                flags.append(
+                    {
+                        "program": name,
+                        "tactic": tactic,
+                        "rule": "fires for a program that never moves",
+                        "fire_rate": rate,
+                    }
+                )
             if rate > 0:
                 flags.append(
                     {
                         "program": name,
                         "tactic": tactic,
-                        "rule": "fires on a human-written baseline (round-0 level, so not emergent)",
+                        "rule": "fires on a human-written baseline, i.e. at round-0 level",
                         "fire_rate": rate,
                     }
                 )
-        if (
-            s["fire_rate"]["flanking"] > 0
-            and s["flanking_first_wide_tick"]
-            and s["flanking_first_wide_tick"]["min"] == 0
-        ):
+        if s["flanking_fired_at_tick0"]:
             flags.append(
                 {
                     "program": name,
                     "tactic": "flanking",
-                    "rule": "the wide-angle condition already holds at spawn (tick 0)",
-                    "fire_rate": s["fire_rate"]["flanking"],
+                    "rule": "fired with first_tick 0, so the random spawn alone met the condition",
+                    "runs_fired_at_tick0": s["flanking_fired_at_tick0"],
+                    "runs_fired": d["fired"]["flanking"],
                 }
             )
-        if (
-            s["fire_rate"]["message_coded_targeting"] == 0
-            and s["message_nmi_observed_range_max"]["max"] >= td.MSG_MIN_NMI
-            and s["message_channel_abs_max"] > 1.0
+        attempts = s["focus_fire_attempts"]
+        if attempts and attempts["max"] < td.FF_WINDOW_ATTEMPTS:
+            flags.append(
+                {
+                    "program": name,
+                    "tactic": "focus_fire_discipline",
+                    "rule": "cannot fire in these matches: too few attack attempts for one window",
+                    "max_attempts_per_match": attempts["max"],
+                    "window_attempts_needed": td.FF_WINDOW_ATTEMPTS,
+                }
+            )
+        events, obs_ticks = s["message_target_events"], s["message_observation_ticks"]
+        if (events and events["max"] < td.MSG_MIN_TARGET_EVENTS) or (
+            obs_ticks and obs_ticks["max"] < td.MSG_MIN_TICKS
         ):
             flags.append(
                 {
                     "program": name,
                     "tactic": "message_coded_targeting",
                     "rule": (
-                        "silent although a message channel carries the target (NMI over the "
-                        "channel's observed range reaches the threshold); the detector clips "
-                        "channels to [-1, 1] and this program's messages exceed that range"
+                        "cannot fire in these matches: too few target events or observation "
+                        "ticks (its NMI on so few samples is not informative)"
                     ),
-                    "nmi_detector_max": s["message_nmi_detector_max"]["max"],
-                    "nmi_observed_range_max": s["message_nmi_observed_range_max"]["max"],
+                    "max_target_events": events["max"] if events else 0,
+                    "target_events_needed": td.MSG_MIN_TARGET_EVENTS,
+                    "max_observation_ticks": obs_ticks["max"] if obs_ticks else 0,
+                    "observation_ticks_needed": td.MSG_MIN_TICKS,
+                }
+            )
+        if s["message_channel_abs_max"] > 1.0:
+            flags.append(
+                {
+                    "program": name,
+                    "tactic": "message_coded_targeting",
+                    "rule": (
+                        "message values leave [-1, 1], which the detector clips into its end "
+                        "bins, so a code carried in larger values is invisible to it"
+                    ),
                     "message_channel_abs_max": s["message_channel_abs_max"],
                 }
             )
+        if s["aar_kiting_score_them_high_without_kiting"]:
+            flags.append(
+                {
+                    "program": name,
+                    "tactic": "AAR kiting_score_them",
+                    "rule": (
+                        "AAR reports the opponent kiting (>= 0.5 of its shots from beyond 80% "
+                        "of range) while the opponent never retreats for 10 straight ticks; "
+                        "the metric measures shot distance, not retreat"
+                    ),
+                    "runs": s["aar_kiting_score_them_high_without_kiting"],
+                    "of_runs": d["perspectives"],
+                }
+            )
+    # Tick 0 carries zero-filled actions (engine.cpp). target_id 0 there is
+    # not a choice, but detectors that read actions from tick 0 count it.
+    tick0_targeting = 0
+    for m in inst["matches"]:
+        first = json.loads(gzip.decompress((REPO_ROOT / m["trace"]).read_bytes()).splitlines()[0])
+        tick0_targeting += sum(
+            1
+            for key in ("actions_a", "actions_b")
+            for a in first[key]
+            if a["alive"] and a["target_id"] >= 0
+        )
+    if tick0_targeting:
+        flags.append(
+            {
+                "program": "all",
+                "tactic": "message_coded_targeting",
+                "rule": (
+                    "tick 0's zero-filled actions show target_id 0 for every drone, and the "
+                    "detector counts them as target events (also for stationary_v1, which "
+                    "never targets)"
+                ),
+                "tick0_drone_actions_with_target_0": tick0_targeting,
+                "matches": len(inst["matches"]),
+            }
+        )
     return {
         "n_matches": len(inst["matches"]),
         "n_perspectives": sum(len(m["perspectives"]) for m in inst["matches"]),
@@ -982,6 +1065,22 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
                         float((ticks >= MAX_TICKS).mean()), 4
                     ),
                     "median_ticks_excluding_stationary_mirror": float(np.median(ticks)),
+                    "share_at_max_ticks_by_pairing": {
+                        f"{a} vs {b}": round(
+                            float(
+                                np.mean(
+                                    [
+                                        r["ticks"] >= MAX_TICKS
+                                        for r in moving
+                                        if r["team_a"] == a and r["team_b"] == b
+                                    ]
+                                )
+                            ),
+                            4,
+                        )
+                        for a, b in itertools.product(BASELINES, BASELINES)
+                        if not (a == b == "stationary_v1")
+                    },
                     "max_wall_ms": int(walls.max()),
                     "mean_wall_ms": round(float(walls.mean()), 2),
                 }
@@ -992,6 +1091,18 @@ def analyze_limits(rows: list[dict[str, Any]], runs: list[dict[str, Any]]) -> di
         "cells": cells,
         "platform_labels": sorted({run["platform"]["label"] for run in runs}),
     }
+
+
+def instruments_rerun(inst: dict[str, Any]) -> dict[str, Any] | None:
+    """The instruments step ran twice: first with an outcome check that
+    compared TEAM_A_WIN to A_WIN verbatim, then with the fix. The first
+    run's trace hashes are kept; the matches must not have changed."""
+    path = OUT / "instruments_run1_trace_sha256.json"
+    if not path.is_file():
+        return None
+    run1 = json.loads(path.read_text())
+    now = {m["trace"]: m["trace_sha256"] for m in inst["matches"]}
+    return {"source": path.name, "traces": len(now), "identical_to_run1": run1 == now}
 
 
 def cmd_analyze(args: argparse.Namespace) -> None:
@@ -1018,6 +1129,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             "instruments.json",
             "limits_matches.jsonl",
             "limits_runs.json",
+            "instruments_run1_trace_sha256.json",
         ],
         "platform": {**canonical, "labels": sorted({p["label"] for p in platforms})},
         "platform_consistent": all({k: p[k] for k in canonical} == canonical for p in platforms),
@@ -1028,6 +1140,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         },
         "power": analyze_power(cross_rows),
         "instruments": analyze_instruments(inst),
+        "instruments_rerun": instruments_rerun(inst),
         "limits": analyze_limits(lim_rows, lim_meta["runs"]),
     }
     (OUT / "calibration_results.json").write_text(
@@ -1120,9 +1233,9 @@ def render(res: dict[str, Any]) -> str:
     a("")
     a(
         "Unit of analysis: the per-seed paired difference d, the candidate's mean over the two "
-        "side assignments of one seed, so 2 matches per seed. Two scores: match score, and "
-        "survivor differential divided by team size (10), so both lie in [-1, 1] and the true "
-        "differences below are on the same scale. Noise models (from `noise_models`):"
+        "side assignments of one seed, so 2 matches per seed. Two scores: match score "
+        "(points, in [-1, 1]) and survivor differential (drones, in [-10, 10]); the true "
+        "differences δ below are in those units. Noise models (from `noise_models`):"
     )
     a("")
     a(
@@ -1147,13 +1260,15 @@ def render(res: dict[str, Any]) -> str:
         f"Power: probability that the acceptance rule (mean d > 0 and one-sided sign-flip "
         f"p < {s['alpha']}) accepts, from {s['sims']} simulated evaluations per cell, "
         f"{s['flips']} random sign flips each. A true difference is imposed by exponentially "
-        "tilting the symmetric noise distribution to that mean, which keeps d inside [-1, 1]. "
+        "tilting the symmetric noise distribution to that mean, which keeps d inside its range. "
         "The 0.0 column is the false-acceptance rate when there is no difference. Blank: the "
         "model has zero spread or cannot reach that mean."
     )
     a("")
     for metric in ("score", "survivor"):
-        a(f"### {'Match score' if metric == 'score' else 'Survivor differential / 10'}")
+        a(
+            f"### {'Match score (points)' if metric == 'score' else 'Survivor differential (drones)'}"
+        )
         a("")
         header = "| Model | Matches | " + " | ".join(f"δ={d}" for d in (0.0, *s["deltas"])) + " |"
         a(header)
@@ -1181,6 +1296,15 @@ def render(res: dict[str, Any]) -> str:
         )
         a("")
 
+    a(
+        "Caveats. These noise models come from three human-written baselines, two of which "
+        "rarely lose or always lose, so most pairings have no spread at all. LLM-written "
+        "programs may be more decisive than baseline mirrors (fewer draws, a wider d), which "
+        "lowers power at a given size; the pilot re-measures the spread on real candidates "
+        "before the evaluation size is frozen."
+    )
+    a("")
+
     # ---- 3. Instruments
     a("## 3. Instruments: AAR and tactic detector")
     a("")
@@ -1192,6 +1316,16 @@ def render(res: dict[str, Any]) -> str:
         f"CLIs on both perspectives of each trace ({ins['n_perspectives']} runs; CLI failures: "
         f"{ins['cli_failures']})."
     )
+    rr = res.get("instruments_rerun")
+    if rr:
+        a("")
+        a(
+            "This step ran twice. In the first run the outcome check compared the trace's "
+            "`TEAM_A_WIN` with the result row's `A_WIN` verbatim and failed every win; the check "
+            "was fixed (regression test in `tests/test_calibration.py`) and the step re-run. The "
+            f"{rr['traces']} traces of the re-run are byte-identical to the first run's "
+            f"(`{rr['source']}`): {'yes' if rr['identical_to_run1'] else '**no**'}."
+        )
     a("")
     a(
         "AAR against the traces. `check_aar_against_trace` recomputes each quantity from the "
@@ -1236,7 +1370,7 @@ def render(res: dict[str, Any]) -> str:
     a(
         "| Baseline | Flanking: longest ≥90° streak (ticks) | Flanking: first ≥90° tick | Kiting: longest streak | "
         "Max speed | Shots at targets | Focus fire: lowest redundant share (200-shot window) "
-        "| Message NMI, detector | Message NMI, observed range | Largest message value |"
+        "| Message NMI, detector | Target events / observation ticks (max) | Largest message value |"
     )
     a("|---|---|---|---|---|---|---|---|---|---|")
     for prog, d in ins["per_program"].items():
@@ -1244,7 +1378,9 @@ def render(res: dict[str, Any]) -> str:
             f"| {prog} | {mm(d['flanking_longest_streak'])} | {mm(d['flanking_first_wide_tick'])} "
             f"| {mm(d['kiting_longest_streak'])} | {mm(d['max_speed'], '{:.2f}')} "
             f"| {mm(d['focus_fire_attempts'])} | {mm(d['focus_fire_min_window_ratio'], '{:.3f}')} "
-            f"| {d['message_nmi_detector_max']['max']:.3f} | {d['message_nmi_observed_range_max']['max']:.3f} "
+            f"| {d['message_nmi_detector_max']['max']:.3f} "
+            f"| {(d['message_target_events'] or {'max': 0})['max']:.0f} / "
+            f"{(d['message_observation_ticks'] or {'max': 0})['max']:.0f} "
             f"| {d['message_channel_abs_max']:.1f} |"
         )
     a("")
@@ -1292,6 +1428,16 @@ def render(res: dict[str, Any]) -> str:
             f"| {_pct(c['share_at_max_ticks_excluding_stationary_mirror'])} "
             f"| {c['median_ticks_excluding_stationary_mirror']:.0f} | {c['mean_wall_ms']} / {c['max_wall_ms']} |"
         )
+    a("")
+    a("Pairings with matches stopped by the 1000-tick cap (share of that pairing's matches):")
+    a("")
+    for c in lim["cells"]:
+        capped = {k: v for k, v in c["share_at_max_ticks_by_pairing"].items() if v > 0}
+        if capped:
+            a(
+                f"- {c['drones']} drones, scale {c['arena_scale']}: "
+                + ", ".join(f"{k} {_pct(v)}" for k, v in sorted(capped.items()))
+            )
     a("")
     return "\n".join(L) + "\n"
 

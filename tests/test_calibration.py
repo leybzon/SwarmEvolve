@@ -101,3 +101,28 @@ def test_instrument_jobs_cover_every_ordered_pairing():
     assert len(jobs) == calibration.INSTRUMENT_MATCHES
     assert len({(j["team_a"], j["team_b"]) for j in jobs}) == 9
     assert len({j["seed"] for j in jobs}) == len(jobs)
+
+
+@pytest.mark.parametrize("perspective", ["A", "B"])
+def test_outcome_check_maps_trace_names_on_a_win(tmp_path, perspective):
+    """Regression: the trace says TEAM_A_WIN where the result row says
+    A_WIN, and the check compared the raw strings, failing every win."""
+    trace = tmp_path / "win.jsonl"
+    r = fitness.evaluate_fitness(
+        BASELINES / "pursuit_v1.cpp",
+        BASELINES / "stationary_v1.cpp",
+        n_matches=1,
+        seed_base=7,
+        workers=1,
+        backend="host",
+        scratch_root=tmp_path,
+        record_trace_for_match_idx=0,
+        trace_output_path=trace,
+    )
+    row = r.per_match[0]
+    assert row["outcome"] == "A_WIN"
+    records = telemetry_aar.load_v2_trace(trace)
+    aar = telemetry_aar.render_aar(trace, perspective=perspective).structured
+    checks = calibration.check_aar_against_trace(records, aar, row, perspective)
+    assert checks["outcome_matches_engine"], checks
+    assert all(checks.values()), checks
