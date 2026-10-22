@@ -169,6 +169,12 @@ module = [
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+# Frozen copy of the M25 loop for arm A1 (legacy/m25/PROVENANCE.md). It
+# carries evolve_coevolve's mypy debt above and is never edited again.
+module = ["legacy.m25.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 # Tests with pre-existing strict-mode regressions: sys.path-based imports
 # of helper modules (``_build_helper``), Generator return-type misuse in
 # pytest fixtures, Optional handling in mock setups. Same follow-up note

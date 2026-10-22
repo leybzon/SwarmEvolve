@@ -1,0 +1,119 @@
+[
+  {
+    "file": "prompts/r0003_planner_1.md",
+    "role": "planner",
+    "round": 3,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "796b55adc8701d0035e4ca352b03a9622f46ca6d6fc0cba833f9d8670d413293"
+  },
+  {
+    "file": "prompts/r0003_coder_1.md",
+    "role": "coder",
+    "round": 3,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "a6cf43ceb37df902639bf899ad83c9d49a8bf4b1cc342abebbe5993d62f1f6e9"
+  },
+  {
+    "file": "prompts/r0005_planner_1.md",
+    "role": "planner",
+    "round": 5,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "32ed29696040a31348b0d0892ffba35c105503bd5d1e6b8370c1fc315f37ca63"
+  },
+  {
+    "file": "prompts/r0005_planner_2.md",
+    "role": "planner",
+    "round": 5,
+    "attempt": 2,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "f12bc5741bc76cfdd0b3ca45fc94a6c0385db303ebb015bf846b95d374dc74e2"
+  },
+  {
+    "file": "prompts/r0005_coder_1.md",
+    "role": "coder",
+    "round": 5,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "8f25be15fdebc191619517d58b3a77c6ab1ddbed5ab7493aa0e569a5cca84081"
+  },
+  {
+    "file": "prompts/r0007_planner_1.md",
+    "role": "planner",
+    "round": 7,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "3ac8272018448172ef477017cadaccffeec170d5823b12e62a91b3ad20947794"
+  },
+  {
+    "file": "prompts/r0007_coder_1.md",
+    "role": "coder",
+    "round": 7,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "40fac21413c298f3f404243247f78fd9983ea4cb308ccab49efb184a9fad7922"
+  },
+  {
+    "file": "prompts/r0009_planner_1.md",
+    "role": "planner",
+    "round": 9,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "016a5a31b2ddab76e364fe5b1a7546aa364ca24776130ae53e82656c61d5463e"
+  },
+  {
+    "file": "prompts/r0009_coder_1.md",
+    "role": "coder",
+    "round": 9,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "6ee65f919ad4efa570d3f3273490b5adf34d2523119059daa2ee826ee6d465c9"
+  },
+  {
+    "file": "prompts/r0011_planner_1.md",
+    "role": "planner",
+    "round": 11,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "6f90d77d8e89554b53aa34c6884b642e8ecf29f527abfd27a7033034b198fbee"
+  },
+  {
+    "file": "prompts/r0011_coder_1.md",
+    "role": "coder",
+    "round": 11,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "a1a91e0dcefb51a9100f6367a960b8bedff5e30c8e8b68c6076c173b10815a9e"
+  },
+  {
+    "file": "prompts/r0013_planner_1.md",
+    "role": "planner",
+    "round": 13,
+    "attempt": 1,
+    "model": "mock-planner",
+    "max_tokens": 4096,
+    "sha256": "3be790b5c3dceb89b5b2547f1664f3e76b1b2ecccf3e88dca19f73c76259f728"
+  },
+  {
+    "file": "prompts/r0013_coder_1.md",
+    "role": "coder",
+    "round": 13,
+    "attempt": 1,
+    "model": "mock-coder",
+    "max_tokens": 4096,
+    "sha256": "b8aca985bac5540240f6c42f02ca5b7a910f48efd57cb7e79a24ca2b7bc4c66c"
+  }
+]
