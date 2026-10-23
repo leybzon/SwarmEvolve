@@ -29,7 +29,7 @@ import inject_guards  # noqa: E402
 import journal as journal_mod  # noqa: E402
 import lint_ai_tokens  # noqa: E402
 import llm_client  # noqa: E402
-import telemetry_aar  # noqa: E402
+import round_records  # noqa: E402
 
 REPO_ROOT = _HERE.parent
 
@@ -49,6 +49,8 @@ def evolve_dual_llm(
     strict_reflection: bool = False,
     init_champion: Path | None = None,
     acceptance_mode: str = "absolute",
+    inherit: str = "parent",
+    feedback: str = "aar",
 ) -> int:
     """Run evolutionary loop with dual-LLM architecture.
 
@@ -64,12 +66,23 @@ def evolve_dual_llm(
         strict_reflection: Enable enhanced journal validation
         init_champion: Optional path to initial champion C++ source (default: stationary_v1)
         acceptance_mode: "absolute" (>0.0) or "relative" (>champion)
+        inherit: "parent" shows the current champion to planner and coder;
+            "none" does not
+        feedback: "aar" shows the planner the AAR of the champion's recorded
+            match, the last 3 journal lessons and the champion's numbers;
+            "none" shows none of them. The AAR is recorded either way, for
+            grounding.
 
     Returns:
         Exit code (0 = success)
     """
+    if inherit not in dual_llm.INHERIT_MODES:
+        raise ValueError(f"inherit must be one of {dual_llm.INHERIT_MODES}, got {inherit!r}")
+    if feedback not in dual_llm.FEEDBACK_MODES:
+        raise ValueError(f"feedback must be one of {dual_llm.FEEDBACK_MODES}, got {feedback!r}")
     out_dir.mkdir(parents=True, exist_ok=True)
     journal_path = out_dir / "journal.jsonl"
+    model = f"{planner_model}+{coder_model}"
 
     # Build clients
     planner_client = llm_client.AnthropicClient(model=planner_model)
@@ -92,10 +105,12 @@ def evolve_dual_llm(
         _LOG.info("init-champion using stationary baseline")
 
     _LOG.info(
-        "evolve-dual-start generations=%d planner=%s coder=%s",
+        "evolve-dual-start generations=%d planner=%s coder=%s inherit=%s feedback=%s",
         generations,
         planner_model,
         coder_model,
+        inherit,
+        feedback,
     )
 
     for gen in range(generations):
@@ -104,20 +119,75 @@ def evolve_dual_llm(
 
         _LOG.info("generation gen=%d", gen)
 
-        # Initialize variables that may be set conditionally
-        aar_metrics = None
-
         # Champion and candidate play the same seeds this generation.
         seed_base = seed + gen * 1000
+        summary: dict = {
+            "generation": gen,
+            "as_team": as_team,
+            "inherit": inherit,
+            "feedback": feedback,
+            "seed_base": seed_base,
+            "n_matches": n_matches,
+            "aar_seed": round_records.aar_seed(seed, gen),
+            "llm_round": False,
+            "status": "ok",
+            "stall_reason": None,
+            "champion_fitness": None,
+            "candidate_fitness": None,
+            "accepted": None,
+            "planner_attempts": 0,
+            "similarity": None,
+            "grounding": None,
+        }
 
-        # Measure the current champion on this generation's seeds. The
-        # trace of this run is the AAR the planner sees.
+        def stall(
+            reason: str, gen: int = gen, gen_dir: Path = gen_dir, summary: dict = summary
+        ) -> None:
+            """Record a failed generation in its summary and the journal."""
+            _LOG.warning("gen-stalled gen=%d reason=%s", gen, reason)
+            summary["status"] = "stalled"
+            summary["stall_reason"] = reason
+            round_records.write_summary(gen_dir, summary)
+            _write_stall_journal_entry(
+                journal_path=journal_path,
+                generation=gen,
+                reason=reason,
+                model=model,
+                seed=seed,
+            )
+
+        # Initialize variables that may be set conditionally
+        aar_metrics = None
+        aar_report = None
+
         guarded_opponent = gen_dir / "opponent.cpp"
         champion_path = gen_dir / "champion.cpp"
-        trace_path = gen_dir / "trace_sample.jsonl"
         try:
             _write_guarded(guarded_opponent, opponent_source)
             _write_guarded(champion_path, current_champion)
+        except Exception as e:
+            stall(f"inject failed for champion or opponent: {e}")
+            continue
+
+        # AAR: one recorded match of the champion against the opponent on
+        # this generation's fixed AAR seed.
+        try:
+            aar_report = round_records.record_aar(
+                champion_path,
+                guarded_opponent,
+                team=as_team,
+                seed=summary["aar_seed"],
+                round_dir=gen_dir,
+            )
+            aar_metrics = aar_report.structured
+        except Exception as e:
+            if feedback == "aar":
+                stall(f"aar failed: {e}")
+                continue
+            _LOG.warning("aar-failed gen=%d err=%s", gen, e)
+
+        # Measure the current champion on this generation's seeds.
+        try:
             champion_result = _evaluate(
                 champion_path,
                 guarded_opponent,
@@ -125,19 +195,12 @@ def evolve_dual_llm(
                 n_matches=n_matches,
                 seed_base=seed_base,
                 result_path=gen_dir / "fitness_champion.json",
-                trace_path=trace_path,
             )
         except Exception as e:
-            _LOG.warning("champion-eval-failed gen=%d err=%s", gen, e)
-            _write_stall_journal_entry(
-                journal_path=journal_path,
-                generation=gen,
-                reason=f"champion eval failed: {e}",
-                model=f"{planner_model}+{coder_model}",
-                seed=seed,
-            )
+            stall(f"champion eval failed: {e}")
             continue
         champion_fitness = _team_score(champion_result.mean, as_team)
+        summary["champion_fitness"] = champion_fitness
 
         # Special handling for gen 0 with init-champion: skip LLM, just evaluate
         skip_llm = gen == 0 and init_champion
@@ -190,14 +253,7 @@ def evolve_dual_llm(
             # Lint (the init champion is linted like any candidate)
             violations = lint_ai_tokens.scan_file(candidate_path)
             if violations:
-                _LOG.warning("lint-failed gen=%d n_violations=%d", gen, len(violations))
-                _write_stall_journal_entry(
-                    journal_path=journal_path,
-                    generation=gen,
-                    reason=f"{len(violations)} lint violations",
-                    model=f"{planner_model}+{coder_model}",
-                    seed=seed,
-                )
+                stall(f"{len(violations)} lint violations")
                 continue
 
             # The candidate is the champion itself: reuse its measurement.
@@ -205,35 +261,18 @@ def evolve_dual_llm(
 
         else:
             # Normal path: Dual-LLM generation
-            # Recall prior lessons from journal
-            prior_lessons = "(none)"
-            if journal_path.exists():
-                entries = journal_mod.read_entries(journal_path)
-                recalled = journal_mod.recall(journal_path, recency_k=3, max_entries=5)
-                if recalled:
-                    prior_lessons = journal_mod.render_for_prompt(recalled, max_tokens=1500)
-
-            # AAR of the champion's match on this generation's seeds
-            aar_markdown = "(none - first generation)"
-            try:
-                aar_report = telemetry_aar.render_aar(
-                    trace_path,
-                    perspective=as_team,
-                    fmt="both",
-                )
-                aar_markdown = aar_report.markdown
-                aar_metrics = aar_report.structured
-            except Exception as e:
-                _LOG.warning("aar-failed gen=%d err=%s", gen, e)
-
-            # Get context for iteration-aware prompting
+            summary["llm_round"] = True
+            prior_lessons = None
             last_entry = None
-            if journal_path.exists() and gen > 0:
+            if feedback == "aar" and journal_path.exists():
+                # The last 3 journal entries
                 entries = journal_mod.read_entries(journal_path)
+                prior_lessons = round_records.format_lessons(entries)
                 if entries:
                     last_entry = entries[-1]
 
             # Dual-LLM generation
+            saver = round_records.PromptSaver(gen_dir)
             try:
                 result = dual_llm.dual_llm_generate(
                     planner_client=planner_client,
@@ -243,24 +282,21 @@ def evolve_dual_llm(
                     opponent_name=opponent_name,
                     opponent_source=opponent_source,
                     parent_source=current_champion,
-                    aar_markdown=aar_markdown,
+                    inherit=inherit,
+                    feedback=feedback,
+                    aar_markdown=aar_report.markdown if aar_report is not None else None,
                     prior_lessons=prior_lessons,
                     champion_fitness=champion_fitness,
                     last_generation=gen - 1 if gen > 0 else None,
                     last_hypothesis=last_entry.get("hypothesis_tested") if last_entry else None,
                     last_fitness=last_entry.get("fitness") if last_entry else None,
+                    on_prompt=saver,
                 )
             except dual_llm.DualLLMError as e:
-                _LOG.error("dual-llm-failed gen=%d err=%s", gen, e)
-                # Write stall entry to journal
-                _write_stall_journal_entry(
-                    journal_path=journal_path,
-                    generation=gen,
-                    reason=str(e),
-                    model=f"{planner_model}+{coder_model}",
-                    seed=seed,
-                )
+                summary["planner_attempts"] = saver.planner_attempts
+                stall(str(e))
                 continue
+            summary["planner_attempts"] = saver.planner_attempts
 
             # Save tactic spec
             tactic_spec_path = gen_dir / "tactic_spec.json"
@@ -274,17 +310,20 @@ def evolve_dual_llm(
             candidate_path = gen_dir / "candidate.cpp"
             candidate_path.write_text(result.cpp_code)
 
+            summary["similarity"] = round_records.similarity(current_champion, result.cpp_code)
+            if aar_metrics is not None:
+                summary["grounding"] = round_records.grounding(result.tactic_spec, aar_metrics)
+            _LOG.info(
+                "similarity gen=%d line=%.3f token=%.3f",
+                gen,
+                summary["similarity"]["line_ratio"],
+                summary["similarity"]["token_ratio"],
+            )
+
             # Lint
             violations = lint_ai_tokens.scan_file(candidate_path)
             if violations:
-                _LOG.warning("lint-failed gen=%d n_violations=%d", gen, len(violations))
-                _write_stall_journal_entry(
-                    journal_path=journal_path,
-                    generation=gen,
-                    reason=f"{len(violations)} lint violations",
-                    model=f"{planner_model}+{coder_model}",
-                    seed=seed,
-                )
+                stall(f"{len(violations)} lint violations")
                 continue
 
             # Inject guards
@@ -292,14 +331,7 @@ def evolve_dual_llm(
             try:
                 _write_guarded(injected_path, candidate_path.read_text(encoding="utf-8"))
             except Exception as e:
-                _LOG.warning("inject-failed gen=%d err=%s", gen, e)
-                _write_stall_journal_entry(
-                    journal_path=journal_path,
-                    generation=gen,
-                    reason=f"inject failed: {e}",
-                    model=f"{planner_model}+{coder_model}",
-                    seed=seed,
-                )
+                stall(f"inject failed: {e}")
                 continue
 
             # Evaluate the candidate on the champion's seeds
@@ -313,14 +345,7 @@ def evolve_dual_llm(
                     result_path=gen_dir / "fitness_candidate.json",
                 )
             except Exception as e:
-                _LOG.warning("fitness-failed gen=%d err=%s", gen, e)
-                _write_stall_journal_entry(
-                    journal_path=journal_path,
-                    generation=gen,
-                    reason=f"fitness eval failed: {e}",
-                    model=f"{planner_model}+{coder_model}",
-                    seed=seed,
-                )
+                stall(f"fitness eval failed: {e}")
                 continue
 
         team_fitness = _team_score(fitness_result.mean, as_team)
@@ -357,10 +382,13 @@ def evolve_dual_llm(
             aar_metrics=aar_metrics,
             tactic_spec=result.tactic_spec,
             accepted=accepted,
-            model=f"{planner_model}+{coder_model}",
+            model=model,
             seed=seed,
             strict_reflection=strict_reflection,
         )
+        summary["candidate_fitness"] = team_fitness
+        summary["accepted"] = accepted
+        round_records.write_summary(gen_dir, summary)
 
         _LOG.info(
             "gen-complete gen=%d fitness=%.3f accepted=%s tokens=%d",
@@ -392,13 +420,11 @@ def _evaluate(
     n_matches: int,
     seed_base: int,
     result_path: Path,
-    trace_path: Path | None = None,
 ) -> fitness_mod.FitnessResult:
     """Play ``program_path`` (on ``as_team``'s side) against ``opponent_path``.
 
     Crashes and timeouts count as losses for the program under test. The
     full result, including per-match rows, is written to ``result_path``.
-    With ``trace_path`` the first match also records a schema-v2 trace.
     """
     if as_team == "A":
         team_a_src, team_b_src = program_path, opponent_path
@@ -410,8 +436,6 @@ def _evaluate(
         n_matches=n_matches,
         seed_base=seed_base,
         under_test=as_team,
-        record_trace_for_match_idx=0 if trace_path is not None else None,
-        trace_output_path=trace_path,
     )
     result_path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n")
     return result
@@ -549,6 +573,18 @@ def main(argv: list[str] | None = None) -> int:
         default="absolute",
         help="Acceptance criterion: absolute (>0.0) vs relative (>champion)",
     )
+    parser.add_argument(
+        "--inherit",
+        choices=dual_llm.INHERIT_MODES,
+        default="parent",
+        help="parent: prompts carry the current champion; none: they do not",
+    )
+    parser.add_argument(
+        "--feedback",
+        choices=dual_llm.FEEDBACK_MODES,
+        default="aar",
+        help="aar: planner sees the AAR, last 3 lessons and champion numbers; none: nothing",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args(argv)
@@ -570,6 +606,8 @@ def main(argv: list[str] | None = None) -> int:
         strict_reflection=args.strict_reflection,
         init_champion=args.init_champion,
         acceptance_mode=args.acceptance_mode,
+        inherit=args.inherit,
+        feedback=args.feedback,
     )
 
 

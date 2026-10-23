@@ -6,6 +6,31 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- v3 prompts (`prompts/v3/planner.md`, `prompts/v3/coder.md`) with a
+  `{PARENT_CODE}` section; the coder is told to start from the parent and
+  change only what the tactic spec requires. The v1/v2 prompt files are
+  unchanged. v3 lists `long_range_shot_share_them`, the metric the
+  TacticSpec validator accepts, where v2 still lists `kiting_score_them`.
+- Switches in `evolve_coevolve.py` and `evolve_dual.py` (`--inherit
+  parent|none`, `--feedback aar|none`), passed through `dual_llm.py`.
+- `scripts/round_records.py`, used by both loops: each round records one
+  AAR match of the champion against the current opponent on a fixed seed
+  (`seed + 500000 + round`) and saves `aar.md`, `aar.json` and
+  `aar_trace.jsonl` (recorded in both feedback modes); saves the exact
+  prompts sent (`planner_prompt.md`, `planner_prompt_<k>.md` on retries,
+  `coder_prompt.md`); and writes `summary.json` with parent-child
+  similarity (line and token ratio) and grounding (cited metric values
+  matched and unmatched against the AAR).
+
+### Changed
+- The AAR is no longer the first match of the champion's evaluation
+  (`trace_sample.jsonl`) but a separate recorded match on its own seed.
+  Journal lessons in `evolve_dual.py` are the last 3 entries, as in
+  `evolve_coevolve.py`, instead of `journal.recall(recency_k=3,
+  max_entries=5)`. A round whose AAR cannot be recorded stalls when
+  feedback is `aar`.
+
 ### Fixed
 - One definition of the C++ compile flags, `scripts/compile_flags.py`
   (ADR-0001 addendum), used by `fitness.py`, `orchestrator.py`,

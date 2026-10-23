@@ -18,7 +18,8 @@ import re
 
 # Make sibling scripts importable
 import sys
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -30,8 +31,22 @@ import tactic_spec as ts_mod  # noqa: E402
 
 REPO_ROOT = _HERE.parent
 PROMPTS = REPO_ROOT / "prompts"
+# v3 prompts; prompts/*.md (v1/v2) stay as they were for reference, and the
+# legacy arm runs its own frozen copies (legacy/m25/).
+PLANNER_TEMPLATE = PROMPTS / "v3" / "planner.md"
+CODER_TEMPLATE = PROMPTS / "v3" / "coder.md"
 TYPES_HEADER = REPO_ROOT / "src" / "types.h"
 ABI_HEADER = REPO_ROOT / "src" / "ai_abi.h"
+
+# Loop switches. inherit: does the prompt carry the evolving team's champion
+# (the parent)? feedback: does the planner see the AAR, the journal lessons
+# and the champion's numbers?
+INHERIT_MODES = ("parent", "none")
+FEEDBACK_MODES = ("aar", "none")
+
+_BLOCK = re.compile(r"^<!-- if (\w+) -->\n(.*?)^<!-- end \1 -->\n", re.MULTILINE | re.DOTALL)
+_MARKER = re.compile(r"<!-- (?:if|end) \w+ -->")
+_SLOT = re.compile(r"\{([A-Z][A-Z_]*)\}")
 
 
 _LOG = logging.getLogger("swarmevolve.dual_llm")
@@ -54,6 +69,10 @@ class DualLLMResponse:
     total_prompt_tokens: int
     total_completion_tokens: int
 
+    # Exactly what was sent: one planner prompt per attempt, then the coder's
+    planner_prompts: list[str] = field(default_factory=list)
+    coder_prompt: str = ""
+
 
 class DualLLMError(RuntimeError):
     """Raised when dual-LLM pipeline fails after retries."""
@@ -61,57 +80,71 @@ class DualLLMError(RuntimeError):
     pass
 
 
+def _fill(template: str, *, blocks: dict[str, bool], values: dict[str, str], name: str) -> str:
+    """Keep or drop each ``<!-- if X -->`` block, then fill ``{SLOT}`` placeholders.
+
+    The fill is a single pass over the template, so text inside an inserted
+    value (C++ source, the AAR) is never itself treated as a placeholder:
+    every value lands in the prompt byte for byte. Unknown blocks, unbalanced
+    markers and unfilled slots are errors rather than silently dropped text.
+    """
+
+    def keep(m: re.Match[str]) -> str:
+        if m.group(1) not in blocks:
+            raise ValueError(f"{name}: unknown block {m.group(1)!r}")
+        return m.group(2) if blocks[m.group(1)] else ""
+
+    text = _BLOCK.sub(keep, template)
+    if _MARKER.search(text):
+        raise ValueError(f"{name}: unbalanced block markers")
+    missing = sorted({s for s in _SLOT.findall(text) if s not in values})
+    if missing:
+        raise ValueError(f"{name}: no value for {missing}")
+    return _SLOT.sub(lambda m: values[m.group(1)], text)
+
+
 def render_planner_prompt(
     *,
     team_letter: str,
     opponent_name: str,
     opponent_source: str,
-    parent_source: str,
-    aar_markdown: str,
-    prior_lessons: str,
+    parent_source: str | None = None,
+    aar_markdown: str | None = None,
+    prior_lessons: str | None = None,
     champion_fitness: float | None = None,
     last_generation: int | None = None,
     last_hypothesis: str | None = None,
     last_fitness: float | None = None,
-    use_v2_prompt: bool = True,
+    template_path: Path = PLANNER_TEMPLATE,
 ) -> str:
-    """Render the planner prompt template with context.
+    """Render the v3 planner prompt.
 
-    ``parent_source`` is the evolving team's current champion code; the
-    template must carry a ``{PARENT_SOURCE}`` slot for it.
+    ``parent_source`` (the evolving team's champion) fills the parent block;
+    ``None`` drops it (inherit = none). ``aar_markdown`` fills the feedback
+    blocks (AAR, journal lessons, champion numbers); ``None`` drops them all
+    (feedback = none).
     """
-    if use_v2_prompt:
-        template_path = PROMPTS / "planner_analyze_aar_v2.md"
-    else:
-        template_path = PROMPTS / "planner_analyze_aar.md"
-
-    if not template_path.exists():
-        raise FileNotFoundError(f"Planner template not found: {template_path}")
-
-    template = template_path.read_text(encoding="utf-8")
-    _require_slot(template, "{PARENT_SOURCE}", template_path)
-
-    # Use simple string replacement to avoid issues with literal braces
-    replacements = {
-        "{TEAM_LETTER}": team_letter,
-        "{OPPONENT_NAME}": opponent_name,
-        "{OPPONENT_SOURCE}": opponent_source,
-        "{PARENT_SOURCE}": parent_source,
-        "{AAR}": aar_markdown,
-        "{PRIOR_LESSONS}": prior_lessons,
-        "{CHAMPION_FITNESS}": f"{champion_fitness:.3f}"
+    feedback = aar_markdown is not None
+    values = {
+        "TEAM_LETTER": team_letter,
+        "OPPONENT_NAME": opponent_name,
+        "OPPONENT_SOURCE": opponent_source,
+        "PARENT_CODE": parent_source or "",
+        "AAR": aar_markdown or "",
+        "PRIOR_LESSONS": prior_lessons if prior_lessons else "(none)",
+        "CHAMPION_FITNESS": f"{champion_fitness:.3f}"
         if champion_fitness is not None
         else "N/A (first generation)",
-        "{LAST_GENERATION}": str(last_generation) if last_generation is not None else "N/A",
-        "{LAST_HYPOTHESIS}": last_hypothesis if last_hypothesis else "N/A (first generation)",
-        "{LAST_FITNESS}": f"{last_fitness:.3f}" if last_fitness is not None else "N/A",
+        "LAST_GENERATION": str(last_generation) if last_generation is not None else "N/A",
+        "LAST_HYPOTHESIS": last_hypothesis if last_hypothesis else "N/A (first generation)",
+        "LAST_FITNESS": f"{last_fitness:.3f}" if last_fitness is not None else "N/A",
     }
-
-    result = template
-    for placeholder, value in replacements.items():
-        result = result.replace(placeholder, value)
-
-    return result
+    return _fill(
+        template_path.read_text(encoding="utf-8"),
+        blocks={"parent": parent_source is not None, "feedback": feedback},
+        values=values,
+        name=template_path.name,
+    )
 
 
 def render_coder_prompt(
@@ -120,57 +153,36 @@ def render_coder_prompt(
     namespace: str,
     opponent_name: str,
     opponent_source: str,
-    parent_source: str,
     tactic_spec_json: str,
     types_header: str,
     abi_header: str,
+    parent_source: str | None = None,
+    template_path: Path = CODER_TEMPLATE,
 ) -> str:
-    """Render the coder prompt template with tactic spec and parent code."""
-    template_path = PROMPTS / "coder_implement_tactic.md"
-    if not template_path.exists():
-        raise FileNotFoundError(f"Coder template not found: {template_path}")
-
-    template = template_path.read_text(encoding="utf-8")
-    _require_slot(template, "{PARENT_SOURCE}", template_path)
-
-    # Parse tactic spec to extract implementation guidance
-    spec_dict = json.loads(tactic_spec_json)
-    impl = spec_dict.get("implementation_guidance", {})
-
-    # Determine opponent team letter (A if we're B, vice versa)
+    """Render the v3 coder prompt; ``parent_source=None`` drops the parent block."""
+    impl = json.loads(tactic_spec_json).get("implementation_guidance", {})
     opponent_team = "B" if team_letter == "A" else "A"
-    team_lower = team_letter.lower()
-    opponent_lower = opponent_team.lower()
-
-    # Use simple string replacement instead of .format() to avoid issues
-    # with literal braces in C++ code examples
-    replacements = {
-        "{TEAM_LETTER}": team_letter,
-        "{NAMESPACE}": namespace,
-        "{OPPONENT_NAME}": opponent_name,
-        "{OPPONENT_SOURCE}": opponent_source,
-        "{PARENT_SOURCE}": parent_source,
-        "{TACTIC_SPEC}": tactic_spec_json,
-        "{TYPES_HEADER}": types_header,
-        "{ABI_HEADER}": abi_header,
-        "{MESSAGE_PROTOCOL}": impl.get("message_protocol", "unspecified"),
-        "{MEMORY_LAYOUT}": impl.get("memory_layout", "unspecified"),
-        "{SPECIAL_CASES}": impl.get("special_cases", "none"),
-        "{TEAM_LETTER_LOWER}": team_lower,
-        "{OPPONENT_TEAM_LETTER_LOWER}": opponent_lower,
+    values = {
+        "TEAM_LETTER": team_letter,
+        "NAMESPACE": namespace,
+        "OPPONENT_NAME": opponent_name,
+        "OPPONENT_SOURCE": opponent_source,
+        "PARENT_CODE": parent_source or "",
+        "TACTIC_SPEC": tactic_spec_json,
+        "TYPES_HEADER": types_header,
+        "ABI_HEADER": abi_header,
+        "MESSAGE_PROTOCOL": impl.get("message_protocol", "unspecified"),
+        "MEMORY_LAYOUT": impl.get("memory_layout", "unspecified"),
+        "SPECIAL_CASES": impl.get("special_cases", "none"),
+        "TEAM_LETTER_LOWER": team_letter.lower(),
+        "OPPONENT_TEAM_LETTER_LOWER": opponent_team.lower(),
     }
-
-    result = template
-    for placeholder, value in replacements.items():
-        result = result.replace(placeholder, value)
-
-    return result
-
-
-def _require_slot(template: str, slot: str, template_path: Path) -> None:
-    """Fail loudly rather than silently dropping context from a prompt."""
-    if slot not in template:
-        raise ValueError(f"{template_path.name} has no {slot} placeholder")
+    return _fill(
+        template_path.read_text(encoding="utf-8"),
+        blocks={"parent": parent_source is not None},
+        values=values,
+        name=template_path.name,
+    )
 
 
 def extract_json_from_response(text: str) -> str:
@@ -304,6 +316,29 @@ def call_coder(
     return cpp_code, response
 
 
+class _Recording:
+    """Client wrapper that reports every prompt before it is sent."""
+
+    def __init__(
+        self,
+        client: llm_client.LLMClient,
+        role: str,
+        sent: list[str],
+        on_prompt: Callable[[str, str], None] | None,
+    ):
+        self._client = client
+        self._role = role
+        self._sent = sent
+        self._on_prompt = on_prompt
+        self.model = client.model
+
+    def generate(self, prompt: str, *, max_tokens: int = 4096) -> llm_client.LLMResponse:
+        self._sent.append(prompt)
+        if self._on_prompt is not None:
+            self._on_prompt(self._role, prompt)
+        return self._client.generate(prompt, max_tokens=max_tokens)
+
+
 def dual_llm_generate(
     *,
     planner_client: llm_client.LLMClient,
@@ -313,8 +348,10 @@ def dual_llm_generate(
     opponent_name: str,
     opponent_source: str,
     parent_source: str,
-    aar_markdown: str,
-    prior_lessons: str,
+    inherit: str = "parent",
+    feedback: str = "aar",
+    aar_markdown: str | None = None,
+    prior_lessons: str | None = None,
     champion_fitness: float | None = None,
     last_generation: int | None = None,
     last_hypothesis: str | None = None,
@@ -322,6 +359,7 @@ def dual_llm_generate(
     planner_max_retries: int = 2,
     planner_max_tokens: int = 4096,
     coder_max_tokens: int = 4096,
+    on_prompt: Callable[[str, str], None] | None = None,
 ) -> DualLLMResponse:
     """Run the full dual-LLM pipeline: planner → validate → coder → code.
 
@@ -333,35 +371,55 @@ def dual_llm_generate(
         opponent_name: e.g., "pursuit_v1"
         opponent_source: opponent's C++ source code
         parent_source: the evolving team's current champion C++ source
-        aar_markdown: After-Action Report from last generation
+        inherit: "parent" puts parent_source in both prompts; "none" leaves
+            it out
+        feedback: "aar" gives the planner aar_markdown, prior_lessons and the
+            champion's numbers; "none" leaves all of them out
+        aar_markdown: After-Action Report of the champion's recorded match
+            (required with feedback="aar")
         prior_lessons: Journal recall from prior generations
         planner_max_retries: How many times to retry planner on validation failure
         planner_max_tokens: Max tokens for planner response
         coder_max_tokens: Max tokens for coder response
+        on_prompt: called as on_prompt(role, prompt) just before each model
+            call, role "planner" or "coder", so callers can save prompts
+            even when a stage later fails
 
     Returns:
-        DualLLMResponse with tactic spec, code, and token counts
+        DualLLMResponse with tactic spec, code, token counts and the prompts sent
 
     Raises:
         DualLLMError: if either stage fails after retries
+        ValueError: for an unknown mode, or feedback="aar" without an AAR
     """
+    if inherit not in INHERIT_MODES:
+        raise ValueError(f"inherit must be one of {INHERIT_MODES}, got {inherit!r}")
+    if feedback not in FEEDBACK_MODES:
+        raise ValueError(f"feedback must be one of {FEEDBACK_MODES}, got {feedback!r}")
+    if feedback == "aar" and not aar_markdown:
+        raise ValueError("feedback='aar' needs a non-empty aar_markdown")
+    parent = parent_source if inherit == "parent" else None
+    with_feedback = feedback == "aar"
+
+    planner_sent: list[str] = []
+    coder_sent: list[str] = []
+
     # Stage 1: Planner
     planner_prompt = render_planner_prompt(
         team_letter=team_letter,
         opponent_name=opponent_name,
         opponent_source=opponent_source,
-        parent_source=parent_source,
-        aar_markdown=aar_markdown,
-        prior_lessons=prior_lessons,
-        champion_fitness=champion_fitness,
-        last_generation=last_generation,
-        last_hypothesis=last_hypothesis,
-        last_fitness=last_fitness,
-        use_v2_prompt=True,
+        parent_source=parent,
+        aar_markdown=aar_markdown if with_feedback else None,
+        prior_lessons=prior_lessons if with_feedback else None,
+        champion_fitness=champion_fitness if with_feedback else None,
+        last_generation=last_generation if with_feedback else None,
+        last_hypothesis=last_hypothesis if with_feedback else None,
+        last_fitness=last_fitness if with_feedback else None,
     )
 
     spec, planner_resp, planner_retries = call_planner(
-        planner_client,
+        _Recording(planner_client, "planner", planner_sent, on_prompt),
         planner_prompt,
         max_retries=planner_max_retries,
         max_tokens=planner_max_tokens,
@@ -376,14 +434,14 @@ def dual_llm_generate(
         namespace=namespace,
         opponent_name=opponent_name,
         opponent_source=opponent_source,
-        parent_source=parent_source,
+        parent_source=parent,
         tactic_spec_json=json.dumps(spec.to_dict(), indent=2),
         types_header=types_header,
         abi_header=abi_header,
     )
 
     cpp_code, coder_resp = call_coder(
-        coder_client,
+        _Recording(coder_client, "coder", coder_sent, on_prompt),
         coder_prompt,
         max_tokens=coder_max_tokens,
     )
@@ -400,6 +458,8 @@ def dual_llm_generate(
         coder_response=coder_resp,
         total_prompt_tokens=total_prompt_tokens,
         total_completion_tokens=total_completion_tokens,
+        planner_prompts=planner_sent,
+        coder_prompt=coder_sent[0],
     )
 
 

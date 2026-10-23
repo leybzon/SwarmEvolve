@@ -1,14 +1,18 @@
-"""Regression tests (D1) for :mod:`scripts.dual_llm`: the evolving team's
-own champion code (the parent) reaches both the planner and the coder.
+"""Tests for :mod:`scripts.dual_llm` and the v3 prompts.
 
-Offline: uses ``MockClient``; no API calls.
+The inherit switch puts the evolving team's champion (the parent) into both
+prompts byte for byte, or leaves it out; the feedback switch gives the
+planner the AAR, the journal lessons and the champion's numbers, or none of
+them. Offline: uses ``MockClient``; no API calls.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,9 +20,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import dual_llm
+import tactic_spec
 from llm_client import LLMResponse, MockClient
 
-PARENT = "// PARENT-SOURCE-MARKER\nnamespace TeamA {}\n"
+# Text that a naive placeholder fill would corrupt: slots and markers inside
+# the inserted source must reach the prompt unchanged.
+PARENT = (
+    "// PARENT-SOURCE-MARKER {AAR} {PARENT_CODE} {TEAM_LETTER}\n"
+    "<!-- end parent -->\n"
+    "namespace TeamA { int f() { return 1; } }\n"
+)
 OPPONENT = "// OPPONENT-SOURCE-MARKER\nnamespace TeamB {}\n"
 
 PLANNER_JSON = json.dumps(
@@ -72,56 +83,146 @@ PLANNER_JSON = json.dumps(
 )
 
 
+AAR = "# After-Action Report (perspective: Team A)\n\n- **Outcome**: DRAW after 9 ticks\n"
+LESSONS = "Gen 0: confirmed (fitness=0.100) - LESSON-MARKER"
+
+
 def _planner_kwargs(**over):
     kw = dict(
         team_letter="A",
         opponent_name="opp",
         opponent_source=OPPONENT,
         parent_source=PARENT,
-        aar_markdown="AAR",
-        prior_lessons="none",
+        aar_markdown=AAR,
+        prior_lessons=LESSONS,
+        champion_fitness=0.25,
     )
     kw.update(over)
     return kw
 
 
-@pytest.mark.parametrize("use_v2", [True, False])
-def test_planner_prompt_contains_parent_source(use_v2):
-    prompt = dual_llm.render_planner_prompt(**_planner_kwargs(), use_v2_prompt=use_v2)
-    assert "PARENT-SOURCE-MARKER" in prompt
-    assert "{PARENT_SOURCE}" not in prompt
+def _coder_prompt(parent_source):
+    return dual_llm.render_coder_prompt(
+        team_letter="A",
+        namespace="TeamA",
+        opponent_name="opp",
+        opponent_source=OPPONENT,
+        parent_source=parent_source,
+        tactic_spec_json=PLANNER_JSON,
+        types_header="",
+        abi_header="",
+    )
 
 
-def test_coder_prompt_contains_parent_source():
-    prompt = dual_llm.render_coder_prompt(
+def _assert_clean(prompt):
+    """No block marker or unfilled slot outside the inserted parent source."""
+    rest = prompt.replace(PARENT, "")
+    assert not dual_llm._MARKER.search(rest)
+    leftover = set(dual_llm._SLOT.findall(rest))
+    assert not leftover, leftover
+
+
+def test_prompts_use_the_v3_templates():
+    assert dual_llm.PLANNER_TEMPLATE == REPO_ROOT / "prompts" / "v3" / "planner.md"
+    assert dual_llm.CODER_TEMPLATE == REPO_ROOT / "prompts" / "v3" / "coder.md"
+
+
+def test_planner_prompt_carries_parent_byte_for_byte():
+    prompt = dual_llm.render_planner_prompt(**_planner_kwargs())
+    assert f"```cpp\n{PARENT}\n```" in prompt
+    assert "## Parent Program (Your Team's Current Champion)" in prompt
+    _assert_clean(prompt)
+
+
+def test_coder_prompt_carries_parent_and_says_to_start_from_it():
+    prompt = _coder_prompt(PARENT)
+    assert f"```cpp\n{PARENT}\n```" in prompt
+    assert "Start from this program. Change only what the tactical specification requires" in prompt
+    _assert_clean(prompt)
+
+
+def test_inherit_none_leaves_the_parent_out():
+    planner = dual_llm.render_planner_prompt(**_planner_kwargs(parent_source=None))
+    coder = _coder_prompt(None)
+    for prompt in (planner, coder):
+        assert "PARENT-SOURCE-MARKER" not in prompt
+        assert "Parent Program" not in prompt
+        _assert_clean(prompt)
+
+
+def test_feedback_aar_carries_aar_lessons_and_champion_numbers():
+    prompt = dual_llm.render_planner_prompt(**_planner_kwargs())
+    assert f"# After-Action Report (Current Champion)\n\n{AAR}\n" in prompt
+    assert f"# Lessons from Prior Generations\n\n{LESSONS}\n" in prompt
+    assert "**Champion Fitness:** 0.250" in prompt
+
+
+def test_feedback_none_leaves_aar_lessons_and_champion_numbers_out():
+    prompt = dual_llm.render_planner_prompt(
+        **_planner_kwargs(aar_markdown=None, prior_lessons=None, champion_fitness=None)
+    )
+    for absent in ("After-Action Report (Current Champion)", "Lessons from Prior", "LESSON-MARKER",
+                   "Outcome**: DRAW", "**Champion Fitness:**", "**Last Hypothesis:**"):  # fmt: skip
+        assert absent not in prompt, absent
+    _assert_clean(prompt)
+
+
+def test_v3_planner_lists_exactly_the_metrics_the_validator_accepts():
+    text = dual_llm.PLANNER_TEMPLATE.read_text()
+    section = text.split("Valid metric names:", 1)[1].split("**Do not invent metrics.**", 1)[0]
+    listed = set(re.findall(r"^- `(\w+)`", section, re.MULTILINE))
+    listed |= {"cooldown_utilization_them", "mean_pairwise_distance_them", "alive_final_them",
+               "shots_fired_them", "shots_hit_them"}  # fmt: skip
+    assert listed == tactic_spec.VALID_AAR_METRICS
+
+
+def test_unknown_block_and_unfilled_slot_are_errors(tmp_path):
+    bad_block = tmp_path / "a.md"
+    bad_block.write_text("<!-- if other -->\nx\n<!-- end other -->\n")
+    with pytest.raises(ValueError, match="unknown block"):
+        dual_llm.render_planner_prompt(**_planner_kwargs(), template_path=bad_block)
+    bad_slot = tmp_path / "b.md"
+    bad_slot.write_text("{NOT_A_SLOT}\n")
+    with pytest.raises(ValueError, match="NOT_A_SLOT"):
+        dual_llm.render_planner_prompt(**_planner_kwargs(), template_path=bad_slot)
+
+
+def _generate(**over):
+    planner = MockClient([LLMResponse(text=PLANNER_JSON, model="mock-planner")])
+    coder = MockClient([LLMResponse(text="```cpp\nnamespace TeamA {}\n```", model="mock-coder")])
+    kw: dict[str, Any] = dict(
+        planner_client=planner,
+        coder_client=coder,
         team_letter="A",
         namespace="TeamA",
         opponent_name="opp",
         opponent_source=OPPONENT,
         parent_source=PARENT,
-        tactic_spec_json=PLANNER_JSON,
-        types_header="",
-        abi_header="",
+        aar_markdown=AAR,
+        prior_lessons=LESSONS,
     )
-    assert "PARENT-SOURCE-MARKER" in prompt
-    assert "{PARENT_SOURCE}" not in prompt
+    kw.update(over)
+    return dual_llm.dual_llm_generate(**kw), planner, coder
 
 
-def test_template_without_parent_slot_is_rejected(tmp_path, monkeypatch):
-    (tmp_path / "planner_analyze_aar_v2.md").write_text("{OPPONENT_SOURCE}\n{AAR}\n")
-    monkeypatch.setattr(dual_llm, "PROMPTS", tmp_path)
-    with pytest.raises(ValueError, match="PARENT_SOURCE"):
-        dual_llm.render_planner_prompt(**_planner_kwargs())
+def test_generate_sends_parent_and_reports_every_prompt():
+    seen = []
+    result, planner, coder = _generate(on_prompt=lambda role, p: seen.append((role, p)))
+    assert PARENT in planner.calls[0] and PARENT in coder.calls[0]
+    assert seen == [("planner", planner.calls[0]), ("coder", coder.calls[0])]
+    assert result.planner_prompts == planner.calls and result.coder_prompt == coder.calls[0]
 
 
-def test_generate_sends_parent_to_planner_and_coder():
-    planner = MockClient([LLMResponse(text=PLANNER_JSON, model="mock-planner")])
-    coder = MockClient([LLMResponse(text="```cpp\nnamespace TeamA {}\n```", model="mock-coder")])
-    dual_llm.dual_llm_generate(
-        planner_client=planner,
-        coder_client=coder,
-        namespace="TeamA",
-        **_planner_kwargs(),
-    )
-    assert "PARENT-SOURCE-MARKER" in planner.calls[0]
-    assert "PARENT-SOURCE-MARKER" in coder.calls[0]
+def test_generate_with_both_switches_off():
+    _, planner, coder = _generate(inherit="none", feedback="none")
+    assert PARENT not in planner.calls[0] and PARENT not in coder.calls[0]
+    assert AAR not in planner.calls[0] and LESSONS not in planner.calls[0]
+
+
+def test_generate_rejects_unknown_modes_and_missing_aar():
+    with pytest.raises(ValueError, match="inherit"):
+        _generate(inherit="maybe")
+    with pytest.raises(ValueError, match="feedback"):
+        _generate(feedback="maybe")
+    with pytest.raises(ValueError, match="aar_markdown"):
+        _generate(aar_markdown="")
