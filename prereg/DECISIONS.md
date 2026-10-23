@@ -67,3 +67,16 @@ Evidence: `legacy/m25/CHANGES.md`, `reports/legacy/LEGACY_LOOP.md` and
 11. **The held-out panel is `pursuit_v1`, `cluster_v1` and 3 to 5
     human-written bots.** The Track A champions are gone. The E1 opponent
     and its lineage stay out of the panel for any run trained against them.
+
+## 2026-10-23 — AI-written opponents (supersedes 9 and 11, amends 10)
+
+12. **AI models from other families write the opponents.** No person, no
+    Claude model and not the study's evolution loop writes any opponent or
+    panel bot. `bots/generation/PROTOCOL.md` and
+    `bots/generation/design_prompt.md`, fixed before any bot is generated
+    and hashed in the brief, pick R1 (E1's opponent), the panel bots and a
+    same-author set; prompt 8a runs them. This replaces entry 9 (an evolved
+    opponent) and entry 11 (human-written panel bots). C3 (entry 10) starts
+    Team A from R1 and is descriptive. The held-out panel is `cluster_v1`
+    plus the panel bots; R1 joins it in C1 and C2. Seeds 7,000,000 to
+    7,999,999 belong to bot generation.
