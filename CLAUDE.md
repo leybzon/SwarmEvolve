@@ -87,7 +87,7 @@ day-to-day loop is:
 ## Research campaign rules (v2 study)
 Read docs/paper/RESEARCH_BRIEF.md before any experiment work.
 - Git: work on research/v2 or a branch from it, and commit after each green step. Never push, force-push, rewrite history, push tags or open PRs unless I ask.
-- Data: never delete, move or overwrite anything in data/runs/ or data/v2/; results are append-only. After prompt 11, prereg/ changes only by appending to prereg/DEVIATIONS.md.
+- Data: never delete, move or overwrite anything in data/runs/, data/v2/, bots/generation/raw/ or bots/frozen/; results are append-only, and frozen bots are never edited. After prompt 11, prereg/ changes only by appending to prereg/DEVIATIONS.md.
 - Paid calls: before anything that calls a paid model API, print the plan (arms, seeds, rounds, model IDs, effort, projected cost) and wait for my explicit go. Every run uses the budget governor with a hard cap.
 - Frozen files: after prompt 11, files listed in prereg/FROZEN_MANIFEST.sha256 do not change. If one seems to need a change, stop and draft an entry in prereg/DEVIATIONS.md.
 - Platform: every reported number comes from the canonical container on the canonical host (prereg/PLATFORM.json). Label anything else dev and never mix it in.
