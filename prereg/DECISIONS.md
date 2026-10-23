@@ -49,3 +49,21 @@ Evidence: `legacy/m25/CHANGES.md`, `reports/legacy/LEGACY_LOOP.md` and
 8. **A1 can resume** from its last completed round (`--resume`, execution
    change 4). An interrupted round is kept under `interrupted/` and re-run;
    its plan and code are reused when they were saved.
+
+## 2026-10-23 — replacing M22 gen 33
+
+9. **E1's fixed opponent will be evolved, then frozen.** One dedicated
+   evolution run produces it before the freeze (prompt 11); its final
+   champion becomes the opponent for every E1 arm. The run needs paid calls,
+   so it waits for the hardened client and the budget governor, and its plan
+   (loop, start program, training opponent, rounds, models, effort, seeds,
+   cost cap and the rule that picks the champion) is put to the user before
+   it starts. Known threat to record in the paper: the opponent comes from
+   an LLM evolution loop, so it is not independent of the arms that use
+   one; its run uses seeds disjoint from every training and held-out seed.
+10. **C3 is redefined as a partial M25 replication:** Team A starts from the
+    new E1 opponent, Team B from `pursuit_v1`; full loop; 5 seeds. It is
+    reported as a partial replication, not a replication of M25.
+11. **The held-out panel is `pursuit_v1`, `cluster_v1` and 3 to 5
+    human-written bots.** The Track A champions are gone. The E1 opponent
+    and its lineage stay out of the panel for any run trained against them.
